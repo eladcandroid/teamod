@@ -1,13 +1,21 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { WorkView } from '../types'
-import { call, ensureBridge, homeOf, readLink, readProblem, readRev, viewOf } from './link'
+import { draw } from './draw'
+import {
+  TITLES,
+  commandOf,
+  ensureBridge,
+  forgetView,
+  homeOf,
+  readLink,
+  readProblem,
+  readRev,
+  viewOf,
+} from './link'
 
-const WORK = 'work'
 const SPIKE = 'spike'
 
-const isAdding = atom({ plugin: 'teamod', key: 'isAdding' } as const, false)
 const spikeKeys = atom({ plugin: 'teamod', key: 'spikeKeys' } as const, [], {
   shape: 'spike-keys-1',
 })
@@ -46,7 +54,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'teamod',
       description: 'Open teamod: worktrees, tasks, your team and automations',
-      argumentHint: '[setup|status|spike]',
+      argumentHint: '[work|task|team|board|sentinel|settings|setup|status|<engine command>]',
     })
     // A desktop session starts with no surface and says so by attaching; a `-p` run never does.
     if (e.isInteractive) void ensureBridge($)
@@ -61,7 +69,8 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'teamod' }, async ($, e) => {
-    const verb = e.args.trim().split(/\s+/)[0] ?? ''
+    const words = e.args.trim()
+    const verb = words.split(/\s+/)[0] ?? ''
     if (verb === 'setup') return { text: await setup($) }
     void ensureBridge($)
     if (verb === 'status') {
@@ -80,60 +89,63 @@ export const register: Register = on => {
 
       return { text: opened.isPlaced ? 'Spike pane opened.' : `Spike pane waits: ${opened.reason}` }
     }
-    const opened = await $.ui.open({ id: WORK, title: 'Work', focus: true })
+    const answer = await commandOf($, words)
+    if (!answer) {
+      return { text: (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.' }
+    }
+    if (answer.open) {
+      const title = answer.title ?? TITLES[answer.open] ?? answer.open
+      const opened = await $.ui.open({ id: answer.open, title, focus: true })
 
-    return { text: opened.isPlaced ? 'Work pane opened.' : `Work pane waits: ${opened.reason}` }
+      return { text: opened.isPlaced ? `${title} opened.` : `${title} waits: ${opened.reason}` }
+    }
+
+    return { text: answer.text ?? '' }
   })
 
-  on('ui.render', { component: 'Pane', requestId: WORK }, async ($, e) => {
-    const elements = $.ui.resolve(e)
-    const { Box, Text, Button } = elements
+  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (TITLES[e.requestId] === undefined) return next(e)
+    const { Text } = $.ui.resolve(e)
     const current = await readLink($)
-    const issue = await readProblem($)
-    await readRev($, WORK)
+    await readRev($, e.requestId)
     if (!current) {
-      return (
-        <Box flexDirection="column">
-          <Text dimColor>{issue?.text ?? 'Starting teamod...'}</Text>
-        </Box>
-      )
+      return <Text dimColor>{(await readProblem($))?.text ?? 'Starting teamod...'}</Text>
     }
-    const view = await viewOf<WorkView>($, WORK)
-    const adding = await read($, isAdding)
-    const addProject = async (path: string): Promise<void> => {
-      await update($, isAdding, () => false)
-      const added = await call($, 'projects.add', [path.trim()])
-      if (!added.ok) $.ui.toast(`Could not add it: ${added.error}`)
+    const viewport = {
+      surface: e.surface,
+      columns: e.props.bodyColumns,
+      rows: e.props.scroll.bodyRows,
     }
+    const view = await viewOf($, e.requestId, viewport)
+    if (!view) return <Text dimColor>Starting teamod...</Text>
 
-    return (
+    return draw($, e, e.requestId, viewport, view.tree) as JSX.Element
+  })
+
+  on('ui.close', async ($, e, next) => {
+    if (TITLES[e.id] !== undefined) await forgetView($, e.id).catch(() => undefined)
+
+    return next(e)
+  })
+
+  // What waits for you, above the prompt. Nothing waiting draws nothing of ours.
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    if (e.props.hasSurvey || !(await readLink($))) return next(e)
+    await readRev($, 'band')
+    const viewport = { surface: e.surface, columns: e.props.bodyColumns, rows: e.props.maxRows }
+    const view = await viewOf($, 'band', viewport)
+    if (!view?.active) return next(e)
+    const { Box } = $.ui.resolve(e)
+    const ours = draw($, e, 'band', viewport, view.tree) as JSX.Element
+    const beneath = await next(e)
+
+    return beneath ? (
       <Box flexDirection="column">
-        {!current.connected && <Text color="warning">Reconnecting to the engine...</Text>}
-        {adding && 'Input' in elements ? (
-          <elements.Input
-            key="add-path"
-            label="Folder"
-            placeholder="/path/to/repository"
-            submitLabel="add"
-            autoFocus
-            onSubmit={value => void addProject(value)}
-          />
-        ) : (
-          <Button key="add" hotkey="a" onPress={() => void update($, isAdding, () => true)}>
-            Add Project
-          </Button>
-        )}
-        {view?.projects.length === 0 && <Text dimColor>No projects yet.</Text>}
-        {view?.projects.map(project => (
-          <Box flexDirection="column">
-            <Text weight="semibold">{project.name}</Text>
-            <Text dimColor>
-              {project.root} · {project.worktrees} worktree{project.worktrees === 1 ? '' : 's'}
-            </Text>
-            {project.error !== undefined && <Text color="error">{project.error}</Text>}
-          </Box>
-        ))}
+        {ours}
+        {beneath}
       </Box>
+    ) : (
+      ours
     )
   })
 

@@ -68,16 +68,46 @@ describe('the bridge', () => {
   it('serves a view, and says when a shown view changed', async () => {
     const { store, bridge, lines } = await start();
     const key = bridge.key;
-    expect((await ask(bridge.socketPath, '/view/work', { key })).body).toEqual({ projects: [] });
+    const before = JSON.stringify((await ask(bridge.socketPath, '/view/work?surface=terminal&columns=60&rows=30', { key })).body);
+    expect(before).toContain('No projects yet');
 
     store.dispatch({ type: 'projects', projects: [project] });
     await waitFor(() => lines.some((l) => l.t === 'dirty' && l.routes.includes('work')));
-    expect((await ask(bridge.socketPath, '/view/work', { key })).body).toEqual({ projects: [{ id: 'p1', name: 'alpha', root: '/tmp/alpha', worktrees: 0 }] });
+    expect(JSON.stringify((await ask(bridge.socketPath, '/view/work?surface=terminal&columns=60&rows=30', { key })).body)).toContain('alpha');
+  });
+
+  it('stops telling once a pane closed', async () => {
+    const { store, bridge, lines } = await start();
+    const key = bridge.key;
+    await ask(bridge.socketPath, '/view/work', { key });
+    await ask(bridge.socketPath, '/view/work', { key, method: 'DELETE' });
+    store.dispatch({ type: 'projects', projects: [project] });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    expect(lines.filter((l) => l.t === 'dirty')).toEqual([]);
+  });
+
+  it('runs a press by key and refuses one that is gone', async () => {
+    const { bridge } = await start();
+    const key = bridge.key;
+    await ask(bridge.socketPath, '/view/work', { key });
+    const press = (k: string): Promise<{ status: number; body: unknown }> => ask(bridge.socketPath, '/press', { key, method: 'POST', body: JSON.stringify({ site: 'work', key: k }) });
+    expect((await press('add')).body).toMatchObject({ ok: true });
+    expect(JSON.stringify((await ask(bridge.socketPath, '/view/work', { key })).body)).toContain('add-path');
+    expect((await press('gone')).body).toEqual({ ok: false, error: 'That is no longer there.' });
+  });
+
+  it('opens a pane by its name, and an empty command opens Work', async () => {
+    const { bridge } = await start();
+    const command = (text: string): Promise<{ status: number; body: unknown }> => ask(bridge.socketPath, '/command', { key: bridge.key, method: 'POST', body: JSON.stringify({ text }) });
+    expect((await command('')).body).toEqual({ open: 'work', title: 'Work' });
+    expect((await command('team')).body).toEqual({ open: 'team', title: 'Team' });
   });
 
   it('stays quiet about a change no shown view draws', async () => {
     const { store, bridge, lines } = await start();
     await ask(bridge.socketPath, '/view/work', { key: bridge.key });
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    lines.length = 0;
     store.dispatch({ type: 'system', text: 'hello', id: 'm1', ts: 1 });
     await new Promise((resolve) => setTimeout(resolve, 250));
     expect(lines.filter((l) => l.t === 'dirty')).toEqual([]);

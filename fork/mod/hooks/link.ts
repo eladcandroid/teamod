@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface } from 'claude-code'
 
-import type { Link, LinkProblem } from '../types'
+import type { Link, LinkProblem, View, Viewport } from '../types'
 
 const link = atom({ plugin: 'teamod', key: 'link' } as const, null, {
   shape: 'link-1',
@@ -13,6 +13,15 @@ const revs = atom({ plugin: 'teamod', key: 'revs' } as const, {}, {
   shape: 'revs-1',
 })
 
+export const TITLES: Readonly<Record<string, string>> = {
+  work: 'Work',
+  task: 'Task',
+  team: 'Team',
+  board: 'Board',
+  sentinel: 'Sentinel',
+  settings: 'Settings',
+}
+
 /** Each read subscribes the drawing that makes it. */
 export function readLink($: EngineInterface): Promise<Link | null> {
   return read($, link)
@@ -22,9 +31,9 @@ export function readProblem($: EngineInterface): Promise<LinkProblem | null> {
   return read($, problem)
 }
 
-/** Read while drawing a route, so the bridge's `dirty` redraws it. */
-export async function readRev($: EngineInterface, route: string): Promise<number> {
-  return (await read($, revs))[route] ?? 0
+/** Read while drawing a site, so the bridge's `dirty` redraws it. */
+export async function readRev($: EngineInterface, site: string): Promise<number> {
+  return (await read($, revs))[site] ?? 0
 }
 
 /** Where the engine is, as `/teamod setup` wrote it. */
@@ -64,6 +73,9 @@ type Line =
   | { t: 'ready'; socket: string; key: string }
   | { t: 'dirty'; routes: string[] }
   | { t: 'connected'; connected: boolean }
+  | { t: 'status'; text?: string }
+  | { t: 'toast'; text: string }
+  | { t: 'open'; pane: string }
   | { t: 'error'; text: string }
 
 function setProblem($: EngineInterface, value: LinkProblem | null): Promise<unknown> {
@@ -71,32 +83,45 @@ function setProblem($: EngineInterface, value: LinkProblem | null): Promise<unkn
 }
 
 async function apply($: EngineInterface, line: Line): Promise<void> {
-  if (line.t === 'ready') {
-    await setProblem($, null)
-    await update($, link, () => ({
-      socket: line.socket,
-      key: line.key,
-      connected: true,
-    }))
-  } else if (line.t === 'dirty') {
-    await update($, revs, current => {
-      const next = { ...current }
-      for (const route of line.routes) next[route] = (next[route] ?? 0) + 1
+  switch (line.t) {
+    case 'ready':
+      await setProblem($, null)
+      await update($, link, () => ({
+        socket: line.socket,
+        key: line.key,
+        connected: true,
+      }))
 
-      return next
-    })
-  } else if (line.t === 'connected') {
-    await update($, link, current =>
-      current ? { ...current, connected: line.connected } : current,
-    )
-    await update($, revs, current => {
-      const next = { ...current }
-      for (const route of Object.keys(next)) next[route] = (next[route] ?? 0) + 1
+      return
+    case 'dirty':
+      await update($, revs, current => {
+        const next = { ...current }
+        for (const site of line.routes) next[site] = (next[site] ?? 0) + 1
 
-      return next
-    })
-  } else {
-    await setProblem($, { kind: 'failed', text: line.text })
+        return next
+      })
+
+      return
+    case 'connected':
+      await update($, link, current =>
+        current ? { ...current, connected: line.connected } : current,
+      )
+
+      return
+    case 'status':
+      $.ui.status(line.text)
+
+      return
+    case 'toast':
+      $.ui.toast(line.text)
+
+      return
+    case 'open':
+      await $.ui.open({ id: line.pane, title: TITLES[line.pane] ?? line.pane })
+
+      return
+    case 'error':
+      await setProblem($, { kind: 'failed', text: line.text })
   }
 }
 
@@ -181,27 +206,71 @@ async function request(
   return JSON.parse(response.text) as unknown
 }
 
-/** One route's view; `undefined` while there is no link. */
-export async function viewOf<T>($: EngineInterface, route: string): Promise<T | undefined> {
-  const current = await read($, link)
+/** One site's tree for this viewport; `undefined` while there is no link. */
+export async function viewOf(
+  $: EngineInterface,
+  site: string,
+  viewport: Viewport,
+): Promise<View | undefined> {
+  const current = await readLink($)
   if (!current) return undefined
+  const query = new URLSearchParams({
+    surface: viewport.surface,
+    columns: String(viewport.columns),
+    rows: String(viewport.rows),
+  })
 
-  return (await request($, current, `/view/${route}`)) as T
+  return (await request($, current, `/view/${site}?${query.toString()}`)) as View
 }
 
-export type CallResult = { ok: true; value: unknown } | { ok: false; error: string }
+/** The pane closed: nothing to tell the mod about it any more. */
+export async function forgetView($: EngineInterface, site: string): Promise<void> {
+  const current = await readLink($)
+  if (current) await request($, current, `/view/${site}`, { method: 'DELETE' })
+}
 
-/** One API method, called for a press of the person's. */
-export async function call(
+type Pressed = { ok: boolean; error?: string; open?: string; toast?: string; copy?: string }
+
+/** A press of the person's: only ever from a control they acted on. */
+export async function press(
   $: EngineInterface,
-  method: string,
-  args: readonly unknown[] = [],
-): Promise<CallResult> {
-  const current = await read($, link)
-  if (!current) return { ok: false, error: 'teamod is not connected' }
+  site: string,
+  key: string,
+  value: string | undefined,
+  viewport: Viewport,
+): Promise<void> {
+  const current = await readLink($)
+  if (!current) {
+    $.ui.toast('teamod is not connected.')
 
-  return (await request($, current, '/call', {
+    return
+  }
+  const body = JSON.stringify({ site, key, ...(value !== undefined ? { value } : {}), viewport })
+  try {
+    const answer = (await request($, current, '/press', { method: 'POST', body })) as Pressed
+    if (answer.error) $.ui.toast(answer.error)
+    if (answer.toast) $.ui.toast(answer.toast)
+    if (answer.copy) await $.ui.copy({ text: answer.copy, surface: viewport.surface as 'terminal' })
+    if (answer.open) {
+      await $.ui.open({ id: answer.open, title: TITLES[answer.open] ?? answer.open, focus: true })
+    }
+  } catch (err) {
+    $.ui.toast(`That did not work: ${String(err)}`)
+  }
+}
+
+type Commanded = { open?: string; title?: string; text?: string }
+
+/** `/teamod <words>`, as the bridge reads them. */
+export async function commandOf(
+  $: EngineInterface,
+  words: string,
+): Promise<Commanded | undefined> {
+  const current = await readLink($)
+  if (!current) return undefined
+
+  return (await request($, current, '/command', {
     method: 'POST',
-    body: JSON.stringify({ method, args }),
-  })) as CallResult
+    body: JSON.stringify({ text: words }),
+  })) as Commanded
 }

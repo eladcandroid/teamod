@@ -3,18 +3,26 @@ import { chmodSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import path from 'node:path';
 import WebSocket from 'ws';
-import type { DomainState } from '../core/store.js';
+import type { AppState } from '../core/store.js';
+import type { DesktopNote } from '../core/notify.js';
 import { alive } from '../daemon/files.js';
 import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
 import { mayCall } from './coverage.js';
-import { ROUTES } from './views.js';
+import { notifyNatively } from './notify.js';
+import { bandActive, statusLine } from './panes/band.js';
+import { SCREENS } from './panes/index.js';
+import { PANE_TITLES, Screens, type SiteId, type Viewport, isPane, isSite } from './screens.js';
+import type { Node, Surface } from './tree.js';
 
 /** What the bridge tells the mod on stdout. Small lines only: a view is fetched, never pushed. */
 export type BridgeLine =
   | { readonly t: 'ready'; readonly socket: string; readonly key: string }
   | { readonly t: 'dirty'; readonly routes: readonly string[] }
   | { readonly t: 'connected'; readonly connected: boolean }
+  | { readonly t: 'status'; readonly text?: string }
+  | { readonly t: 'toast'; readonly text: string }
+  | { readonly t: 'open'; readonly pane: string }
   | { readonly t: 'error'; readonly text: string };
 
 /** Biggest request a pane sends: a pasted image is the largest thing the API takes. */
@@ -27,19 +35,20 @@ export interface BridgeOptions {
   /** Where the socket goes. */
   readonly runDir: string;
   /** Reach the daemon (started if need be). */
-  readonly connect: () => Promise<SocketClient>;
+  readonly connect: (caps: { readonly notify: (note: DesktopNote) => void }) => Promise<SocketClient>;
   readonly out: (line: BridgeLine) => void;
   readonly log?: (line: string) => void;
 }
 
 /** Connect to a daemon as the mod's screen. */
-export const connectAsMod = (port: number, token: string, version: string): Promise<SocketClient> =>
+export const connectAsMod = (port: number, token: string, version: string, caps?: { readonly notify?: (note: DesktopNote) => void }): Promise<SocketClient> =>
   SocketClient.connect({
     url: `ws://127.0.0.1:${port}`,
     token,
     kind: 'mod',
     version,
     connect: (url) => new WebSocket(url) as unknown as SocketLike,
+    caps: { notify: (note: DesktopNote) => caps?.notify?.(note) },
   });
 
 /** Remove sockets left by bridges that died. */
@@ -69,6 +78,17 @@ const readBody = (req: IncomingMessage): Promise<string> =>
 
 const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
+const SURFACES: readonly string[] = ['terminal', 'desktop', 'vscode', 'mobile'];
+const asSize = (raw: string | null, fallback: number): number => {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 1000) : fallback;
+};
+
+const viewportOf = (params: URLSearchParams): Viewport => {
+  const surface = params.get('surface') ?? 'terminal';
+  return { surface: (SURFACES.includes(surface) ? surface : 'terminal') as Surface, columns: asSize(params.get('columns'), 80), rows: asSize(params.get('rows'), 40) };
+};
+
 /**
  * One session's link to the daemon. Mod modules have no Node and no WebSocket, so this child holds
  * the daemon's state and answers the mod over a unix socket only the person can open.
@@ -77,16 +97,39 @@ export class Bridge {
   readonly socketPath: string;
   readonly key = randomBytes(32).toString('hex');
   private client?: SocketClient;
-  private state?: DomainState;
+  private state?: AppState;
   private server?: Server;
-  private readonly shown = new Map<string, string>();
+  /** The views the mod drew last, by site and viewport, to tell when one changed. */
+  private readonly shown = new Map<string, { readonly site: SiteId; readonly viewport: Viewport; json: string }>();
+  private readonly screens: Screens;
   private dirtyTimer?: NodeJS.Timeout;
   private retryTimer?: NodeJS.Timeout;
   private retryMs = RETRY_MIN_MS;
   private stopped = false;
+  private lastStatus?: string;
 
   constructor(private readonly opts: BridgeOptions) {
     this.socketPath = path.join(opts.runDir, `${process.pid}.sock`);
+    this.screens = new Screens(
+      {
+        getState: () => this.state,
+        call: (method, args) => this.callEngine(method, args),
+        markDirty: () => this.markDirty(),
+        look: (channel) => {
+          this.client?.store.dispatch({ type: 'view', view: channel?.startsWith('ws:') ? { kind: 'workspace', id: channel.slice(3), tab: 'chat' } : { kind: 'overview' } });
+        },
+      },
+      SCREENS,
+    );
+  }
+
+  /** One API method, for a press of the person's. */
+  private async callEngine(method: string, args: readonly unknown[]): Promise<unknown> {
+    if (!mayCall(method)) throw new Error(`teamod doesn't offer ${method}`);
+    const client = this.client;
+    if (!client) throw new Error('Not connected to the engine');
+    const call = client.call as (m: Method, ...a: Args<Method>) => Promise<unknown>;
+    return call.call(client, method, ...(args as Args<Method>));
   }
 
   /** Attach to the daemon and open the socket; then tell the mod how to reach it. */
@@ -117,13 +160,21 @@ export class Bridge {
   }
 
   private async attach(): Promise<void> {
-    const client = await this.opts.connect();
+    const client = await this.opts.connect({
+      notify: (note) => {
+        notifyNatively(note);
+        this.opts.out({ t: 'toast', text: `${note.title}: ${note.body}` });
+      },
+    });
     this.client = client;
     this.retryMs = RETRY_MIN_MS;
     this.state = client.store.getState();
     client.store.subscribe(() => {
       this.state = client.store.getState();
       this.markDirty();
+    });
+    client.onIntent((intent) => {
+      if (intent.type === 'toast') this.opts.out({ t: 'toast', text: intent.text });
     });
     client.onClose((reason) => {
       if (this.client !== client) return;
@@ -148,23 +199,42 @@ export class Bridge {
     }, this.retryMs);
   }
 
-  /** Say which shown routes changed, at most ten times a second. */
+  /** Say which shown views changed, at most ten times a second. */
   private markDirty(): void {
     if (this.dirtyTimer) return;
     this.dirtyTimer = setTimeout(() => {
       this.dirtyTimer = undefined;
-      const state = this.state;
-      if (!state) return;
-      const changed: string[] = [];
-      for (const [route, before] of this.shown) {
-        const now = JSON.stringify(ROUTES[route]?.(state) ?? null);
-        if (now !== before) {
-          this.shown.set(route, now);
-          changed.push(route);
+      const changed = new Set<string>();
+      for (const view of this.shown.values()) {
+        const now = JSON.stringify(this.screens.view(view.site, view.viewport));
+        if (now !== view.json) {
+          view.json = now;
+          changed.add(view.site);
         }
       }
-      if (changed.length) this.opts.out({ t: 'dirty', routes: changed });
+      if (changed.size) this.opts.out({ t: 'dirty', routes: [...changed] });
+      const status = this.state ? statusLine(this.state) : undefined;
+      if (status !== this.lastStatus) {
+        this.lastStatus = status;
+        this.opts.out({ t: 'status', ...(status ? { text: status } : {}) });
+      }
     }, DIRTY_EVERY_MS);
+  }
+
+  /** Draw a site for the mod, and remember it was drawn so a change is told. */
+  private draw(site: SiteId, viewport: Viewport): Node {
+    const tree = this.screens.view(site, viewport);
+    this.shown.set(`${site}|${viewport.surface}|${viewport.columns}|${viewport.rows}`, { site, viewport, json: JSON.stringify(tree) });
+    return tree;
+  }
+
+  /** `/teamod <words>`: a pane's name opens it; anything else is the engine's own command. */
+  private async command(words: string): Promise<{ readonly open?: string; readonly title?: string; readonly text?: string }> {
+    const first = words.split(/\s+/)[0] ?? '';
+    if (!words) return { open: 'work', title: PANE_TITLES.work };
+    if (isPane(first)) return { open: first, title: PANE_TITLES[first] };
+    await this.callEngine('session.submit', [`/${words}`]);
+    return { text: `/${words}` };
   }
 
   private isAllowed(req: IncomingMessage): boolean {
@@ -183,24 +253,32 @@ export class Bridge {
       const url = new URL(req.url ?? '/', 'http://bridge');
       if (req.method === 'GET' && url.pathname === '/health') return send(200, { connected: this.client !== undefined });
       if (req.method === 'GET' && url.pathname.startsWith('/view/')) {
-        const route = url.pathname.slice('/view/'.length);
-        const build = ROUTES[route];
-        if (!build) return send(404, { error: 'No such view' });
-        if (!this.state) return send(503, { error: 'Not connected' });
-        const view = build(this.state);
-        this.shown.set(route, JSON.stringify(view));
-        return send(200, view);
+        const site = url.pathname.slice('/view/'.length);
+        if (!isSite(site)) return send(404, { error: 'No such view' });
+        const viewport = viewportOf(url.searchParams);
+        const tree = this.draw(site, viewport);
+        return send(200, { tree, ...(site === 'band' ? { active: this.state ? bandActive(this.state) : false } : {}) });
+      }
+      if (req.method === 'DELETE' && url.pathname.startsWith('/view/')) {
+        const site = url.pathname.slice('/view/'.length);
+        for (const [key, view] of this.shown) if (view.site === site) this.shown.delete(key);
+        return send(200, { ok: true });
+      }
+      if (req.method === 'POST' && url.pathname === '/press') {
+        const body = JSON.parse(await readBody(req)) as { site?: unknown; key?: unknown; value?: unknown; viewport?: Record<string, unknown> };
+        if (typeof body.site !== 'string' || !isSite(body.site) || typeof body.key !== 'string') return send(400, { error: 'A site and a key, please' });
+        const params = new URLSearchParams(Object.entries(body.viewport ?? {}).map(([k, v]) => [k, String(v)]));
+        return send(200, await this.screens.press(body.site, body.key, typeof body.value === 'string' ? body.value : undefined, viewportOf(params)));
+      }
+      if (req.method === 'POST' && url.pathname === '/command') {
+        const body = JSON.parse(await readBody(req)) as { text?: unknown };
+        return send(200, await this.command(typeof body.text === 'string' ? body.text.trim() : ''));
       }
       if (req.method === 'POST' && url.pathname === '/call') {
         const body = JSON.parse(await readBody(req)) as { method?: unknown; args?: unknown };
         if (typeof body.method !== 'string' || !Array.isArray(body.args)) return send(400, { error: 'A method and args, please' });
-        if (!mayCall(body.method)) return send(200, { ok: false, error: `teamod doesn't offer ${body.method}` });
-        const client = this.client;
-        if (!client) return send(200, { ok: false, error: 'Not connected to the engine' });
         try {
-          const call = client.call as (method: Method, ...args: Args<Method>) => Promise<unknown>;
-          const value = await call.call(client, body.method as Method, ...(body.args as Args<Method>));
-          return send(200, { ok: true, value });
+          return send(200, { ok: true, value: await this.callEngine(body.method, body.args) });
         } catch (err) {
           return send(200, { ok: false, error: errorText(err) });
         }

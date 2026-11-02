@@ -16,7 +16,21 @@ const PANE = {
 } as const
 
 const LINK = { socket: '/tmp/x.sock', key: 'k', connected: true }
-const WORK = { projects: [{ id: 'p', name: 'alpha', root: '/r/alpha', worktrees: 2 }] }
+const WORK = {
+  tree: {
+    k: 'box',
+    dir: 'column',
+    children: [
+      { k: 'text', spans: [{ t: 'alpha' }] },
+      { k: 'text', spans: [{ t: '/r/alpha · 2 worktrees', dim: true }] },
+      { k: 'button', key: 'add', label: 'Add Project', hotkey: 'a' },
+      { k: 'input', key: 'path', label: 'Folder', placeholder: '/path' },
+      { k: 'md', text: '**hello**' },
+      { k: 'code', source: '@@ -1 +1 @@\n-a\n+b\n', diff: true },
+      { k: 'select', key: 'pick', options: [{ value: 'a', label: 'A' }], value: 'a' },
+    ],
+  },
+}
 
 type Fetched = { url: string; init?: { method?: string; body?: string } }
 
@@ -29,7 +43,7 @@ const engine = (on: On, asked: Fetched[] = []) => {
   on('state.set', () => ({ value: { isSet: true, version: 1 } }))
   on('http.fetch', (_, e) => {
     asked.push({ url: e.url, init: e.init })
-    const text = e.url.endsWith('/call') ? '{"ok":true}' : JSON.stringify(WORK)
+    const text = e.url.endsWith('/press') ? '{"ok":true}' : JSON.stringify(WORK)
 
     return { value: { status: 200, ok: true, headers: {}, text } }
   })
@@ -41,6 +55,20 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /alpha$/ }))?.text).toBe('alpha')
     expect((await ui.find({ type: 'Text', text: /2 worktrees/ }))?.text).toBe('/r/alpha · 2 worktrees')
+    expect(await ui.find({ type: 'Input', key: 'path' })).toBeDefined()
+    expect(await ui.find({ type: 'Select', key: 'pick' })).toBeDefined()
+    await ui.unmount()
+  })
+}
+
+for (const surface of ['terminal', 'desktop'] as const) {
+  test(`a press goes to the bridge by key on ${surface}`, async ($, on) => {
+    const asked: Fetched[] = []
+    engine(on, asked)
+    const ui = await $.ui.mount({ ...PANE, surface })
+    await ui.press({ key: 'add' })
+    const sent = asked.find(one => one.url.endsWith('/press'))
+    expect(JSON.parse(sent?.init?.body ?? '{}')).toMatchObject({ site: 'work', key: 'add' })
     await ui.unmount()
   })
 }

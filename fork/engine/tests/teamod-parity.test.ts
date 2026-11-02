@@ -13,7 +13,8 @@ const filesIn = (dir: string): string[] =>
     return entry.isDirectory() ? filesIn(file) : /\.tsx?$/.test(entry.name) ? [file] : [];
   });
 
-const WIRED_IN = [...filesIn('src/teamod').filter((f) => !/coverage\.ts$|parity-doc\.ts$/.test(f)), ...(statSync('../mod', { throwIfNoEntry: false }) ? filesIn('../mod/hooks') : [])];
+// The band answers what waits with the calls each item names, so those come from needs-you.ts.
+const WIRED_IN = [...filesIn('src/teamod').filter((f) => !/coverage\.ts$|parity-doc\.ts$/.test(f)), 'src/companion/needs-you.ts', ...(statSync('../mod', { throwIfNoEntry: false }) ? filesIn('../mod/hooks') : [])];
 const source = WIRED_IN.map((f) => readFileSync(f, 'utf8')).join('\n');
 const isWired = (method: string): boolean => source.includes(`'${method}'`);
 
@@ -64,7 +65,7 @@ describe('where teamod shows each method', () => {
 
 describe('what never comes from a model', () => {
   it('leaves the choices that are a person’s to the panes and the band', () => {
-    // Asserted again at the tool seam (ACME src/teamod/session-tools): these are presses, never tools.
+    // These are presses, never tools. Asserted again where the session's tools are offered.
     for (const method of ['host.answerApproval', 'gateway.decide', 'people.setTrust', 'questions.answer'] satisfies Method[]) {
       const s = SURFACE[method];
       expect('on' in s && ['band', 'team'].includes(s.on)).toBe(true);
