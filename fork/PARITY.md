@@ -6,14 +6,14 @@ Generated from `engine/src/teamod/coverage.ts` by `npx tsx src/teamod/parity-doc
 
 | Where | Done | To do |
 |---|---|---|
-| Work pane | 5 | 41 |
-| Task pane | 94 | 21 |
+| Work pane | 54 | 2 |
+| Task pane | 94 | 11 |
 | Team pane | 103 | 0 |
-| Board pane | 7 | 61 |
+| Board pane | 8 | 60 |
 | Sentinel pane | 42 | 0 |
-| Settings pane | 0 | 24 |
+| Settings pane | 24 | 0 |
 | Needs You band | 4 | 0 |
-| `/teamod` verb | 0 | 1 |
+| `/teamod` verb | 1 | 0 |
 | Internal | 12 | 0 |
 | Dropped | 54 | |
 
@@ -36,8 +36,6 @@ Generated from `engine/src/teamod/coverage.ts` by `npx tsx src/teamod/parity-doc
 
 ## Still to do
 
-- Work pane (41): `inbox.read`, `inbox.unread`, `inbox.clear`, `workspaces.newWorktree`, `workspaces.newChat`, `workspaces.archivePlan`, `workspaces.freeSpace`, `workspaces.remove`, `workspaces.setGroup`, `workspaces.renameGroup`, `workspaces.ungroup`, `workspaces.arrange`, `workspaces.newGroup`, `workspaces.showProject`, `workspaces.hideProject`, `workspaces.removeProject`, `workspaces.cleanAgentWorktrees`, `workspaces.otherOrigins`, `workspaces.otherActivity`, `workspaces.worktreeInfo`, `workspaces.showConversation`, `workspaces.outsideConversations`, `workspaces.importOutside`, `workspaces.removeOther`, `workspaces.staleOthers`, `workspaces.cleanUpOthers`, `workspaces.addProject`, `workspaces.addFolder`, `workbench.measureDisk`, `workbench.search`, `workbench.openHit`, `workbench.saveTemplate`, `workbench.removeTemplate`, `projects.addFolder`, `projects.create`, `local.listDirs`, `local.openFolder`, `local.statFiles`, `assistant.newChat`, `assistant.openChat`, `assistant.deleteChat`
-- Task pane (21): `diff.load`, `diff.select`, `shell.run`, `shell.openEntry`, `files.enter`, `files.openSpec`, `files.downloadSpec`, `files.closeViewer`, `files.readImage`, `workspaces.open`, `workspaces.branches`, `attachments.reattach`, `git.fetch`, `git.fetchIfStale`, `git.updateMain`, `git.stashAndUpdate`, `git.moveAndUpdate`, `git.switchToDefault`, `git.askClaude`, `git.github`, `git.githubRepo`
-- Board pane (61): `board.create`, `board.update`, `board.setPrivate`, `board.move`, `board.editBrief`, `board.restoreRevision`, `board.comment`, `board.relate`, `board.addProof`, `board.removeProof`, `board.remove`, `board.setAgent`, `board.start`, `board.archive`, `board.archiveDone`, `board.unarchive`, `board.emptyArchive`, `board.settleGone`, `board.setAutoTasks`, `board.createBoard`, `board.editBoard`, `board.removeBoard`, `board.setPrefix`, `board.createLabel`, `board.removeLabel`, `board.setContext`, `board.syncTeams`, `board.syncConnect`, `board.syncDisconnect`, `board.syncNow`, `board.syncAuto`, `plans.create`, `plans.here`, `plans.edit`, `plans.setAutonomy`, `plans.setPaused`, `plans.setParallel`, `plans.setTestsAt`, `plans.setWorkAgent`, `plans.tidyUp`, `plans.openPr`, `plans.mergePr`, `plans.mergeLocal`, `plans.bringInMain`, `plans.showConflict`, `plans.startTask`, `plans.remove`, `plans.setStyle`, `issues.list`, `issues.pulls`, `issues.get`, `issues.investigate`, `issues.fix`, `issues.toTask`, `issues.comment`, `ci.runs`, `ci.run`, `ci.workflows`, `ci.log`, `ci.rerun`, `ci.cancel`
-- Settings pane (24): `session.setPrefs`, `session.rename`, `session.testNotification`, `workbench.shareScripts`, `workbench.signInClaude`, `workbench.editPrPrompt`, `workbench.resetPrPrompt`, `workbench.checkAgents`, `workbench.agentSignIn`, `env.get`, `env.set`, `env.claudeDotenv`, `env.testDatabase`, `env.importDotenv`, `env.newKeysBack`, `env.endpoints`, `env.saveEndpoint`, `env.removeEndpoint`, `env.checkEndpoints`, `claudeCode.skills`, `claudeCode.mcpServers`, `claudeCode.mcpSignIn`, `claudeCode.mcpSignedIn`, `claudeCode.mcpSetEnabled`
-- `/teamod` verb (1): `daemon.stop`
+- Work pane (2): `git.github`, `git.githubRepo`
+- Task pane (11): `diff.load`, `diff.select`, `shell.run`, `shell.openEntry`, `files.enter`, `files.openSpec`, `files.downloadSpec`, `files.closeViewer`, `files.readImage`, `workspaces.open`, `attachments.reattach`
+- Board pane (60): `board.create`, `board.update`, `board.setPrivate`, `board.move`, `board.editBrief`, `board.restoreRevision`, `board.comment`, `board.relate`, `board.addProof`, `board.removeProof`, `board.remove`, `board.setAgent`, `board.start`, `board.archive`, `board.archiveDone`, `board.unarchive`, `board.emptyArchive`, `board.settleGone`, `board.setAutoTasks`, `board.createBoard`, `board.editBoard`, `board.removeBoard`, `board.setPrefix`, `board.createLabel`, `board.removeLabel`, `board.setContext`, `board.syncTeams`, `board.syncConnect`, `board.syncDisconnect`, `board.syncNow`, `board.syncAuto`, `plans.create`, `plans.here`, `plans.edit`, `plans.setAutonomy`, `plans.setPaused`, `plans.setParallel`, `plans.setTestsAt`, `plans.setWorkAgent`, `plans.tidyUp`, `plans.openPr`, `plans.mergePr`, `plans.mergeLocal`, `plans.bringInMain`, `plans.showConflict`, `plans.startTask`, `plans.remove`, `plans.setStyle`, `issues.list`, `issues.get`, `issues.investigate`, `issues.fix`, `issues.toTask`, `issues.comment`, `ci.runs`, `ci.run`, `ci.workflows`, `ci.log`, `ci.rerun`, `ci.cancel`

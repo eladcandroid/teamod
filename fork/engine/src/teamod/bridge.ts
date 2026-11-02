@@ -8,6 +8,7 @@ import type { DesktopNote } from '../core/notify.js';
 import { alive } from '../daemon/files.js';
 import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
+import { assistantChatOf, isAssistant } from '../shared/assistant.js';
 import { brandWords } from './brand.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
@@ -40,7 +41,8 @@ export interface BridgeOptions {
   /** Where the socket goes. */
   readonly runDir: string;
   /** Reach the daemon (started if need be). */
-  readonly connect: (caps: { readonly notify: (note: DesktopNote) => void }) => Promise<SocketClient>;
+  /** `start`: start the engine if it isn't running. A retry doesn't: an engine you stopped stays stopped. */
+  readonly connect: (caps: { readonly notify: (note: DesktopNote) => void }, opts: { readonly start: boolean }) => Promise<SocketClient>;
   readonly out: (line: BridgeLine) => void;
   /** The folder the session works in (its tools' folder). */
   readonly cwd?: string;
@@ -131,7 +133,7 @@ export class Bridge {
         call: (method, args) => this.callEngine(method, args),
         markDirty: () => this.markDirty(),
         look: (channel) => {
-          this.client?.store.dispatch({ type: 'view', view: channel?.startsWith('ws:') ? { kind: 'workspace', id: channel.slice(3), tab: 'chat' } : channel && /^(dm|group):/.test(channel) ? { kind: 'conversation', id: channel } : { kind: 'overview' } });
+          this.client?.store.dispatch({ type: 'view', view: channel?.startsWith('ws:') ? { kind: 'workspace', id: channel.slice(3), tab: 'chat' } : channel && /^(dm|group):/.test(channel) ? { kind: 'conversation', id: channel } : channel && isAssistant(channel) ? { kind: 'assistant', chat: assistantChatOf(channel) ?? '' } : { kind: 'overview' } });
         },
       },
       SCREENS,
@@ -177,13 +179,13 @@ export class Bridge {
     rmSync(this.socketPath, { force: true });
   }
 
-  private async attach(): Promise<void> {
+  private async attach(start = true): Promise<void> {
     const client = await this.opts.connect({
       notify: (note) => {
         notifyNatively(note);
         this.opts.out({ t: 'toast', text: `${brandWords(note.title)}: ${brandWords(note.body)}` });
       },
-    });
+    }, { start });
     this.client = client;
     this.retryMs = RETRY_MIN_MS;
     this.state = client.store.getState();
@@ -209,7 +211,7 @@ export class Bridge {
 
   private retryLater(): void {
     this.retryTimer = setTimeout(() => {
-      this.attach()
+      this.attach(false)
         .then(() => this.opts.out({ t: 'connected', connected: true }))
         .catch((err: unknown) => {
           this.opts.log?.(`daemon link retry: ${errorText(err)}`);
@@ -255,6 +257,12 @@ export class Bridge {
   /** `/teamod <words>`: a pane's name opens it; anything else is the engine's own command. */
   private async command(words: string): Promise<{ readonly open?: string; readonly title?: string; readonly text?: string }> {
     const first = words.split(/\s+/)[0] ?? '';
+    // Asked for by name: an engine that was stopped starts again.
+    if (!this.client) {
+      clearTimeout(this.retryTimer);
+      await this.attach(true);
+      this.opts.out({ t: 'connected', connected: true });
+    }
     if (!words) return { open: 'work', title: PANE_TITLES.work };
     if (isPane(first)) return { open: first, title: PANE_TITLES[first] };
     await this.callEngine('session.submit', [`/${words}`]);

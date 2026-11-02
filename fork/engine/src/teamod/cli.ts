@@ -27,8 +27,9 @@ async function runBridge(): Promise<void> {
   const parent = process.ppid;
   const bridge = new Bridge({
     runDir: path.join(teamodHome(), 'run'),
-    connect: async (caps) => {
-      const info = await ensureDaemon();
+    connect: async (caps, { start }) => {
+      const info = start ? await ensureDaemon() : runningDaemon();
+      if (!info) throw new Error('The engine is stopped.');
       return connectAsMod(info.port, info.token, installedVersion(), caps);
     },
     out: (line) => void process.stdout.write(`${JSON.stringify(line)}\n`),
