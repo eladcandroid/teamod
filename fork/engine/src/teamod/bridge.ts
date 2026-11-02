@@ -11,6 +11,7 @@ import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
 import { SessionTools } from './session-tools.js';
+import { TermHub, type TermKey } from './term-hub.js';
 import { bandActive, statusLine } from './panes/band.js';
 import { SCREENS } from './panes/index.js';
 import { PANE_TITLES, Screens, type SiteId, type Viewport, isPane, isSite } from './screens.js';
@@ -111,12 +112,18 @@ export class Bridge {
   private stopped = false;
   private lastStatus?: string;
   private readonly tools: SessionTools;
+  private readonly terminals: TermHub;
 
   constructor(private readonly opts: BridgeOptions) {
     this.socketPath = path.join(opts.runDir, `${process.pid}.sock`);
     this.tools = new SessionTools((method, args) => this.callEngine(method, args), opts.cwd ?? process.cwd());
+    this.terminals = new TermHub((key) => {
+      if (!this.client) throw new Error('Not connected to the engine');
+      return this.client.attachTerminal(key);
+    });
     this.screens = new Screens(
       {
+        terminals: this.terminals,
         getState: () => this.state,
         call: (method, args) => this.callEngine(method, args),
         markDirty: () => this.markDirty(),
@@ -159,6 +166,7 @@ export class Bridge {
     clearTimeout(this.dirtyTimer);
     clearTimeout(this.retryTimer);
     await this.tools.close().catch(() => undefined);
+    this.terminals.closeAll();
     this.client?.close();
     const server = this.server;
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -186,6 +194,7 @@ export class Bridge {
     client.onClose((reason) => {
       if (this.client !== client) return;
       this.client = undefined;
+      this.terminals.closeAll();
       if (this.stopped) return;
       this.opts.log?.(`daemon link closed: ${reason}`);
       this.opts.out({ t: 'connected', connected: false });
@@ -270,6 +279,14 @@ export class Bridge {
         const site = url.pathname.slice('/view/'.length);
         for (const [key, view] of this.shown) if (view.site === site) this.shown.delete(key);
         return send(200, { ok: true });
+      }
+      if (req.method === 'POST' && url.pathname === '/term') {
+        const body = JSON.parse(await readBody(req)) as { term?: unknown; rev?: unknown; seq?: unknown; keys?: unknown; cols?: unknown; rows?: unknown };
+        if (typeof body.term !== 'string' || !this.client) return send(200, { rev: 0, acked: 0 });
+        const cols = typeof body.cols === 'number' && body.cols > 0 ? body.cols : 80;
+        const rows = typeof body.rows === 'number' && body.rows > 0 ? body.rows : 24;
+        if (Array.isArray(body.keys) && typeof body.seq === 'number') this.terminals.keys(body.term, body.seq, body.keys as TermKey[], cols, rows);
+        return send(200, this.terminals.frame(body.term, cols, rows, typeof body.rev === 'number' ? body.rev : 0));
       }
       if (req.method === 'GET' && url.pathname === '/tools') {
         return send(200, { tools: await this.tools.list() });

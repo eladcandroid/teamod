@@ -46,7 +46,12 @@ export interface Effects {
   readonly open?: string;
   readonly toast?: string;
   readonly copy?: string;
+  /** A field the press brought up: the keyboard goes there, or a person's typing would press hotkeys. */
+  readonly focus?: string;
 }
+
+/** The fields of a tree that ask for the keyboard. */
+export const autoFocused = (node: Node): string[] => (node.k === 'box' ? node.children.flatMap(autoFocused) : node.k === 'input' && node.autoFocus ? [node.key] : []);
 
 export const text = (t: string, style: Omit<Span, 't'> = {}): Node => ({ k: 'text', spans: [{ t, ...style }] });
 export const dim = (t: string): Node => text(t, { dim: true });

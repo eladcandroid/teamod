@@ -89,7 +89,6 @@ declare module 'claude-code' {
       problem: Shaped<LinkProblem | null>
       /** Bumped per site on the bridge's `dirty`; a render reads it to redraw. */
       revs: Shaped<Record<string, number>>
-      spikeKeys: Shaped<string[]>
     }
   }
 }

@@ -118,8 +118,12 @@ export function draw(
           ...(n.height !== undefined ? { height: n.height } : {}),
           ...(n.interactive ? { isInteractive: true } : {}),
         })
-      case 'term':
-        return make('Text', { dimColor: true, children: 'The terminal comes in a later phase.' })
+      case 'term': {
+        const Client = elements.Client as unknown as ((props: Record<string, unknown>) => JSX.Element) | undefined
+        if (!Client) return make('Text', { dimColor: true, children: 'The terminal draws on the Claude Code terminal and desktop.' })
+
+        return <Client key={n.key} module="./term-client.tsx" width="100%" height={n.height ?? 24} props={{ term: n.term, height: n.height ?? 24 }} />
+      }
     }
   }
 

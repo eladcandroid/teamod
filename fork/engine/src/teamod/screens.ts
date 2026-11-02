@@ -1,5 +1,6 @@
 import type { AppState, View } from '../core/store.js';
-import { Draw, type Effects, type Node, type Surface, dim } from './tree.js';
+import type { TermHub } from './term-hub.js';
+import { Draw, type Effects, type Node, type Surface, autoFocused, dim } from './tree.js';
 
 /** The native panes: each opens on demand and holds its own routes. */
 export const PANES = ['work', 'task', 'team', 'board', 'sentinel', 'settings'] as const;
@@ -41,6 +42,8 @@ export interface ScreenHost {
   markDirty(): void;
   /** Tell the core what this session looks at (read counts, whether to notify). */
   look(channel: string | undefined): void;
+  /** This session's open terminals. */
+  readonly terminals?: TermHub;
 }
 
 /** One drawing of a screen: the state, the viewport, and how to act. */
@@ -69,6 +72,8 @@ export interface Ctx extends Viewport {
   refresh(key: string): void;
   /** Tell the core which conversation this session has open. */
   look(channel: string | undefined): void;
+  /** This session's open terminals (none in a test that doesn't give them). */
+  readonly terminals?: TermHub;
 }
 
 export interface Loaded<T> {
@@ -199,6 +204,7 @@ export class Screens {
         this.host.markDirty();
       },
       look: (channel) => this.host.look(channel),
+      ...(this.host.terminals ? { terminals: this.host.terminals } : {}),
     };
   }
 
@@ -269,10 +275,12 @@ export class Screens {
     const handler = this.drawn(pane, viewport).draw.handlers.get(key);
     if (!handler) return { ok: false, error: 'That is no longer there.' };
     this.effects = {};
+    const before = new Set(autoFocused(this.drawn(pane, viewport).tree));
     try {
       await handler(value);
       this.host.markDirty();
-      return { ok: true, ...this.effects };
+      const brought = autoFocused(this.drawn(pane, viewport).tree).find((field) => !before.has(field));
+      return { ok: true, ...this.effects, ...(brought ? { focus: brought } : {}) };
     } catch (err) {
       return { ok: false, error: errorText(err), ...this.effects };
     }

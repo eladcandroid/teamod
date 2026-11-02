@@ -139,15 +139,23 @@ test('a `-p` run starts no bridge', async ($, on) => {
   expect(spawned.count).toBe(0)
 })
 
-test('the spike draws a Client and a picture for each surface', async ($, on) => {
-  engine(on)
-  const spike = { ...PANE, requestId: 'spike', props: { ...PANE.props, title: 'Spike' } }
-  const desktop = await $.ui.mount({ ...spike, surface: 'desktop' })
-  expect(await desktop.find({ type: 'Svg' })).toBeDefined()
-  expect(await desktop.find({ type: 'Client' })).toBeDefined()
-  await desktop.unmount()
-  const terminal = await $.ui.mount({ ...spike, surface: 'terminal' })
-  expect(await terminal.find({ type: 'Image' })).toBeDefined()
-  expect(await terminal.find({ type: 'Client' })).toBeDefined()
-  await terminal.unmount()
+test('a terminal draws through its module on each surface that has one', async ($, on) => {
+  on('state.get', (_, e) => {
+    if (e.key === 'link') return { value: { value: { shape: 'link-1', value: LINK }, version: 1 } }
+
+    return { value: { value: undefined, version: 0 } }
+  })
+  on('http.fetch', () => ({
+    value: {
+      status: 200,
+      ok: true,
+      headers: {},
+      text: JSON.stringify({ tree: { k: 'term', key: 'term:w1', term: 'w1', height: 10 } }),
+    },
+  }))
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect(await ui.find({ type: 'Client' })).toBeDefined()
+    await ui.unmount()
+  }
 })

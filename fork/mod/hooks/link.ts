@@ -232,7 +232,7 @@ export async function forgetView($: EngineInterface, site: string): Promise<void
   if (current) await request($, current, `/view/${site}`, { method: 'DELETE' })
 }
 
-type Pressed = { ok: boolean; error?: string; open?: string; toast?: string; copy?: string }
+type Pressed = { ok: boolean; error?: string; open?: string; toast?: string; copy?: string; focus?: string }
 
 /** A press of the person's: only ever from a control they acted on. */
 export async function press(
@@ -257,6 +257,7 @@ export async function press(
     if (answer.open) {
       await $.ui.open({ id: answer.open, title: TITLES[answer.open] ?? answer.open, focus: true })
     }
+    if (answer.focus) await $.ui.focus({ requestId: site, key: answer.focus })
   } catch (err) {
     $.ui.toast(`That did not work: ${String(err)}`)
   }
@@ -291,6 +292,20 @@ export async function runTool(
     method: 'POST',
     body: JSON.stringify({ name, args }),
   })) as { text: string; isError: boolean }
+}
+
+/** A terminal's keys in; the screen back if it changed. */
+export async function termFrame(
+  $: EngineInterface,
+  data: unknown,
+): Promise<Record<string, unknown> | undefined> {
+  const current = await readLink($)
+  if (!current) return undefined
+
+  return (await request($, current, '/term', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })) as Record<string, unknown>
 }
 
 type Commanded = { open?: string; title?: string; text?: string }

@@ -9,6 +9,9 @@ import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx, Screen } from '../screens.js';
 import { type Node, code, col, dim, line, md, row, span, text, title } from '../tree.js';
 import { type Place, ago, back, chrome, empty, findWorkspace, page, statusOf } from './common.js';
+import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } from './task-changes.js';
+import { filePage, filesPage, scratchPage } from './task-files.js';
+import { terminalPage } from './task-terminal.js';
 
 /** How much of a conversation one draw holds: the pane scrolls, and Earlier shows more. */
 const PAGE_ITEMS = 30;
@@ -18,6 +21,9 @@ type ChatItem = Extract<LogItem, { type: 'chat' }>;
 
 const placesOf = (id: string): readonly Place[] => [
   { id: 'chat', label: 'Chat', hotkey: 'c', route: { name: 'ws', params: { id } } },
+  { id: 'changes', label: 'Changes', hotkey: 'h', route: { name: 'changes', params: { id } } },
+  { id: 'files', label: 'Files', hotkey: 'f', route: { name: 'files', params: { id } } },
+  { id: 'terminal', label: 'Terminal', hotkey: 'm', route: { name: 'terminal', params: { id } } },
   { id: 'agents', label: 'Agents', hotkey: 'a', route: { name: 'agents', params: { id } } },
 ];
 
@@ -173,7 +179,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
       ws.askOnly !== true && ctx.draw.button('mode:plan', planOn ? 'Plan' : 'Act', () => ctx.call('session.setPlanMode', channel, !planOn), { plain: true, hotkey: 'p', ...(planOn ? {} : { dim: true }) }),
       ctx.draw.button('mode:btw', 'Side question', () => setMode(mode === 'btw' ? 'send' : 'btw'), { plain: true, ...(mode === 'btw' ? {} : { dim: true }) }),
       ctx.draw.button('attach', 'Image', () => setAttaching(true), { plain: true, dim: true }),
-      ctx.draw.button('model', ws.agent?.model ?? ws.model ?? ws.agent?.label ?? 'Model', () => ctx.go({ name: 'model', params: { id: ws.id } }), { plain: true, hotkey: 'm', dim: true }),
+      ctx.draw.button('model', ws.agent?.model ?? ws.model ?? ws.agent?.label ?? 'Model', () => ctx.go({ name: 'model', params: { id: ws.id } }), { plain: true, dim: true }),
       ctx.draw.button('more', 'More', () => ctx.go({ name: 'more', params: { id: ws.id } }), { plain: true, dim: true }),
       meter ? dim(meter) : undefined,
     ]),
@@ -348,6 +354,17 @@ export const taskPane: Screen = (ctx) => {
   if (ctx.route.name === 'model') return modelPage(ctx, ws, channel);
   if (ctx.route.name === 'more') return morePage(ctx, ws, channel);
   if (ctx.route.name === 'agents') return agentsPage(ctx, ws, channel);
+  const within = (here: string | undefined, body: Node, backTo?: string): Node => page(chrome(ctx, placesOf(ws.id), here), backTo ? back(ctx, backTo) : undefined, body);
+  if (ctx.route.name === 'changes') return within('changes', changesPage(ctx, ws));
+  if (ctx.route.name === 'merge') return within(undefined, mergePage(ctx, ws), 'Changes');
+  if (ctx.route.name === 'merge-pr') return within(undefined, mergePrPage(ctx, ws), 'Changes');
+  if (ctx.route.name === 'pr') return within(undefined, prPage(ctx, ws), 'Changes');
+  if (ctx.route.name === 'history') return within(undefined, historyPage(ctx, ws), 'Changes');
+  if (ctx.route.name === 'commit' && params.hash) return within(undefined, commitPage(ctx, ws, params.hash), 'History');
+  if (ctx.route.name === 'files') return within('files', filesPage(ctx, ws));
+  if (ctx.route.name === 'file' && params.path) return within(undefined, filePage(ctx, ws, params.path), 'Files');
+  if (ctx.route.name === 'scratch') return within(undefined, scratchPage(ctx, ws), 'Files');
+  if (ctx.route.name === 'terminal') return within('terminal', terminalPage(ctx, ws));
   const running = ctx.state.log.some((item) => item.channel === channel && item.type === 'agent' && isRunning(item.status) && item.status !== 'queued');
   return page(
     chrome(ctx, placesOf(ws.id), 'chat'),

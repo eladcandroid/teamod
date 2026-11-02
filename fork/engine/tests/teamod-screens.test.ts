@@ -24,7 +24,7 @@ describe('the Work screen', () => {
 
   it('adds a project: a press opens the field, Enter calls the engine', async () => {
     const { screens, calls } = start();
-    await screens.press('work', 'add', undefined, viewport);
+    expect(await screens.press('work', 'add', undefined, viewport)).toEqual({ ok: true, focus: 'add-path' });
     expect(flat(screens.view('work', viewport)).some((n) => n.k === 'input' && n.key === 'add-path')).toBe(true);
     await screens.press('work', 'add-path', ' /r/new ', viewport);
     expect(calls).toEqual([['projects.add', ['/r/new']]]);
