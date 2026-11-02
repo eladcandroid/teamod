@@ -12,6 +12,7 @@ import { type Place, ago, back, chrome, empty, findWorkspace, page, statusOf } f
 import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } from './task-changes.js';
 import { filePage, filesPage, scratchPage } from './task-files.js';
 import { terminalPage } from './task-terminal.js';
+import { brandWords } from '../brand.js';
 import { richNodes } from '../rich/rich.js';
 
 /** How much of a conversation one draw holds: the pane scrolls, and Earlier shows more. */
@@ -84,7 +85,7 @@ function logItem(ctx: Ctx, ws: Workspace, item: LogItem, waiting: ReturnType<typ
     case 'agent':
       return agentItem(ctx, ws, item);
     case 'system':
-      return dim(item.text);
+      return dim(brandWords(item.text));
     case 'shell':
       return line(span('$ ', { dim: true }), item.command);
     default:

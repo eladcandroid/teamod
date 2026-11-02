@@ -2,5 +2,15 @@
   "name": "teamod",
   "version": "0.1.0",
   "description": "A worktree and an agent per task, shared boards and plans, teammates' agents, and automations, in panes beside your session.",
+  "author": { "name": "Elad Cohen" },
+  "license": "MIT",
+  "userConfig": {
+    "engineRepo": {
+      "type": "string",
+      "title": "Where the engine comes from",
+      "description": "The git repository holding teamod, for an install without a checkout. Whoever shared this mod with you has it.",
+      "default": ""
+    }
+  },
   "types": "./types/index.d.ts"
 }

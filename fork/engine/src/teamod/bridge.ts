@@ -8,6 +8,7 @@ import type { DesktopNote } from '../core/notify.js';
 import { alive } from '../daemon/files.js';
 import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
+import { brandWords } from './brand.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
 import { hasRich, richNodes } from './rich/rich.js';
@@ -180,7 +181,7 @@ export class Bridge {
     const client = await this.opts.connect({
       notify: (note) => {
         notifyNatively(note);
-        this.opts.out({ t: 'toast', text: `${note.title}: ${note.body}` });
+        this.opts.out({ t: 'toast', text: `${brandWords(note.title)}: ${brandWords(note.body)}` });
       },
     });
     this.client = client;
@@ -191,7 +192,7 @@ export class Bridge {
       this.markDirty();
     });
     client.onIntent((intent) => {
-      if (intent.type === 'toast') this.opts.out({ t: 'toast', text: intent.text });
+      if (intent.type === 'toast') this.opts.out({ t: 'toast', text: brandWords(intent.text) });
       if (intent.type === 'navigate') this.screens.follow(intent.view);
     });
     client.onClose((reason) => {

@@ -2,10 +2,12 @@
 // `env.js` first: it sets the home before anything of the engine reads it.
 import { teamodHome } from './env.js';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runningDaemon } from '../daemon/files.js';
 import { installedVersion } from '../core/version.js';
 import { Bridge, connectAsMod } from './bridge.js';
-import { ensureDaemon, writeRuntime } from './launch.js';
+import { ensureDaemon, loginPath, prepareHome, writeRuntime } from './launch.js';
+import { installService, removeService } from './service.js';
 
 const USAGE = `teamod's engine, for the Claude Code mod.
 
@@ -15,6 +17,7 @@ Usage:
   cli.js status                say whether the daemon is running
   cli.js stop                  stop the daemon
   cli.js bridge                link one session to the daemon (started by the mod)
+  cli.js service on|off        keep the engine running from login, or stop that
   cli.js call <method> [json]  call one API method and print the answer (for scripts and checks)
 `;
 
@@ -71,6 +74,13 @@ async function main(): Promise<void> {
     case 'bridge':
       await runBridge();
       return;
+    case 'service': {
+      const home = teamodHome();
+      prepareHome(home);
+      const said = rest[0] === 'off' ? removeService() : installService({ home, node: process.execPath, cli: path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'cli.js'), path: loginPath() ?? process.env.PATH ?? '' });
+      process.stdout.write(`${said}\n`);
+      return;
+    }
     case 'call': {
       const [method, args] = rest;
       if (!method) throw new Error('Which method?');

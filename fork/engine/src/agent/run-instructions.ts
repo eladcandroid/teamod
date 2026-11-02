@@ -13,6 +13,12 @@ import { buildViewAppend } from './view-prompt.js';
  * instructions. `agent` words what differs to be true for its runtime (.env files, kept processes).
  */
 export function runInstructions(input: AgentRunInput, ownerName: string, agent?: AgentRef): string {
+  const instructions = teamodInstructions(input, ownerName, agent);
+  // teamod's lanes are told what they're running in. Tool names and fences are lowercase and stay.
+  return process.env.TEAMOD_DAEMON === '1' ? instructions.replace(/\bTeamod\b/g, 'teamod') : instructions;
+}
+
+function teamodInstructions(input: AgentRunInput, ownerName: string, agent?: AgentRef): string {
   const place = input.place;
   const askOnly = place?.askOnly;
   const syncMain = askOnly ? place?.syncMain : undefined;

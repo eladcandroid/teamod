@@ -12,6 +12,7 @@ import {
   readRev,
   richOf,
   runTool,
+  runtimeOf,
   termFrame,
   viewOf,
 } from './link'
@@ -31,31 +32,58 @@ const RICH_FENCE = /```(teamod-|teamod-|mermaid|json|math|latex|tex|console|term
 const isInLane = async ($: EngineInterface): Promise<boolean> =>
   (await $.env.get('TEAMOD_DAEMON')) === '1'
 
-/** Runs the engine's own setup when this plugin sits in a checkout beside the engine. */
-const setup = async ($: EngineInterface): Promise<string> => {
-  const cli = `${$.plugin.root}/../engine/dist/teamod/cli.js`
-  const found = await $.fs.stat(cli).catch(() => undefined)
-  if (!found) {
-    return `Build the engine first: cd ${$.plugin.root}/../engine && npm ci && npm run build. Installing without a checkout comes in a later phase.`
+/** The Claude Code this was last tested on: the mod API is early access and moves between releases. */
+const TESTED_ON = '2.1.316'
+
+type Ran = { exitCode: number; stdout: string; stderr: string }
+
+const ranWords = (ran: Ran): string => (ran.stderr || ran.stdout).trim().split('\n').slice(-6).join('\n')
+
+/**
+ * Sets the engine up: this checkout's when the plugin sits beside it, built if need be; else a copy
+ * of the repository the mod's options name. Nothing downloads without a repository to trust.
+ */
+const setup = async ($: EngineInterface, repository: string): Promise<string> => {
+  const home = await homeOf($)
+  const run = (argv: string[], cwd?: string): Promise<Ran> =>
+    $.process.run(argv, { ...(cwd ? { cwd } : {}), env: { TEAMOD_HOME: home }, timeoutMs: 600_000 })
+  let engine = `${$.plugin.root}/../engine`
+  const beside = await $.fs.stat(`${engine}/package.json`).catch(() => undefined)
+  if (!beside) {
+    if (!repository) {
+      return 'teamod needs its engine: set "Where the engine comes from" in /config (whoever shared this mod has the repository), then run /teamod setup again.'
+    }
+    engine = `${home}/app/src/fork/engine`
+    const have = await $.fs.stat(`${engine}/package.json`).catch(() => undefined)
+    $.ui.toast('Getting the teamod engine. This takes a few minutes.')
+    const got = have
+      ? await run(['git', '-C', `${home}/app/src`, 'pull', '--ff-only'])
+      : await run(['git', 'clone', '--depth', '1', '--', repository, `${home}/app/src`])
+    if (got.exitCode !== 0) return `Could not get the engine: ${ranWords(got)}`
   }
-  const ran = await $.process.run(['node', cli, 'setup', '--from-source'], {
-    env: { TEAMOD_HOME: await homeOf($) },
-    timeoutMs: 120_000,
-  })
-  if (ran.exitCode !== 0) return `Setup failed: ${ran.stderr || ran.stdout}`
+  const cli = `${engine}/dist/teamod/cli.js`
+  if (!beside || !(await $.fs.stat(cli).catch(() => undefined))) {
+    $.ui.toast('Building the teamod engine. This takes a few minutes.')
+    const installed = await run(['npm', 'ci'], engine)
+    if (installed.exitCode !== 0) return `Could not install what the engine needs: ${ranWords(installed)}`
+    await run(['npm', 'run', 'build'], engine)
+    if (!(await $.fs.stat(cli).catch(() => undefined))) return 'The engine did not build.'
+  }
+  const ran = await run(['node', cli, 'setup', '--from-source'])
+  if (ran.exitCode !== 0) return `Setup failed: ${ranWords(ran)}`
   void ensureBridge($)
 
   return ran.stdout.trim() || 'teamod is set up.'
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     if (await isInLane($)) return started
     await $.command.register({
       name: 'teamod',
       description: 'Open teamod: worktrees, tasks, your team and automations',
-      argumentHint: '[work|task|team|board|sentinel|settings|setup|status|<engine command>]',
+      argumentHint: '[work|task|team|board|sentinel|settings|setup|status|stop|service on|off|<engine command>]',
     })
     // A desktop session starts with no surface and says so by attaching; a `-p` run never does.
     if (e.isInteractive) void ensureBridge($)
@@ -72,7 +100,7 @@ export const register: Register = on => {
   on('command.run', { command: 'teamod' }, async ($, e) => {
     const words = e.args.trim()
     const verb = words.split(/\s+/)[0] ?? ''
-    if (verb === 'setup') return { text: await setup($) }
+    if (verb === 'setup') return { text: await setup($, String(options.engineRepo ?? '')) }
     void ensureBridge($)
     if (verb === 'status') {
       const current = await readLink($)
@@ -82,8 +110,17 @@ export const register: Register = on => {
           ? 'connected'
           : 'reconnecting'
         : (issue?.text ?? 'starting')
+      const { version } = await $.session.version()
 
-      return { text: `teamod: ${state}` }
+      return { text: `teamod: ${state}${version === TESTED_ON ? '' : ` (tested on Claude Code ${TESTED_ON}; this is ${version})`}` }
+    }
+    if (verb === 'stop' || verb === 'service') {
+      const runtime = await runtimeOf($)
+      if (!runtime) return { text: 'The teamod engine is not set up yet. Run /teamod setup.' }
+      const argv = verb === 'stop' ? ['stop'] : ['service', words.split(/\s+/)[1] === 'off' ? 'off' : 'on']
+      const ran = await $.process.run([runtime.node, runtime.cli, ...argv], { env: { TEAMOD_HOME: await homeOf($) } })
+
+      return { text: ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran) }
     }
     const answer = await commandOf($, words)
     if (!answer) {
