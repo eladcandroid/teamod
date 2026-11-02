@@ -137,6 +137,16 @@ export function routeOfView(view: View): Route | undefined {
       return { screen: 'team', name: 'requests' };
     case 'conversation':
       return { screen: 'team', name: 'conversation', params: { id: view.id } };
+    case 'sentinel':
+      return { screen: 'sentinel', name: 'list' };
+    case 'sentinel_page':
+      return { screen: 'sentinel', name: 'page', params: { id: view.id } };
+    case 'sentinel_run':
+      return { screen: 'sentinel', name: 'run', params: { run: view.runId } };
+    case 'dashboard':
+      return { screen: 'sentinel', name: 'board', params: view.id ? { board: view.id } : {} };
+    case 'sentinel_chat':
+      return { screen: 'sentinel', name: 'chat', params: view.chat ? { chat: view.chat } : {} };
     case 'tasks':
       return { screen: 'board', name: 'tasks' };
     case 'task':

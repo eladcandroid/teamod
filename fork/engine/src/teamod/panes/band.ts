@@ -72,6 +72,7 @@ function item(ctx: Ctx, need: NeedsYou, index: number, total: number, go: (to: n
       ...need.actions.map((action, i) => ctx.draw.button(`need:${need.id}:act:${i}`, action.label, () => ctx.call(action.method, ...action.args), { hotkey: KEYS[i]!, ...(action.tone === 'main' ? { primary: true } : {}) })),
       detail.length > brief.length ? ctx.draw.button(`need:${need.id}:more`, expanded ? 'Less' : 'More', () => setExpanded(!expanded), { plain: true, dim: true, hotkey: 'm' }) : undefined,
       open ? ctx.draw.button(`need:${need.id}:open`, 'Open', () => openWorkspace(ctx, open), { plain: true, dim: true, hotkey: 'o' }) : undefined,
+      need.topic?.startsWith('sentinel:') ? ctx.draw.button(`need:${need.id}:sentinel`, 'Open', () => ctx.show('sentinel', { name: 'page', params: { id: need.topic!.slice('sentinel:'.length) } }), { plain: true, dim: true, hotkey: 'o' }) : undefined,
       total > 1 ? ctx.draw.button('need:next', 'Next', () => go((index + 1) % total), { plain: true, dim: true, hotkey: 'n' }) : undefined,
       ctx.draw.button(`need:${need.id}:dismiss`, 'Dismiss', () => ctx.call('needs.dismiss', need.id), { plain: true, dim: true, hotkey: 'x' }),
     ]),
