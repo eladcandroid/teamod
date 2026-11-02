@@ -95,3 +95,36 @@ export class Draw {
     return { k: 'select', key, options, ...opts };
   }
 }
+
+const ESCAPES = /\u001b(?:\[[0-9;:<=>?]*[ -/]*[@-~]|[\]PX^_][^\u0007\u001b]*(?:\u0007|\u001b\\)?|[()][A-Za-z0-9]|[ -~])?/g;
+const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f‪-‮⁦-⁩]/g;
+const clean = (t: string): string => t.replace(ESCAPES, '').replace(CONTROL, '');
+const oneRow = (t: string): string => clean(t).replace(/\s*\n\s*/g, ' ');
+
+/**
+ * A tree as it may be drawn: no escape sequences, control characters or reversed text in anything
+ * it says, so nobody's words can move the cursor or pass for something else. Every screen goes
+ * through this on its way out.
+ */
+export function inert(node: Node): Node {
+  switch (node.k) {
+    case 'box':
+      return { ...node, children: node.children.map(inert) };
+    case 'text':
+      return { ...node, spans: node.spans.map((s) => ({ ...s, t: oneRow(s.t) })) };
+    case 'button':
+      return { ...node, label: oneRow(node.label), ...(node.spans ? { spans: node.spans.map((s) => ({ ...s, t: oneRow(s.t) })) } : {}) };
+    case 'input':
+      return { ...node, ...(node.label ? { label: oneRow(node.label) } : {}), ...(node.placeholder ? { placeholder: oneRow(node.placeholder) } : {}), ...(node.value ? { value: clean(node.value) } : {}) };
+    case 'select':
+      return { ...node, ...(node.label ? { label: oneRow(node.label) } : {}), options: node.options.map((o) => ({ ...o, label: oneRow(o.label) })) };
+    case 'md':
+      return { ...node, text: clean(node.text) };
+    case 'code':
+      return { ...node, source: clean(node.source) };
+    case 'image':
+      return { ...node, alt: oneRow(node.alt) };
+    default:
+      return node;
+  }
+}

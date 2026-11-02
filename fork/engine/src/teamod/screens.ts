@@ -1,6 +1,6 @@
 import type { AppState, View } from '../core/store.js';
 import type { TermHub } from './term-hub.js';
-import { Draw, type Effects, type Node, type Surface, autoFocused, dim } from './tree.js';
+import { Draw, type Effects, type Node, type Surface, autoFocused, dim, inert } from './tree.js';
 
 /** The native panes: each opens on demand and holds its own routes. */
 export const PANES = ['work', 'task', 'team', 'board', 'sentinel', 'settings'] as const;
@@ -264,9 +264,14 @@ export class Screens {
       const ctx = this.context(pane, state, viewport, draw);
       const answer = isRich(pane) ? this.answers.get(pane) : undefined;
       if (isRich(pane) && answer === undefined) return { tree: dim('This answer is gone from memory.'), draw };
-      return { tree: answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx), draw };
+      return { tree: inert(answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx)), draw };
     } catch (err) {
-      return { tree: dim(`This screen failed: ${errorText(err)}`), draw: new Draw() };
+      // Never a dead end: Back and Work still work from a screen that failed.
+      const rescue = new Draw();
+      const out = [dim(`This screen failed: ${errorText(err)}`)];
+      if (this.nav.canGoBack(pane)) out.push(rescue.button('back', 'Back', () => this.nav.back(pane), { plain: true, hotkey: 'b' }));
+      if (isPane(pane)) out.push(rescue.button('screen:work', 'Work', () => this.nav.go(pane, { ...HOME_ROUTE.work, screen: 'work' }), { plain: true, hotkey: 'w' }));
+      return { tree: inert({ k: 'box', dir: 'column', children: out }), draw: rescue };
     }
   }
 

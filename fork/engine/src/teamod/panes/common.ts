@@ -85,6 +85,12 @@ export function ago(ts: number, now = Date.now()): string {
  * What someone else wrote, ready for `md`: it's drawn, never acted on, and a link in it can only go
  * to the web, so a teammate's message can't point a press at a file on this computer.
  */
-export const peerText = (raw: string): string => raw.replace(/\[([^\]]*)\]\(\s*(?!https?:)[^)]*\)/gi, '$1');
+export const peerText = (raw: string): string =>
+  raw
+    .replace(/!\[/g, '[')
+    .replace(/<\/?(?:a|img|iframe|script|style|link|object|embed|video|audio|source)\b[^>]*>/gi, '')
+    .replace(/\]\(\s*(?!<?https?:)[^)]*\)/gi, ']')
+    .replace(/^ {0,3}\[[^\]\n]+\]:[ \t]*(?!<?https?:)\S.*$/gim, '')
+    .replace(/<((?!https?:)[a-z][a-z0-9+.-]*:[^>\s]*)>/gi, '$1');
 
 export const homePath = (state: AppState, p: string): string => (state.home && p.startsWith(state.home) ? `~${p.slice(state.home.length)}` : p);

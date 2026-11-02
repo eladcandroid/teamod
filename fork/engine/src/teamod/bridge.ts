@@ -131,7 +131,7 @@ export class Bridge {
         call: (method, args) => this.callEngine(method, args),
         markDirty: () => this.markDirty(),
         look: (channel) => {
-          this.client?.store.dispatch({ type: 'view', view: channel?.startsWith('ws:') ? { kind: 'workspace', id: channel.slice(3), tab: 'chat' } : { kind: 'overview' } });
+          this.client?.store.dispatch({ type: 'view', view: channel?.startsWith('ws:') ? { kind: 'workspace', id: channel.slice(3), tab: 'chat' } : channel && /^(dm|group):/.test(channel) ? { kind: 'conversation', id: channel } : { kind: 'overview' } });
         },
       },
       SCREENS,
