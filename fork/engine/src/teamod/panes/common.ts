@@ -61,13 +61,7 @@ export function statusOf(state: AppState, ws: Workspace): Span {
 export function openWorkspace(ctx: Ctx, id: string): void {
   void ctx.call('workspaces.load', id);
   ctx.look(`ws:${id}`);
-  const route = { screen: 'task' as const, name: 'ws', params: { id } };
-  if (ctx.pane === 'band') {
-    ctx.nav.go('work', route);
-    ctx.effect({ open: 'work' });
-  } else {
-    ctx.nav.go(ctx.pane, route);
-  }
+  ctx.show('task', { name: 'ws', params: { id } });
 }
 
 export function findWorkspace(state: AppState, id: string): Workspace | undefined {

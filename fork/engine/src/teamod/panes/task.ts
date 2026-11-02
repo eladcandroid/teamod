@@ -12,6 +12,7 @@ import { type Place, ago, back, chrome, empty, findWorkspace, page, statusOf } f
 import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } from './task-changes.js';
 import { filePage, filesPage, scratchPage } from './task-files.js';
 import { terminalPage } from './task-terminal.js';
+import { richNodes } from '../rich/rich.js';
 
 /** How much of a conversation one draw holds: the pane scrolls, and Earlier shows more. */
 const PAGE_ITEMS = 30;
@@ -51,7 +52,7 @@ function agentItem(ctx: Ctx, ws: Workspace, item: AgentItem): Node {
       }),
     subs.length > 0 && dim(`${subs.length} sub-agent${subs.length === 1 ? '' : 's'}, ${subs.filter((s) => s.status === 'running').length} running`),
     background.length > 0 && dim(`${background.length} in the background`),
-    item.text ? md(item.text) : undefined,
+    ...(item.text ? richNodes(ctx, item.text) : []),
     item.status === 'error' && text('This run failed.', { color: 'error' }),
     item.status === 'denied' && dim('Declined.'),
     item.status === 'interrupted' && dim('Stopped.'),

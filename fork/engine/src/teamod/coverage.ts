@@ -464,7 +464,7 @@ export const SURFACE: Record<Method, Surface> = {
   'git.filters': { on: 'task' },
   'git.worktreeAt': { on: 'task' },
   // ---- view
-  'view.fetch': { on: 'task', todo: true },
+  'view.fetch': { on: 'task' },
   // ---- files
   'files.searchContent': { on: 'task' },
   'files.searchNames': { on: 'task' },

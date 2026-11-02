@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { daemonLogPath, openDaemonLog, releaseLock, runningDaemon, takeLock } from '../daemon/files.js';
 import type { DaemonInfo } from '../ipc/protocol.js';
+import { writeBrief } from './brief.js';
 import { teamodHome } from './env.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -95,5 +96,6 @@ export function writeRuntime(home: string = teamodHome()): string {
   prepareHome(home);
   const file = path.join(home, 'runtime.json');
   writeFileSync(file, `${JSON.stringify({ node: process.execPath, cli: path.join(here, 'cli.js') }, null, 2)}\n`, { mode: 0o600 });
+  writeBrief(home);
   return file;
 }

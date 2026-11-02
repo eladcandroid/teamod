@@ -226,6 +226,23 @@ export async function viewOf(
   return (await request($, current, `/view/${site}?${query.toString()}`)) as View
 }
 
+type Rich = { plain: true } | { site: string; tree: View['tree'] }
+
+/** An answer with more than Markdown in it, as a tree; `plain` when the engine's own drawing does. */
+export async function richOf(
+  $: EngineInterface,
+  text: string,
+  viewport: Viewport,
+): Promise<Rich | undefined> {
+  const current = await readLink($)
+  if (!current) return undefined
+
+  return (await request($, current, '/rich', {
+    method: 'POST',
+    body: JSON.stringify({ text, viewport }),
+  })) as Rich
+}
+
 /** The pane closed: nothing to tell the mod about it any more. */
 export async function forgetView($: EngineInterface, site: string): Promise<void> {
   const current = await readLink($)

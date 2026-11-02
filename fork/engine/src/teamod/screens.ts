@@ -7,9 +7,12 @@ export const PANES = ['work', 'task', 'team', 'board', 'sentinel', 'settings'] a
 export type PaneId = (typeof PANES)[number];
 export const isPane = (id: string): id is PaneId => (PANES as readonly string[]).includes(id);
 
-/** Where a screen draws: a pane, or the band above the prompt. */
-export type SiteId = PaneId | 'band';
-export const isSite = (id: string): id is SiteId => id === 'band' || isPane(id);
+/** Where a screen draws: a pane, the band above the prompt, or an answer in the transcript. */
+export type SiteId = PaneId | 'band' | `rich:${string}`;
+export const isSite = (id: string): id is SiteId => id === 'band' || id.startsWith('rich:') || isPane(id);
+const isRich = (id: SiteId): id is `rich:${string}` => id.startsWith('rich:');
+/** A pane to go to from a site that isn't one. */
+const roomFor = (site: SiteId): PaneId => (isPane(site) ? site : 'work');
 
 export const PANE_TITLES: Readonly<Record<PaneId, string>> = {
   work: 'Work',
@@ -54,7 +57,7 @@ export interface Ctx extends Viewport {
   /** The pane or band this draw is for. */
   readonly pane: SiteId;
   /** The screen drawn in it. */
-  readonly screen: SiteId;
+  readonly screen: PaneId | 'band';
   readonly nav: Nav;
   /** Go somewhere within this screen, here. */
   go(route: Route): void;
@@ -93,6 +96,9 @@ export type Screen = (ctx: Ctx) => Node;
 
 const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
+/** Answers kept for pressing what they draw. */
+const MAX_ANSWERS = 200;
+
 interface Cached {
   value?: unknown;
   error?: string;
@@ -100,7 +106,7 @@ interface Cached {
   pending: boolean;
 }
 
-export const HOME_ROUTE: Readonly<Record<SiteId, Route>> = {
+export const HOME_ROUTE: Readonly<Record<PaneId | 'band', Route>> = {
   band: { name: 'band' },
   work: { name: 'projects' },
   task: { name: 'none' },
@@ -159,10 +165,12 @@ export class Screens {
   private readonly memory = new Map<string, unknown>();
   private effects: Effects = {};
   private lastPane: PaneId = 'work';
+  private readonly answers = new Map<`rich:${string}`, string>();
 
   constructor(
     private readonly host: ScreenHost,
-    private readonly screens: Readonly<Record<SiteId, Screen>>,
+    private readonly screens: Readonly<Record<PaneId | 'band', Screen>>,
+    private readonly drawAnswer: (ctx: Ctx, answer: string) => Node = () => dim('Nothing to draw.'),
   ) {}
 
   readonly nav: Nav = {
@@ -177,12 +185,13 @@ export class Screens {
       this.host.markDirty();
     },
     canGoBack: (pane) => (this.routes.get(pane)?.length ?? 0) > 0,
-    routeOf: (pane) => this.routes.get(pane)?.at(-1) ?? HOME_ROUTE[pane],
+    routeOf: (pane) => this.routes.get(pane)?.at(-1) ?? (isRich(pane) ? HOME_ROUTE.band : HOME_ROUTE[pane]),
   };
 
   private context(pane: SiteId, state: AppState, viewport: Viewport, draw: Draw): Ctx {
     const route = this.nav.routeOf(pane);
-    const screen: SiteId = route.screen ?? pane;
+    const screen: PaneId | 'band' = route.screen ?? (isRich(pane) ? 'band' : pane);
+    const elsewhere = pane === 'band' || isRich(pane);
     return {
       ...viewport,
       state,
@@ -192,7 +201,11 @@ export class Screens {
       route,
       nav: this.nav,
       go: (next) => this.nav.go(pane, { ...(screen === 'band' ? {} : { screen }), ...next }),
-      show: (shown, next) => this.nav.go(pane, { ...(next ?? HOME_ROUTE[shown]), screen: shown }),
+      show: (shown, next) => {
+        // The band and the transcript have no room for a screen: it opens in a pane.
+        this.nav.go(roomFor(pane), { ...(next ?? HOME_ROUTE[shown]), screen: shown });
+        if (elsewhere) this.effects = { ...this.effects, open: roomFor(pane) };
+      },
       call: (method, ...args) => this.host.call(method, args),
       load: <T,>(key: string, loader: () => Promise<T>, opts: { ttlMs?: number } = {}) => this.loaded(key, loader, opts.ttlMs),
       local: <T,>(key: string, initial: T) => this.localValue(key, initial),
@@ -249,10 +262,19 @@ export class Screens {
     if (!state) return { tree: dim('Connecting to the engine...'), draw };
     try {
       const ctx = this.context(pane, state, viewport, draw);
-      return { tree: this.screens[ctx.screen](ctx), draw };
+      const answer = isRich(pane) ? this.answers.get(pane) : undefined;
+      if (isRich(pane) && answer === undefined) return { tree: dim('This answer is gone from memory.'), draw };
+      return { tree: answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx), draw };
     } catch (err) {
       return { tree: dim(`This screen failed: ${errorText(err)}`), draw: new Draw() };
     }
+  }
+
+  /** An answer from the transcript that holds more than Markdown: remembered so its controls can be pressed. */
+  remember(answer: string, site: `rich:${string}`): void {
+    this.answers.delete(site);
+    this.answers.set(site, answer);
+    if (this.answers.size > MAX_ANSWERS) this.answers.delete(this.answers.keys().next().value!);
   }
 
   /**
@@ -271,7 +293,7 @@ export class Screens {
 
   /** Run a control's handler; a key gone since the last draw (the row went) is no error. */
   async press(pane: SiteId, key: string, value: string | undefined, viewport: Viewport): Promise<Effects & { readonly ok: boolean; readonly error?: string }> {
-    if (pane !== 'band') this.lastPane = pane;
+    if (isPane(pane)) this.lastPane = pane;
     const handler = this.drawn(pane, viewport).draw.handlers.get(key);
     if (!handler) return { ok: false, error: 'That is no longer there.' };
     this.effects = {};

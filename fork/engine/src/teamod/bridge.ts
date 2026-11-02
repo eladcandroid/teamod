@@ -1,4 +1,4 @@
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
 import path from 'node:path';
@@ -10,12 +10,13 @@ import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
+import { hasRich, richNodes } from './rich/rich.js';
 import { SessionTools } from './session-tools.js';
 import { TermHub, type TermKey } from './term-hub.js';
 import { bandActive, statusLine } from './panes/band.js';
 import { SCREENS } from './panes/index.js';
 import { PANE_TITLES, Screens, type SiteId, type Viewport, isPane, isSite } from './screens.js';
-import type { Node, Surface } from './tree.js';
+import { type Node, type Surface, col } from './tree.js';
 
 /** What the bridge tells the mod on stdout. Small lines only: a view is fetched, never pushed. */
 export type BridgeLine =
@@ -30,6 +31,7 @@ export type BridgeLine =
 /** Biggest request a pane sends: a pasted image is the largest thing the API takes. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const DIRTY_EVERY_MS = 100;
+const MAX_SHOWN = 40;
 const RETRY_MIN_MS = 500;
 const RETRY_MAX_MS = 10_000;
 
@@ -132,6 +134,7 @@ export class Bridge {
         },
       },
       SCREENS,
+      (ctx, answer) => col(richNodes(ctx, answer), { gap: 1 }),
     );
   }
 
@@ -240,7 +243,11 @@ export class Bridge {
   /** Draw a site for the mod, and remember it was drawn so a change is told. */
   private draw(site: SiteId, viewport: Viewport): Node {
     const tree = this.screens.view(site, viewport);
-    this.shown.set(`${site}|${viewport.surface}|${viewport.columns}|${viewport.rows}`, { site, viewport, json: JSON.stringify(tree) });
+    const key = `${site}|${viewport.surface}|${viewport.columns}|${viewport.rows}`;
+    // Answers in the transcript come and go with scrolling: only the latest are watched.
+    this.shown.delete(key);
+    this.shown.set(key, { site, viewport, json: JSON.stringify(tree) });
+    if (this.shown.size > MAX_SHOWN) this.shown.delete(this.shown.keys().next().value!);
     return tree;
   }
 
@@ -279,6 +286,14 @@ export class Bridge {
         const site = url.pathname.slice('/view/'.length);
         for (const [key, view] of this.shown) if (view.site === site) this.shown.delete(key);
         return send(200, { ok: true });
+      }
+      if (req.method === 'POST' && url.pathname === '/rich') {
+        const body = JSON.parse(await readBody(req)) as { text?: unknown; viewport?: Record<string, unknown> };
+        if (typeof body.text !== 'string' || !hasRich(body.text)) return send(200, { plain: true });
+        const site = `rich:${createHash('sha256').update(body.text).digest('hex').slice(0, 24)}` as const;
+        this.screens.remember(body.text, site);
+        const params = new URLSearchParams(Object.entries(body.viewport ?? {}).map(([k, v]) => [k, String(v)]));
+        return send(200, { site, tree: this.draw(site, viewportOf(params)) });
       }
       if (req.method === 'POST' && url.pathname === '/term') {
         const body = JSON.parse(await readBody(req)) as { term?: unknown; rev?: unknown; seq?: unknown; keys?: unknown; cols?: unknown; rows?: unknown };
