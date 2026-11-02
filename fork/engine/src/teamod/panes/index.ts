@@ -1,21 +1,18 @@
 import type { Screen, SiteId } from '../screens.js';
-import { dim } from '../tree.js';
-import { chrome, page } from './common.js';
 import { bandView } from './band.js';
+import { boardPane } from './board.js';
+import { sentinelPane } from './sentinel.js';
+import { settingsPane } from './settings.js';
 import { taskPane } from './task.js';
+import { teamPane } from './team.js';
 import { workPane } from './work.js';
-
-const later =
-  (name: string): Screen =>
-  (ctx) =>
-    page(chrome(ctx), dim(`${name} comes in a later phase.`));
 
 export const SCREENS: Readonly<Record<SiteId, Screen>> = {
   work: workPane,
   task: taskPane,
-  team: later('Team'),
-  board: later('Board'),
-  sentinel: later('Sentinel'),
-  settings: later('Settings'),
+  team: teamPane,
+  board: boardPane,
+  sentinel: sentinelPane,
+  settings: settingsPane,
   band: bandView,
 };

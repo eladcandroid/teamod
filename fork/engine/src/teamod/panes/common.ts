@@ -87,4 +87,10 @@ export function ago(ts: number, now = Date.now()): string {
   return `${Math.round(s / 86_400)}d`;
 }
 
+/**
+ * What someone else wrote, ready for `md`: it's drawn, never acted on, and a link in it can only go
+ * to the web, so a teammate's message can't point a press at a file on this computer.
+ */
+export const peerText = (raw: string): string => raw.replace(/\[([^\]]*)\]\(\s*(?!https?:)[^)]*\)/gi, '$1');
+
 export const homePath = (state: AppState, p: string): string => (state.home && p.startsWith(state.home) ? `~${p.slice(state.home.length)}` : p);
