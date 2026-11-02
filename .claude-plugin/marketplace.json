@@ -1,0 +1,5 @@
+{
+  "name": "teamod",
+  "owner": { "name": "Elad Cohen" },
+  "plugins": [{ "name": "teamod", "source": "./fork/mod" }]
+}

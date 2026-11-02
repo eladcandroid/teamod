@@ -62,7 +62,7 @@ export interface TeamodClient {
   close(): void;
 }
 
-export type ClientKind = 'mac' | 'test';
+export type ClientKind = 'mac' | 'test' | 'mod';
 
 type Group<M> = M extends `${infer G}.${string}` ? G : never;
 type NameIn<M, G extends string> = M extends `${G}.${infer N}` ? N : never;
