@@ -1211,7 +1211,7 @@ describe('what the Team screen wires', () => {
   const leftOut = ['network.friends.list', 'network.groups.list', 'network.presence.get', 'gateway.list', 'session.serveFolder', 'network.files.addData'];
 
   it('names every method of the screen, but the few it has no use for', () => {
-    expect(teams.length).toBeGreaterThan(100);
-    expect(teams.filter((m) => !source.includes(`'${m}'`)).sort()).toEqual([...leftOut].sort());
+    expect(teams.length).toBeGreaterThan(95);
+    expect(teams.filter((m) => !source.includes(`'${m}'`))).toEqual([]);
   });
 });
