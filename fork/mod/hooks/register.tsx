@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { WorkView } from '../types'
-import { call, homeOf, readLink, readProblem, readRev, startBridge, viewOf } from './link'
+import { call, ensureBridge, homeOf, readLink, readProblem, readRev, viewOf } from './link'
 
 const WORK = 'work'
 const SPIKE = 'spike'
@@ -34,7 +34,7 @@ const setup = async ($: EngineInterface): Promise<string> => {
     timeoutMs: 120_000,
   })
   if (ran.exitCode !== 0) return `Setup failed: ${ran.stderr || ran.stdout}`
-  void startBridge($)
+  void ensureBridge($)
 
   return ran.stdout.trim() || 'teamod is set up.'
 }
@@ -42,20 +42,28 @@ const setup = async ($: EngineInterface): Promise<string> => {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
-    if (!e.isInteractive || (await isInLane($))) return started
+    if (await isInLane($)) return started
     await $.command.register({
       name: 'teamod',
       description: 'Open teamod: worktrees, tasks, your team and automations',
       argumentHint: '[setup|status|spike]',
     })
-    void startBridge($)
+    // A desktop session starts with no surface and says so by attaching; a `-p` run never does.
+    if (e.isInteractive) void ensureBridge($)
 
     return started
+  })
+
+  on('session.attach', async ($, e, next) => {
+    if (!(await isInLane($))) void ensureBridge($)
+
+    return next(e)
   })
 
   on('command.run', { command: 'teamod' }, async ($, e) => {
     const verb = e.args.trim().split(/\s+/)[0] ?? ''
     if (verb === 'setup') return { text: await setup($) }
+    void ensureBridge($)
     if (verb === 'status') {
       const current = await readLink($)
       const issue = await readProblem($)

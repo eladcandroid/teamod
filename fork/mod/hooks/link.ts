@@ -100,11 +100,25 @@ async function apply($: EngineInterface, line: Line): Promise<void> {
   }
 }
 
+// A reload ends the child with the module and starts this over, which is right.
+let isBridgeUp = false
+
+/** Starts the bridge unless this copy of the module already did. */
+export async function ensureBridge($: EngineInterface): Promise<void> {
+  if (isBridgeUp) return
+  isBridgeUp = true
+  try {
+    await runBridge($)
+  } finally {
+    isBridgeUp = false
+  }
+}
+
 /**
  * Runs the bridge for the session's life. Its stdout carries small lines only;
  * a piece may end mid-line, so they are put back together here.
  */
-export async function startBridge($: EngineInterface): Promise<void> {
+async function runBridge($: EngineInterface): Promise<void> {
   const runtime = await runtimeOf($)
   if (!runtime) {
     await setProblem($, {
