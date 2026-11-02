@@ -15,6 +15,7 @@ Usage:
   cli.js status                say whether the daemon is running
   cli.js stop                  stop the daemon
   cli.js bridge                link one session to the daemon (started by the mod)
+  cli.js call <method> [json]  call one API method and print the answer (for scripts and checks)
 `;
 
 const PARENT_CHECK_MS = 5000;
@@ -70,6 +71,20 @@ async function main(): Promise<void> {
     case 'bridge':
       await runBridge();
       return;
+    case 'call': {
+      const [method, args] = rest;
+      if (!method) throw new Error('Which method?');
+      const info = await ensureDaemon();
+      const client = await connectAsMod(info.port, info.token, installedVersion());
+      try {
+        const call = client.call as (m: string, ...a: unknown[]) => Promise<unknown>;
+        const value = await call.call(client, method, ...((args ? JSON.parse(args) : []) as unknown[]));
+        process.stdout.write(`${JSON.stringify(value ?? null, null, 2)}\n`);
+      } finally {
+        client.close();
+      }
+      return;
+    }
     default:
       process.stdout.write(USAGE);
       process.exitCode = command === undefined || command === '--help' ? 0 : 1;

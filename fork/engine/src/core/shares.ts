@@ -61,7 +61,7 @@ export function realOf(p: string): string {
 /** teamod's home in every form it can be reached by: as named, really, and the old ~/.teamod and ~/.teamod. */
 function teamodHomes(): string[] {
   const named = teamodHomeDir();
-  const legacy = ['.teamod', '.teamod', '.teamod'].map((name) => path.resolve(process.env.HOME ?? '~', name));
+  const legacy = ['.teamod', '.teamod', '.teamod', '.teamod'].map((name) => path.resolve(process.env.HOME ?? '~', name));
   return [...new Set([named, realOf(named), ...legacy.flatMap((p) => [p, realOf(p)])].map(fold))];
 }
 

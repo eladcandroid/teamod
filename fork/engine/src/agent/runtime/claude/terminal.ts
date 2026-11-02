@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathVariants } from './claude-sessions.js';
+import { teamodHome } from '../../../core/home.js';
 import type { AgentRef } from '../../../protocol.js';
 import { claudeCodeCommand, claudeCodeReady } from '../../claude-code.js';
 import type { PolicyContext } from '../../policy.js';
@@ -78,6 +79,15 @@ export function sessionArgs(resume: string | undefined, fork: boolean, newId: ()
   return { args: ['--session-id', session], session, fresh: true };
 }
 
+/** The servers Claude Code mounts, in a file only you can read, gone once the terminal closes. */
+function writeMcpConfig(servers: unknown, home: string = teamodHome()): { file: string; remove: () => void } {
+  const dir = path.join(home, 'run');
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, `mcp-${randomUUID()}.json`);
+  writeFileSync(file, JSON.stringify({ mcpServers: servers }), { mode: 0o600 });
+  return { file, remove: () => rmSync(file, { force: true }) };
+}
+
 /**
  * Claude Code's own terminal app on a workspace's conversation (ACME-534), as a chat run would have
  * it: the same session, teamod's tools (served for it over the tool host, as Codex's are), teamod's
@@ -100,6 +110,7 @@ export async function claudeTerminal(input: AgentRunInput, sink: TerminalSink, o
     (name, args) => gateTool(name, args, input, policy),
     async (hook) => terminalHookAnswer(hook, input, policy),
   );
+  const mcpConfig = writeMcpConfig(mounted.servers, opts.home);
   try {
     const { args: session, session: id, fresh } = sessionArgs(place.resume, Boolean(place.forkSession));
     const model = input.model ?? opts.model;
@@ -110,7 +121,8 @@ export async function claudeTerminal(input: AgentRunInput, sink: TerminalSink, o
       '--setting-sources',
       'user',
       '--mcp-config',
-      JSON.stringify({ mcpServers: mounted.servers }),
+      // A file only you can read: on the command line its tokens would show in `ps`.
+      mcpConfig.file,
       // teamod's own tools are checked by teamod (the tool host's gate: its rules, and you for the
       // risky ones), as in a chat run: Claude Code doesn't ask about them a second time.
       '--allowedTools',
@@ -134,9 +146,13 @@ export async function claudeTerminal(input: AgentRunInput, sink: TerminalSink, o
       env: { ...input.env, [GATE_URL_ENV]: mounted.hookUrl ?? '', [GATE_TOKEN_ENV]: mounted.token },
       session: id,
       fresh,
-      close: () => mounted.close(),
+      close: () => {
+        mcpConfig.remove();
+        mounted.close();
+      },
     };
   } catch (err) {
+    mcpConfig.remove();
     mounted.close();
     throw err;
   }

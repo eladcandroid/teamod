@@ -7,6 +7,7 @@ import type { DomainState } from '../core/store.js';
 import { alive } from '../daemon/files.js';
 import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
+import { mayCall } from './coverage.js';
 import { ROUTES } from './views.js';
 
 /** What the bridge tells the mod on stdout. Small lines only: a view is fetched, never pushed. */
@@ -193,6 +194,7 @@ export class Bridge {
       if (req.method === 'POST' && url.pathname === '/call') {
         const body = JSON.parse(await readBody(req)) as { method?: unknown; args?: unknown };
         if (typeof body.method !== 'string' || !Array.isArray(body.args)) return send(400, { error: 'A method and args, please' });
+        if (!mayCall(body.method)) return send(200, { ok: false, error: `teamod doesn't offer ${body.method}` });
         const client = this.client;
         if (!client) return send(200, { ok: false, error: 'Not connected to the engine' });
         try {

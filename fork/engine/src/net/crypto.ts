@@ -18,7 +18,7 @@ export function deriveKeys(secret: string): RoomKeys {
   if (secret.length < 16) throw new Error('Room secret is too short');
   const ikm = Buffer.from(secret, 'utf8');
   const derive = (info: string): Buffer =>
-    Buffer.from(hkdfSync('sha256', ikm, Buffer.from('teamod-v1'), Buffer.from(info), 32));
+    Buffer.from(hkdfSync('sha256', ikm, Buffer.from('teamod-room-v1'), Buffer.from(info), 32));
   return { enc: derive('enc'), auth: derive('auth') };
 }
 

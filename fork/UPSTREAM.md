@@ -18,3 +18,10 @@ New code goes in `engine/src/teamod/` and `engine/tests/teamod-*.test.ts`, which
 | File | Change | Why |
 |---|---|---|
 | `src/ipc/client.ts`, `src/ipc/protocol.ts` | Add `mod` to the screen kinds | The mod's bridge attaches as its own kind of screen |
+| `src/core/home.ts`, `src/core/shares.ts` | Default home is `~/.teamod`, never migrated from `~/.teamod`; `~/.teamod` and `~/.teamod` both count as secret | The launcher always sets the home; this is the fail-safe, and a lane must not read a teammate's real teamod |
+| `src/agent/policy.ts` | `CREDENTIAL_IN_COMMAND` also names the home folders, leaving their open folders usable | Upstream ignored the home folder in shell commands |
+| `src/net/mesh/invitations.ts`, `src/net/invite.ts`, `src/net/crypto.ts`, `src/net/mesh/mesh.ts`, `src/protocol.ts` | `teamod://` links only, new pairing salts, new room key label | teamod's network is its own |
+| `src/daemon/core.ts` | Earnings, support and companion launchers off | Dropped (`PARITY.md`) |
+| `src/daemon/server.ts`, `src/daemon/main.ts` | `notify` says if a screen took it; else a native notification | A teammate's request must reach you with Claude Code closed |
+| `src/agent/runtime/claude/terminal.ts` | MCP config in a 0600 file, removed on close | Its tokens showed in `ps` |
+| `tests/invite.test.ts`, `tests/mesh/{friend-offers,groups,pairing,protocol}.test.ts`, `tests/rename-{teamod,compat}.test.ts` | Updated to the patches above | They pinned teamod's links and labels |

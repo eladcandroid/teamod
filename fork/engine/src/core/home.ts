@@ -57,5 +57,6 @@ export function migrateHome(homeDir: string): string {
 export function teamodHome(): string {
   const fromEnv = teamodEnv('HOME') ?? process.env.TEAMOD_HOME;
   if (fromEnv) return fromEnv;
-  return (settled ??= migrateHome(os.homedir()));
+  // teamod's own home. Never the migration below: a teammate's real ~/.teamod stays teamod's.
+  return (settled ??= path.join(os.homedir(), '.teamod'));
 }

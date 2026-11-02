@@ -355,9 +355,11 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
     // It can be turned on and off later too (`network.setEnabled`).
     if (opts.network) stopNetwork = networkSwitch({ session, store, identity, name: config.name, dir: teamodHome(), demo: Boolean(demo), warn: (text) => session.system(text, 'warn') }, saved).stop;
     // Earnings from Stripe per project (the Mac app shows them): the daemon counts them in the background.
-    if (opts.network) stopEarnings = launchEarnings({ session, store, demo: Boolean(demo) });
+    // teamod: off, its screens are dropped (fork/PARITY.md).
+    void launchEarnings;
     // Merged work made in teamod, counted once per branch: the first and fifth merge ask for a star and a coffee.
-    if (opts.network) stopSupport = launchSupport({ session, store, demo: Boolean(demo), asks: teamodEnv('DEMO_ASKS') });
+    // teamod: off, teamod's own star and coffee prompts (fork/PARITY.md).
+    void launchSupport;
     // Claude Code sessions running outside teamod (Conductor, a terminal): the Mac app shows them live, read-only.
     // Tasks between Claudes (the gateway): over this room now, and over the network whenever it's on.
     if (opts.network) stopGateway = launchGateway({ session, store, demo: Boolean(demo) });
@@ -375,7 +377,8 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
     if (opts.network) stopAssistant = launchAssistant({ session, store, demo: Boolean(demo) });
     if (opts.network) stopClaudeCode = launchClaudeCode({ session, store, demo: Boolean(demo), notify: (e) => session.notifier.notify(e) });
     // Your phone (docs/companion.md): pairing it, and its link. Its DHT node runs only while a phone is paired or a pairing is open.
-    if (opts.network) stopCompanion = launchCompanion({ session, store, identity, terminals, demo: Boolean(demo), log: (line) => console.warn(line) });
+    // teamod: off, no phone app (fork/PARITY.md). Turned back on, phones need a signed app of your own.
+    void launchCompanion;
     if (config.mode === 'host' && config.inviteNow) void publish(config, room, session, () => closing);
     if (!demo) return;
     // A pretend friend and a fake invite so every part of the UI has something to show.

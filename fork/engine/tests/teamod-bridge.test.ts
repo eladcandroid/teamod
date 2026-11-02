@@ -90,6 +90,12 @@ describe('the bridge', () => {
     expect(body).toMatchObject({ ok: false });
   });
 
+  it('refuses a method teamod dropped', async () => {
+    const { bridge } = await start();
+    const { body } = await ask(bridge.socketPath, '/call', { key: bridge.key, method: 'POST', body: JSON.stringify({ method: 'companion.pair.start', args: [] }) });
+    expect(body).toEqual({ ok: false, error: "teamod doesn't offer companion.pair.start" });
+  });
+
   it('removes a socket left by a bridge that died', async () => {
     const { bridge } = await start();
     const { writeFileSync, existsSync } = await import('node:fs');

@@ -11,6 +11,7 @@ import { type Core, buildCore } from './core.js';
 import { clearDaemonInfo, writeDaemonInfo } from './files.js';
 import { watchEventLoop } from './lag.js';
 import { DaemonServer } from './server.js';
+import { notifyNatively } from '../teamod/notify.js';
 
 /** How long the daemon waits after the last screen closes before leaving the room. */
 export const LINGER_MS = 3000;
@@ -85,7 +86,10 @@ export async function startDaemon(config: Config, opts: DaemonOptions): Promise<
       if (await copyNative(text).catch(() => false)) return;
       await server.callCap('copyText', [text], currentClient());
     },
-    desktopNotify: (n) => server.notify([n]),
+    // No screen attached (Claude Code is closed): a teammate's request must still reach you.
+    desktopNotify: (n) => {
+      if (!server.notify([n])) notifyNatively(n);
+    },
     zoom: async (dir) => (await server.callCap('zoom', [dir], currentClient())) as { ok: boolean; message: string },
     // The Mac app's window to the front (Open on your Mac, from the phone): the window that can.
     raise: () => server.callCap('raise', []),

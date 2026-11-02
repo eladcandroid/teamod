@@ -5,13 +5,13 @@ export const P2P_SCHEME = 'p2p://';
 const LEGACY_PREFIX = 'teamod:';
 /** Invites are made as teamod://; teamod:// ones from before the rename still open. */
 export const DIRECT_PREFIX = 'teamod://';
-const DIRECT_PREFIXES = ['teamod://', 'teamod://'];
+const DIRECT_PREFIXES = ['teamod://'];
 const Z32_KEY = '[ybndrfg8ejkmcpqxot1uwisza345h769]{52}';
 const WS_URL = /^wss?:\/\/[^\s#@]+$/;
 const P2P_URL = new RegExp(`^p2p://${Z32_KEY}$`);
 /** `teamod://<key>[?relay=<https url>]#<secret>` (or `teamod://…`); the relay may be percent-encoded or not. */
-const DIRECT_LINK = new RegExp(`^(?:teamod|teamod)://(${Z32_KEY})/?(?:\\?relay=([^\\s#]+))?#([\\w-]+)$`);
-const DIRECT_IN_TEXT = new RegExp(`(?:teamod|teamod)://${Z32_KEY}/?(?:\\?relay=[^\\s#]+)?#[\\w-]{16,256}`);
+const DIRECT_LINK = new RegExp(`^teamod://(${Z32_KEY})/?(?:\\?relay=([^\\s#]+))?#([\\w-]+)$`);
+const DIRECT_IN_TEXT = new RegExp(`teamod://${Z32_KEY}/?(?:\\?relay=[^\\s#]+)?#[\\w-]{16,256}`);
 const RELAY = /^(https?|wss?):\/\/([^\s#/@?]+)\/?$/;
 
 const InvitePayload = z.object({

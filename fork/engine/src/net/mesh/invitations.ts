@@ -49,7 +49,7 @@ export const InvitationRecord = z.object({
 });
 export type InvitationRecord = z.infer<typeof InvitationRecord>;
 
-/** Links are made as teamod://; teamod:// ones from before the rename still open. */
+/** teamod's own network: a teamod link never opens here, and a teamod one never opens there. */
 export const LINK_SCHEME = 'teamod://';
 
 export const formatCode = (code: string): string => (code.match(/.{1,4}/g) ?? []).join('-');
@@ -93,9 +93,10 @@ export const codeLinkOf = (r: Pick<InvitationRecord, 'kind' | 'code'>): string =
 
 /** Read an invitation out of pasted text ("teamod://add#…", "teamod://add?code=…", the same with teamod:// from before the rename, "K7QM-4XPA-R2TD", "k7qm 4xpa r2td"…). */
 export function parseTicket(text: string): Ticket | undefined {
-  const link = /(?:teamod|teamod):\/\/(?:add|join)\/?#([\w-]{22})(?![\w-])/.exec(text);
+  if (/(?:teamod|teamod):\/\//.test(text)) return undefined;
+  const link = /teamod:\/\/(?:add|join)\/?#([\w-]{22})(?![\w-])/.exec(text);
   if (link) return { via: 'link', secret: link[1]! };
-  const codeLink = /(?:teamod|teamod):\/\/(?:add|join)\/?\?code=([0-9A-Za-z%+-]{12,40})/.exec(text);
+  const codeLink = /teamod:\/\/(?:add|join)\/?\?code=([0-9A-Za-z%+-]{12,40})/.exec(text);
   if (codeLink) {
     let raw = codeLink[1]!;
     try {
@@ -121,7 +122,7 @@ const scryptAsync = (pass: string, salt: string): Promise<Buffer> =>
 
 export async function pairingSecrets(ticket: Ticket): Promise<PairingSecrets> {
   if (ticket.via === 'code') {
-    const key = await scryptAsync(ticket.code, 'teamod-pair-code-v2');
+    const key = await scryptAsync(ticket.code, 'teamod-pair-code-v1');
     return { seed: key.subarray(0, 32), auth: key.subarray(32) };
   }
   const ikm = Buffer.from(ticket.secret, 'base64url');

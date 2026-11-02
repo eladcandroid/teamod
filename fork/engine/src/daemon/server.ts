@@ -134,9 +134,10 @@ export class DaemonServer {
   }
 
   /** Show a desktop notification on one screen (the Mac app when it's there). */
-  notify(args: readonly unknown[]): void {
+  notify(args: readonly unknown[]): boolean {
     const client = this.clients.pickNotifier();
     if (client) void this.capOn(client, 'notify', args).catch(() => undefined);
+    return client !== undefined;
   }
 
   private capOn(client: ConnectedClient, cap: Cap, args: readonly unknown[]): Promise<unknown> {
