@@ -43,6 +43,9 @@ const NEEDS_NO_ENGINE = new Set(['status', 'stop', 'service'])
 
 type Ran = { exitCode: number; stdout: string; stderr: string }
 
+/** A newer redraw took over: this one's result is discarded anyway, so it isn't worth showing. */
+const isSuperseded = (err: unknown): boolean => String(err).includes('superseded')
+
 const ranWords = (ran: Ran): string => (ran.stderr || ran.stdout).trim().split('\n').slice(-6).join('\n')
 
 /**
@@ -164,20 +167,25 @@ export const register: Register = (on, options) => {
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (TITLES[e.requestId] === undefined) return next(e)
     const { Text } = $.ui.resolve(e)
-    const current = await readLink($)
-    await readRev($, e.requestId)
-    if (!current) {
-      return <Text dimColor>{(await readProblem($))?.text ?? 'Starting teamod...'}</Text>
-    }
-    const viewport = {
-      surface: e.surface,
-      columns: e.props.bodyColumns,
-      rows: e.props.scroll.bodyRows,
-    }
-    const view = await viewOf($, e.requestId, viewport)
-    if (!view) return <Text dimColor>Starting teamod...</Text>
+    try {
+      const current = await readLink($)
+      await readRev($, e.requestId)
+      if (!current) {
+        return <Text dimColor>{(await readProblem($))?.text ?? 'Starting teamod...'}</Text>
+      }
+      const viewport = {
+        surface: e.surface,
+        columns: e.props.bodyColumns,
+        rows: e.props.scroll.bodyRows,
+      }
+      const view = await viewOf($, e.requestId, viewport)
+      if (!view) return <Text dimColor>Starting teamod...</Text>
 
-    return draw($, e, e.requestId, viewport, view.tree) as JSX.Element
+      return draw($, e, e.requestId, viewport, view.tree) as JSX.Element
+    } catch (err) {
+      if (isSuperseded(err)) return <Text dimColor>Starting teamod...</Text>
+      throw err
+    }
   })
 
   on('ui.close', async ($, e, next) => {
@@ -200,23 +208,28 @@ export const register: Register = (on, options) => {
 
   // What waits for you, above the prompt. Nothing waiting draws nothing of ours.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    if (e.props.hasSurvey || !(await readLink($))) return next(e)
-    await readRev($, 'band')
-    const viewport = { surface: e.surface, columns: e.props.bodyColumns, rows: e.props.maxRows }
-    const view = await viewOf($, 'band', viewport)
-    if (!view?.active) return next(e)
-    const { Box } = $.ui.resolve(e)
-    const ours = draw($, e, 'band', viewport, view.tree) as JSX.Element
-    const beneath = await next(e)
+    try {
+      if (e.props.hasSurvey || !(await readLink($))) return next(e)
+      await readRev($, 'band')
+      const viewport = { surface: e.surface, columns: e.props.bodyColumns, rows: e.props.maxRows }
+      const view = await viewOf($, 'band', viewport)
+      if (!view?.active) return next(e)
+      const { Box } = $.ui.resolve(e)
+      const ours = draw($, e, 'band', viewport, view.tree) as JSX.Element
+      const beneath = await next(e)
 
-    return beneath ? (
-      <Box flexDirection="column">
-        {ours}
-        {beneath}
-      </Box>
-    ) : (
-      ours
-    )
+      return beneath ? (
+        <Box flexDirection="column">
+          {ours}
+          {beneath}
+        </Box>
+      ) : (
+        ours
+      )
+    } catch (err) {
+      if (isSuperseded(err)) return next(e)
+      throw err
+    }
   })
 
   // A terminal's module, each tick: its keys in, the screen back if it changed.
