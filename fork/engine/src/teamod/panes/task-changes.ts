@@ -1,4 +1,5 @@
 import type { PrConversation } from '../../core/work-store.js';
+import type { GitFix, GitTrouble } from '../../shared/git-trouble.js';
 import type { CommitDetail, HistoryFilters, LogPage } from '../../workspaces/history.js';
 import type { MergePreview } from '../../workspaces/merge-preview.js';
 import type { Workspace } from '../../workspaces/types.js';
@@ -9,14 +10,46 @@ import { peerText } from './common.js';
 /** A base can be a whole commit hash: no one reads forty characters. */
 const shortRef = (ref: string): string => (/^[0-9a-f]{40}$/.test(ref) ? ref.slice(0, 7) : ref);
 
+type Retry = 'pr' | 'pr_draft' | 'merge_base' | 'none';
+
+/** It couldn't reach GitHub: what's wrong in words, and what can fix it. */
+function troubleCard(ctx: Ctx, ws: Workspace, trouble: { readonly at: GitTrouble; readonly retry: Retry }, clear: () => void): Node {
+  const [main, ...rest] = trouble.at.fixes;
+  const [more, setMore] = ctx.local(`trouble:${ws.id}:more`, false);
+  const fix = (one: GitFix, primary: boolean): Node =>
+    ctx.draw.button(
+      `git-fix:${one.id}`,
+      one.label,
+      async () => {
+        clear();
+        await ctx.call('workbench.gitFix', ws.id, one.id, trouble.retry);
+      },
+      primary ? { primary: true } : { plain: true },
+    );
+  return col([
+    text(trouble.at.title, { color: 'warning', weight: 'semibold' }),
+    dim(trouble.at.explain),
+    row([main ? fix(main, true) : undefined, rest.length > 0 ? ctx.draw.button('git-fix-more', more ? 'Less' : 'More', () => setMore(!more), { plain: true, dim: true }) : undefined, ctx.draw.button('git-fix-close', 'Close', clear, { plain: true, dim: true })]),
+    main?.command ? code(main.command, { language: 'sh' }) : undefined,
+    ...(more ? rest.map((one) => col([fix(one, false), dim(one.detail)])) : []),
+  ]);
+}
+
 function pullRequestStrip(ctx: Ctx, ws: Workspace): Node {
   const pr = ctx.state.prs[ws.id];
+  const [trouble, setTrouble] = ctx.local<{ readonly at: GitTrouble; readonly retry: Retry } | undefined>(`trouble:${ws.id}`, undefined);
+  /** A GitHub step: when it can't reach GitHub, the answer says what can fix that. */
+  const github = (retry: Retry, step: () => Promise<unknown>) => async (): Promise<void> => {
+    const answer = (await step()) as { readonly trouble?: GitTrouble } | undefined;
+    if (answer?.trouble) setTrouble({ at: answer.trouble, retry });
+  };
+  if (trouble) return troubleCard(ctx, ws, trouble, () => setTrouble(undefined));
   if (!pr) {
     return row([
-      ctx.draw.button('pr-quick', 'Create Pull Request', () => ctx.call('workbench.quickPr', ws.id), { hotkey: 'r' }),
-      ctx.draw.button('pr-draft', 'Draft', () => ctx.call('workbench.quickPr', ws.id, { draft: true }), { plain: true, dim: true }),
+      ctx.draw.button('pr-quick', 'Create Pull Request', github('pr', () => ctx.call('workbench.quickPr', ws.id)), { hotkey: 'r' }),
+      ctx.draw.button('pr-draft', 'Draft', github('pr_draft', () => ctx.call('workbench.quickPr', ws.id, { draft: true })), { plain: true, dim: true }),
       ctx.draw.button('pr-agent', 'Let the Agent Write It', () => ctx.call('workbench.createPr', ws.id), { plain: true, dim: true }),
-      ctx.draw.button('merge-base', 'Push to Base', () => ctx.call('workbench.mergeToBase', ws.id), { plain: true, dim: true }),
+      ctx.draw.button('merge-base', 'Push to Base', github('merge_base', () => ctx.call('workbench.mergeToBase', ws.id)), { plain: true, dim: true }),
     ]);
   }
   const open = pr.state === 'OPEN';
@@ -33,7 +66,7 @@ function pullRequestStrip(ctx: Ctx, ws: Workspace): Node {
       ctx.draw.button('pr-talk', 'Conversation', () => ctx.go({ name: 'pr', params: { id: ws.id } }), { plain: true, dim: true }),
       open && pr.checks === 'failing' ? ctx.draw.button('pr-fix', 'Fix Checks', () => ctx.call('workbench.fixChecks', ws.id), { plain: true }) : undefined,
       open && pr.conflicts ? ctx.draw.button('pr-conflicts', 'Resolve Conflicts', () => ctx.call('workbench.resolvePrConflicts', ws.id), { plain: true }) : undefined,
-      open && pr.mergeState === 'behind' ? ctx.draw.button('pr-update', 'Update Branch', () => ctx.call('workbench.prStep', ws.id, 'update_branch'), { plain: true }) : undefined,
+      open && pr.mergeState === 'behind' ? ctx.draw.button('pr-update', 'Update Branch', github('none', () => ctx.call('workbench.prStep', ws.id, 'update_branch')), { plain: true }) : undefined,
       open && pr.draft ? ctx.draw.button('pr-ready', 'Ready for Review', () => ctx.call('workbench.prStep', ws.id, 'ready'), { plain: true }) : undefined,
       pr.state === 'MERGED' ? ctx.draw.button('pr-continue', 'Continue After Merge', () => ctx.call('workbench.continueAfterMerge', ws.id), { plain: true }) : undefined,
       ctx.draw.button('pr-refresh', 'Refresh', () => ctx.call('workbench.refreshPrs', ws.id), { plain: true, dim: true }),

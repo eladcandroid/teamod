@@ -1,17 +1,24 @@
+import { execFile } from 'node:child_process';
+import { readFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { LogItem } from '../../core/store.js';
 import { isRunning } from '../../core/store.js';
 import { agentLabel } from '../../shared/agent-label.js';
+import { type LinkedImage, splitImages } from '../../shared/attachment-links.js';
 import { steeredMessages } from '../../shared/claude-notices.js';
 import type { StepPage, StepRecord, StepSummary } from '../../shared/steps.js';
 import { agentChoices, agentForChoice, choiceForAgent } from '../../ui/agent-choice.js';
 import { queueIn } from '../../ui/compose.js';
+import type { EnvChange } from '../../workspaces/env.js';
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx, Screen } from '../screens.js';
 import { type Node, code, col, dim, line, md, row, span, text, title } from '../tree.js';
 import { type Place, ago, back, chrome, empty, findWorkspace, page, statusOf } from './common.js';
 import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } from './task-changes.js';
 import { filePage, filesPage, scratchPage } from './task-files.js';
-import { terminalPage } from './task-terminal.js';
+import { agentOutputPage, agentPage, agentStepPage, agentTaskPage, agentsPage } from './task-agents.js';
+import { scriptsPage, terminalPage, visualPage } from './task-terminal.js';
 import { brandWords } from '../brand.js';
 import { richNodes } from '../rich/rich.js';
 
@@ -60,13 +67,29 @@ function agentItem(ctx: Ctx, ws: Workspace, item: AgentItem): Node {
   ]);
 }
 
+/** An image in a message: its name, and Open; drawn where the surface can. */
+function imageRow(ctx: Ctx, itemId: string, index: number, image: LinkedImage): Node {
+  const [shown, setShown] = ctx.local(`image:${itemId}:${index}`, false);
+  const loaded = shown ? ctx.load(`image:${image.href}`, async () => (await ctx.call('attachments.read', image.owner, image.file)) as { readonly mime: string; readonly data: string }) : undefined;
+  return col([
+    row([
+      dim(image.label),
+      ctx.draw.button(`image-show:${itemId}:${index}`, shown ? 'Hide' : 'Show', () => setShown(!shown), { plain: true, dim: true }),
+      ctx.draw.button(`image-open:${itemId}:${index}`, 'Open', () => ctx.call('attachments.open', image.owner, image.file), { plain: true, dim: true }),
+    ]),
+    loaded?.value && ctx.surface === 'terminal' && loaded.value.mime === 'image/png' ? { k: 'image' as const, key: `img:${image.href}`, png: loaded.value.data, columns: Math.min(100, Math.max(10, ctx.columns - 2)), rows: 16, alt: image.label } : undefined,
+  ]);
+}
+
 /** Your message: words, and, for your own, Edit (rewind or fork from here). */
 function chatItem(ctx: Ctx, ws: Workspace, item: ChatItem, waiting: ReturnType<typeof steeredMessages>['waiting']): Node {
   const mine = !item.byAgent && item.from === ctx.state.selfId;
   const steer = waiting.get(item.id);
+  const split = splitImages(item.text);
   return col([
     line(span(item.name, { weight: 'semibold' }), span(`  ${ago(item.ts)}`, { dim: true })),
-    md(item.text),
+    md(split.text),
+    ...split.images.map((image, i) => imageRow(ctx, item.id, i, image)),
     steer &&
       row([
         dim(steer.waiting === 'stopping' ? 'Your agent stops its step to read this' : 'Sent. Waiting for your agent to read it'),
@@ -97,6 +120,7 @@ function logItem(ctx: Ctx, ws: Workspace, item: LogItem, waiting: ReturnType<typ
 function queueRows(ctx: Ctx, channel: string): Node | undefined {
   const queued = queueIn(ctx.state, channel, ctx.state.selfId);
   if (!queued.length) return undefined;
+  const [, setDraft] = ctx.local(`composer:${channel}:draft`, '');
   return col([
     dim(`Waiting (${queued.length})`),
     ...queued.map((q, i) =>
@@ -106,6 +130,17 @@ function queueRows(ctx: Ctx, channel: string): Node | undefined {
         q.yours && i > 0 ? ctx.draw.button(`q:${q.requestId}:up`, 'Up', () => ctx.call('host.reorderQueued', q.requestId, i - 1), { plain: true, dim: true }) : undefined,
         q.yours && i < queued.length - 1 ? ctx.draw.button(`q:${q.requestId}:down`, 'Down', () => ctx.call('host.reorderQueued', q.requestId, i + 1), { plain: true, dim: true }) : undefined,
         q.yours ? ctx.draw.button(`q:${q.requestId}:next`, 'Next', () => ctx.call('host.sendNext', q.requestId), { plain: true, dim: true }) : undefined,
+        q.yours
+          ? ctx.draw.button(
+              `q:${q.requestId}:edit`,
+              'Edit',
+              async () => {
+                await ctx.call('host.cancelQueued', q.requestId);
+                setDraft(q.prompt);
+              },
+              { plain: true, dim: true },
+            )
+          : undefined,
         q.yours ? ctx.draw.button(`q:${q.requestId}:drop`, 'Remove', () => ctx.call('host.cancelQueued', q.requestId), { plain: true, dim: true }) : undefined,
       ]),
     ),
@@ -131,6 +166,22 @@ function contextMeter(ctx: Ctx, channel: string): string | undefined {
   return info.compacting ? 'Compacting...' : `${percent}% of context`;
 }
 
+/** The picture on the clipboard, as base64 PNG (macOS; elsewhere attach it by path). */
+async function clipboardPng(run: typeof execFile = execFile): Promise<string | undefined> {
+  if (process.platform !== 'darwin') return undefined;
+  const file = path.join(os.tmpdir(), `teamod-paste-${process.pid}.png`);
+  const script = ['set p to POSIX file ' + JSON.stringify(file), 'set f to open for access p with write permission', 'set eof f to 0', 'write (the clipboard as «class PNGf») to f', 'close access f'];
+  const ran = await new Promise<boolean>((resolve) => {
+    run('osascript', script.flatMap((l) => ['-e', l]), (err) => resolve(!err));
+  });
+  if (!ran) return undefined;
+  try {
+    return readFileSync(file).toString('base64');
+  } finally {
+    rmSync(file, { force: true });
+  }
+}
+
 interface Attached {
   readonly n: number;
   readonly chip: string;
@@ -142,6 +193,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
   const [mode, setMode] = ctx.local<'send' | 'steer' | 'btw'>(`composer:${channel}:mode`, 'send');
   const [images, setImages] = ctx.local<readonly Attached[]>(`composer:${channel}:images`, []);
   const [attaching, setAttaching] = ctx.local(`composer:${channel}:attaching`, false);
+  const [draft, setDraft] = ctx.local(`composer:${channel}:draft`, '');
   const planOn = ctx.state.planMode[channel] === true;
   const meter = contextMeter(ctx, channel);
   const placeholder = mode === 'btw' ? 'Ask on the side; it stays out of the chat' : mode === 'steer' ? 'Your agent reads this at its next step' : running ? 'Your agent is working: this waits its turn' : planOn ? 'Describe the work: your agent plans first' : 'Message your agent, or /command';
@@ -157,6 +209,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
     const typed = images.length ? `${images.map((a) => a.chip).join(' ')} ${words}` : words;
     const outgoing = images.length ? ((await ctx.call('attachments.expand', typed, channel)) as string) : typed;
     setImages([]);
+    setDraft('');
     setMode('send');
     await ctx.call('session.submit', outgoing, { channel, ...(mode === 'steer' ? { urgent: true } : {}) });
   };
@@ -164,7 +217,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
     return row([dim('Archived.'), ctx.draw.button('restore', 'Restore', () => ctx.call('workspaces.restore', ws.id), { primary: true })]);
   }
   return col([
-    ctx.draw.input(`composer:${channel}:box`, send, { placeholder, rows: 2, submitLabel: mode === 'btw' ? 'ask' : mode === 'steer' ? 'steer' : running ? 'queue' : 'send' }),
+    ctx.draw.input(`composer:${channel}:box`, send, { placeholder, rows: 2, ...(draft ? { value: draft } : {}), submitLabel: mode === 'btw' ? 'ask' : mode === 'steer' ? 'steer' : running ? 'queue' : 'send' }),
     images.length > 0 && dim(`Attached: ${images.map((a) => a.file).join(', ')}`),
     attaching &&
       ctx.draw.input(
@@ -181,6 +234,16 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
       ws.askOnly !== true && ctx.draw.button('mode:plan', planOn ? 'Plan' : 'Act', () => ctx.call('session.setPlanMode', channel, !planOn), { plain: true, hotkey: 'p', ...(planOn ? {} : { dim: true }) }),
       ctx.draw.button('mode:btw', 'Side question', () => setMode(mode === 'btw' ? 'send' : 'btw'), { plain: true, ...(mode === 'btw' ? {} : { dim: true }) }),
       ctx.draw.button('attach', 'Image', () => setAttaching(true), { plain: true, dim: true }),
+      ctx.draw.button(
+        'paste-image',
+        'Paste Image',
+        async () => {
+          const png = await clipboardPng();
+          if (!png) return ctx.effect({ toast: 'There’s no picture on the clipboard.' });
+          setImages([...images, (await ctx.call('attachments.add', 'png', png)) as Attached]);
+        },
+        { plain: true, dim: true },
+      ),
       ctx.draw.button('model', ws.agent?.model ?? ws.model ?? ws.agent?.label ?? 'Model', () => ctx.go({ name: 'model', params: { id: ws.id } }), { plain: true, dim: true }),
       ctx.draw.button('more', 'More', () => ctx.go({ name: 'more', params: { id: ws.id } }), { plain: true, dim: true }),
       meter ? dim(meter) : undefined,
@@ -302,6 +365,34 @@ function modelPage(ctx: Ctx, ws: Workspace, channel: string): Node {
   );
 }
 
+/** What changed in its env files, by key only: values are never drawn. */
+function envList(changes: readonly EnvChange[]): Node {
+  return col(changes.map((change) => dim(`${change.file}: ${change.binary ? 'changed' : [...change.added.map((k) => `+${k}`), ...change.changed.map((k) => `~${k}`), ...change.removed.map((k) => `-${k}`)].join(' ')}`)));
+}
+
+/** Before a worktree goes away: env files changed there would go with it. */
+function removePage(ctx: Ctx, ws: Workspace): Node {
+  ctx.load(`remove:${ws.id}`, () => ctx.call('workspaces.prepareRemoval', ws.id));
+  const changes = ctx.state.envChanges[ws.id] ?? [];
+  return col(
+    [
+      title(`Archive ${ws.name}`),
+      dim('Its branch and files are kept. You can restore it.'),
+      changes.length > 0 && col([text('Env files changed here would stay behind:', { color: 'warning' }), envList(changes), row([ctx.draw.button('env-back', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), {}), ctx.draw.button('env-save', 'Keep a Copy in teamod', () => ctx.call('workspaces.saveEnvInTeamod', ws.id), {})])]),
+      ctx.draw.button(
+        'archive-go',
+        'Archive',
+        async () => {
+          await ctx.call('workspaces.archive', ws.id);
+          ctx.show('work');
+        },
+        { primary: true },
+      ),
+    ],
+    { gap: 1 },
+  );
+}
+
 /** What's advanced about a conversation, out of the way. */
 function morePage(ctx: Ctx, ws: Workspace, channel: string): Node {
   const [forking, setForking] = ctx.local(`more:${ws.id}:forking`, false);
@@ -309,7 +400,7 @@ function morePage(ctx: Ctx, ws: Workspace, channel: string): Node {
     chrome(ctx, placesOf(ws.id)),
     back(ctx, 'Chat'),
     title(ws.name),
-    ctx.draw.button('compact', 'Compact', () => ctx.call('session.compact', channel), { plain: true }),
+    ctx.draw.button('compact', 'Compact', () => ctx.call(ws.kind === 'chat' ? 'session.compact' : 'workspaces.compact', ws.kind === 'chat' ? channel : ws.id), { plain: true }),
     ws.kind !== 'main'
       ? forking
         ? ctx.draw.input(
@@ -323,24 +414,10 @@ function morePage(ctx: Ctx, ws: Workspace, channel: string): Node {
         : ctx.draw.button('fork', 'Fork', () => setForking(true), { plain: true })
       : undefined,
     ctx.draw.button('finder', 'Show in Finder', () => ctx.call('workspaces.openInFinder', ws.id), { plain: true }),
-    !ws.archived && ws.kind === 'worktree' ? ctx.draw.button('archive', 'Archive', () => ctx.call('workspaces.archive', ws.id), { plain: true }) : undefined,
+    !ws.archived && ws.kind === 'worktree' ? ctx.draw.button('archive', 'Archive', () => ctx.go({ name: 'remove', params: { id: ws.id } }), { plain: true }) : undefined,
     ctx.draw.button('copy-answer', 'Copy Last Answer', () => ctx.call('session.copyLastAnswer'), { plain: true }),
-  );
-}
-
-/** Sub-agents and background work: every card's, newest first. */
-function agentsPage(ctx: Ctx, ws: Workspace, channel: string): Node {
-  const cards = ctx.state.log.filter((item): item is AgentItem => item.channel === channel && item.type === 'agent' && item.subagents.length > 0).reverse();
-  const agents = cards.flatMap((card) => card.subagents.map((sub) => ({ card, sub })));
-  return page(
-    chrome(ctx, placesOf(ws.id), 'agents'),
-    agents.length === 0 && empty('No sub-agents here yet.'),
-    ...agents.map(({ card, sub }) =>
-      ctx.draw.button(`agent:${card.id}:${sub.id}`, sub.title, () => ctx.go({ name: 'steps', params: { id: ws.id, channel, item: card.id } }), {
-        plain: true,
-        spans: [span(sub.status === 'running' ? '… ' : sub.status === 'failed' ? '! ' : '  ', sub.status === 'failed' ? { color: 'error' } : { dim: true }), span(sub.title), span(`  ${sub.kind === 'background' ? 'background' : `${sub.steps.length} steps`}`, { dim: true })],
-      }),
-    ),
+    ctx.draw.button('refresh', 'Refresh', () => ctx.call('workspaces.refresh', ws.id), { plain: true }),
+    ctx.draw.button('stop-everywhere', 'Stop Your Agent Everywhere', () => ctx.call('session.stopAgent'), { plain: true }),
   );
 }
 
@@ -355,8 +432,15 @@ export const taskPane: Screen = (ctx) => {
   if (ctx.route.name === 'edit' && params.line) return editPage(ctx, ws, params.line);
   if (ctx.route.name === 'model') return modelPage(ctx, ws, channel);
   if (ctx.route.name === 'more') return morePage(ctx, ws, channel);
-  if (ctx.route.name === 'agents') return agentsPage(ctx, ws, channel);
   const within = (here: string | undefined, body: Node, backTo?: string): Node => page(chrome(ctx, placesOf(ws.id), here), backTo ? back(ctx, backTo) : undefined, body);
+  if (ctx.route.name === 'agents') return within('agents', agentsPage(ctx, ws));
+  if (ctx.route.name === 'cc-agent' && params.session && params.agent) return within(undefined, agentPage(ctx, ws, params.session, params.agent), 'Agents');
+  if (ctx.route.name === 'cc-step' && params.session && params.agent && params.seq) return within(undefined, agentStepPage(ctx, params.session, params.agent, Number(params.seq)), 'Sub-agent');
+  if (ctx.route.name === 'cc-output' && params.session && params.agent && params.path) return within(undefined, agentOutputPage(ctx, params.session, params.agent, params.path), 'Sub-agent');
+  if (ctx.route.name === 'cc-task' && params.session && params.task) return within(undefined, agentTaskPage(ctx, params.session, params.agent, params.task), 'Agents');
+  if (ctx.route.name === 'visual' && params.n) return within(undefined, visualPage(ctx, ws, Number(params.n)), 'Terminal');
+  if (ctx.route.name === 'scripts') return within(undefined, scriptsPage(ctx, ws), 'Terminal');
+  if (ctx.route.name === 'remove') return within(undefined, removePage(ctx, ws), 'More');
   if (ctx.route.name === 'changes') return within('changes', changesPage(ctx, ws));
   if (ctx.route.name === 'merge') return within(undefined, mergePage(ctx, ws), 'Changes');
   if (ctx.route.name === 'merge-pr') return within(undefined, mergePrPage(ctx, ws), 'Changes');
@@ -368,9 +452,17 @@ export const taskPane: Screen = (ctx) => {
   if (ctx.route.name === 'scratch') return within(undefined, scratchPage(ctx, ws), 'Files');
   if (ctx.route.name === 'terminal') return within('terminal', terminalPage(ctx, ws));
   const running = ctx.state.log.some((item) => item.channel === channel && item.type === 'agent' && isRunning(item.status) && item.status !== 'queued');
+  ctx.load(`env:${ws.id}`, () => ctx.call('workspaces.checkEnv', ws.id));
+  const envAsks = ctx.state.envAsks[ws.id] ?? [];
   return page(
     chrome(ctx, placesOf(ws.id), 'chat'),
     col([row([title(ws.name), ws.branch ? dim(ws.branch) : undefined]), line(statusOf(ctx.state, ws))]),
+    envAsks.length > 0 &&
+      col([
+        text('Env files changed here, and the main folder doesn’t have them:', { color: 'warning' }),
+        envList(envAsks),
+        row([ctx.draw.button('env-copy', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), { primary: true }), ctx.draw.button('env-keep', 'Keep Here Only', () => ctx.call('workspaces.keepEnvHere', ws.id), { plain: true, dim: true })]),
+      ]),
     ws.askOnly && ws.kind !== 'chat'
       ? row([dim('Questions only: your agent won’t change anything in main.'), ctx.draw.button('continue', 'Continue in New Worktree', () => ctx.call('workspaces.continueInWorktree', ws.id), { plain: true })])
       : undefined,

@@ -1,7 +1,8 @@
 import { agentTermId, globalShellId, globalShellNumber, isGlobalShell, runId, setupId, shellId, terminalLabel } from '../../shared/terminal-keys.js';
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, row, text } from '../tree.js';
+import { richNodes } from '../rich/rich.js';
+import { type Node, col, dim, row, text, title } from '../tree.js';
 
 /** How tall a terminal draws, given what the pane has. */
 const TERM_ROWS_SPARE = 9;
@@ -55,6 +56,8 @@ export function terminalPage(ctx: Ctx, ws: Workspace): Node {
       runId(ws.id) in ctx.state.terminals ? ctx.draw.button('term-stop-run', 'Stop Run', () => ctx.call('workbench.stopRun', ws.id), { plain: true, dim: true }) : undefined,
       ctx.draw.button('term-setup', 'Setup', () => ctx.call('workbench.runSetup', ws.id), { plain: true, dim: true }),
       ctx.draw.button('term-agent', 'Agent', () => ctx.call('agentTerm.open', ws.id, size), { plain: true, dim: true }),
+      ctx.state.agentTerms[ws.id] ? ctx.draw.button('term-take-over', 'Back to Chat', () => ctx.call('agentTerm.takeOver', ws.id), { plain: true, dim: true }) : undefined,
+      ctx.draw.button('term-scripts', 'Scripts', () => ctx.go({ name: 'scripts', params: { id: ws.id } }), { plain: true, dim: true }),
     ]),
     shown === undefined ? dim('Opening a shell...') : undefined,
     shown !== undefined && { k: 'term', key: `term:${shown}`, term: shown, height: size.rows },
@@ -66,7 +69,7 @@ export function terminalPage(ctx: Ctx, ws: Workspace): Node {
         ctx.draw.button('term-esc', 'Esc', () => hub?.write(shown, '\x1b'), { plain: true, dim: true }),
         ctx.draw.button('term-up', 'Scroll Up', () => hub?.scroll(shown, size.rows - 1), { plain: true, dim: true }),
         ctx.draw.button('term-down', 'Scroll Down', () => hub?.scroll(shown, 1 - size.rows), { plain: true, dim: true }),
-        ctx.draw.button('term-copy', 'Copy Screen', () => ctx.effect({ copy: hub?.text(shown) ?? '' }), { plain: true, dim: true }),
+        ctx.draw.button('term-copy', 'Copy Screen', () => ctx.call('session.copyText', hub?.text(shown) ?? ''), { plain: true, dim: true }),
         ctx.draw.button('term-rename', 'Rename', () => setRenaming(true), { plain: true, dim: true }),
         exited ? ctx.draw.button('term-restart', 'Restart', () => ctx.call('terminals.restart', shown), { hotkey: 'r', primary: true }) : undefined,
         ctx.draw.button(
@@ -91,6 +94,40 @@ export function terminalPage(ctx: Ctx, ws: Workspace): Node {
         )
       : undefined,
     exited ? text(`It ended${ctx.state.termExits[shown!] !== null ? ` with code ${ctx.state.termExits[shown!]}` : ''}.`, { dim: true }) : undefined,
+    ctx.state.agentTerms[ws.id]
+      ? ctx.draw.input(
+          'term-visual',
+          (value) => {
+            const n = Number(value?.trim());
+            if (Number.isInteger(n) && n > 0) ctx.go({ name: 'visual', params: { id: ws.id, n: String(n) } });
+          },
+          { label: 'Show visual', placeholder: 'The number in its link', submitLabel: 'show' },
+        )
+      : undefined,
     dim('Click the screen to type. Esc gives the keyboard back; Ctrl-] sends Esc to the program.'),
   ]);
+}
+
+/** A visual the agent's own terminal linked to: its block, drawn as a chat would. */
+export function visualPage(ctx: Ctx, ws: Workspace, n: number): Node {
+  const loaded = ctx.load(`visual:${ws.id}:${n}`, async () => (await ctx.call('agentTerm.visual', ws.id, n)) as string | undefined);
+  if (loaded.error) return text(loaded.error, { color: 'error' });
+  if (!loaded.value) return dim(loaded.loading ? 'Loading...' : 'That visual isn’t kept any more.');
+  return col(richNodes(ctx, loaded.value), { gap: 1 });
+}
+
+/** What runs when this project's worktrees open, and on Run. Kept in the project. */
+export function scriptsPage(ctx: Ctx, ws: Workspace): Node {
+  const project = ctx.state.projects.find((p) => p.id === ws.projectId);
+  const scripts = project?.scripts;
+  return col(
+    [
+      title('Scripts'),
+      dim('Setup runs in each new worktree. Run is what the Run button starts.'),
+      ...(['setup', 'run'] as const).map((kind) =>
+        ctx.draw.input(`script:${kind}`, (value) => ctx.call('workbench.setScript', ws.projectId, kind, value?.trim() ?? ''), { label: kind === 'setup' ? 'Setup' : 'Run', value: scripts?.[kind]?.command ?? '', placeholder: 'A shell command', submitLabel: 'save' }),
+      ),
+    ],
+    { gap: 1 },
+  );
 }

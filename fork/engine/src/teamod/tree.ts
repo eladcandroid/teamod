@@ -62,7 +62,7 @@ export const line = (...spans: ReadonlyArray<Span | string | false | undefined>)
 });
 export const span = (t: string, style: Omit<Span, 't'> = {}): Span => ({ t, ...style });
 
-type Kids = ReadonlyArray<Node | false | undefined | null>;
+type Kids = ReadonlyArray<Node | false | undefined | null | '' | 0>;
 const kids = (children: Kids): Node[] => children.filter((c): c is Node => Boolean(c));
 
 export const col = (children: Kids, style: Partial<Extract<Node, { k: 'box' }>> = {}): Node => ({ ...style, k: 'box', dir: 'column', children: kids(children) });

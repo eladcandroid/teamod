@@ -73,6 +73,7 @@ function item(ctx: Ctx, need: NeedsYou, index: number, total: number, go: (to: n
       detail.length > brief.length ? ctx.draw.button(`need:${need.id}:more`, expanded ? 'Less' : 'More', () => setExpanded(!expanded), { plain: true, dim: true, hotkey: 'm' }) : undefined,
       open ? ctx.draw.button(`need:${need.id}:open`, 'Open', () => openWorkspace(ctx, open), { plain: true, dim: true, hotkey: 'o' }) : undefined,
       total > 1 ? ctx.draw.button('need:next', 'Next', () => go((index + 1) % total), { plain: true, dim: true, hotkey: 'n' }) : undefined,
+      ctx.draw.button(`need:${need.id}:dismiss`, 'Dismiss', () => ctx.call('needs.dismiss', need.id), { plain: true, dim: true, hotkey: 'x' }),
     ]),
   ]);
 }
