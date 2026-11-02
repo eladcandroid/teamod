@@ -8,7 +8,7 @@
     "engineRepo": {
       "type": "string",
       "title": "Where the engine comes from",
-      "description": "The git repository holding teamod, for an install without a checkout. Whoever shared this mod with you has it.",
+      "description": "The git repository holding teamod's engine. Leave empty for the one this mod came from.",
       "default": ""
     }
   },

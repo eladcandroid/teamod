@@ -35,13 +35,19 @@ const isInLane = async ($: EngineInterface): Promise<boolean> =>
 /** The Claude Code this was last tested on: the mod API is early access and moves between releases. */
 const TESTED_ON = '2.1.316'
 
+/** Where the engine comes from when the mod was installed without a checkout: the mod's own repository. */
+const ENGINE_REPO = 'https://github.com/eladcandroid/teamod.git'
+
+/** Verbs that report on or stop the engine: none of them should download it. */
+const NEEDS_NO_ENGINE = new Set(['status', 'stop', 'service'])
+
 type Ran = { exitCode: number; stdout: string; stderr: string }
 
 const ranWords = (ran: Ran): string => (ran.stderr || ran.stdout).trim().split('\n').slice(-6).join('\n')
 
 /**
  * Sets the engine up: this checkout's when the plugin sits beside it, built if need be; else a copy
- * of the repository the mod's options name. Nothing downloads without a repository to trust.
+ * of the repository the mod's options name, by default the one the mod itself came from.
  */
 const setup = async ($: EngineInterface, repository: string): Promise<string> => {
   const home = await homeOf($)
@@ -50,9 +56,6 @@ const setup = async ($: EngineInterface, repository: string): Promise<string> =>
   let engine = `${$.plugin.root}/../engine`
   const beside = await $.fs.stat(`${engine}/package.json`).catch(() => undefined)
   if (!beside) {
-    if (!repository) {
-      return 'teamod needs its engine: set "Where the engine comes from" in /config (whoever shared this mod has the repository), then run /teamod setup again.'
-    }
     engine = `${home}/app/src/fork/engine`
     const have = await $.fs.stat(`${engine}/package.json`).catch(() => undefined)
     $.ui.toast('Getting the teamod engine. This takes a few minutes.')
@@ -73,7 +76,7 @@ const setup = async ($: EngineInterface, repository: string): Promise<string> =>
   if (ran.exitCode !== 0) return `Setup failed: ${ranWords(ran)}`
   void ensureBridge($)
 
-  return ran.stdout.trim() || 'teamod is set up.'
+  return 'teamod is set up. Run /teamod to open it.'
 }
 
 export const register: Register = (on, options) => {
@@ -100,7 +103,10 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'teamod' }, async ($, e) => {
     const words = e.args.trim()
     const verb = words.split(/\s+/)[0] ?? ''
-    if (verb === 'setup') return { text: await setup($, String(options.engineRepo ?? '')) }
+    const isFirstOpen = !NEEDS_NO_ENGINE.has(verb) && !(await runtimeOf($))
+    if (verb === 'setup' || isFirstOpen) {
+      return { text: await setup($, String(options.engineRepo || ENGINE_REPO)) }
+    }
     void ensureBridge($)
     if (verb === 'status') {
       const current = await readLink($)
