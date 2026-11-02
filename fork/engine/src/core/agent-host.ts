@@ -28,7 +28,7 @@ import { teamodEnvBoth } from './teamod-env.js';
 import { planForHome } from './plans/model.js';
 import { findIssue } from './board/model.js';
 import { explainTaskMentions } from '../shared/task-refs.js';
-import { ASSISTANT_TITLE, isAssistant } from '../shared/assistant.js';
+import { ASSISTANT_TITLE, activeAssistantChannel, isAssistant } from '../shared/assistant.js';
 import { type SlotWait, clampParallelRuns } from '../shared/run-slots.js';
 import { fallbackFor } from '../shared/runtime-fallbacks.js';
 import { agentForAsk } from './gateway/serve.js';
@@ -1348,6 +1348,40 @@ export class AgentHost {
       },
       sink,
     );
+  }
+
+  /**
+   * Your tools for a Claude Code session that isn't a run (teamod): what "Your Mac" gets, and the
+   * board and sentinels, each call through the same gate as a run's. Asks and approvals land where
+   * a run's do, in the open "Your Mac" chat.
+   */
+  async sessionTools(cwd: string): Promise<import('../agent/runtime/claude/terminal.js').SessionTools> {
+    const agent = this.agent as AgentBackend;
+    if (!agent.sessionTools) throw new Error('This agent has no tools to offer a session.');
+    const channel = activeAssistantChannel(this.store.getState().assistant);
+    const requesterName = peerName(this.store.getState(), this.selfId);
+    const requestId = `session-${randomUUID()}`;
+    this.deps.questions.track(requestId, this.selfId, channel);
+    const mac = this.deps.assistant?.(channel, this.selfId);
+    const board = this.deps.board?.(channel, this.selfId, { plan: false });
+    const sentinel = this.deps.sentinel?.(channel, this.selfId);
+    return agent.sessionTools({
+      prompt: '',
+      requesterName,
+      viaAgent: false,
+      context: [],
+      place: { cwd, additionalDirectories: [], autoEdit: false, onSession: () => undefined },
+      channel,
+      scope: 'full',
+      signal: new AbortController().signal,
+      onEvent: () => undefined,
+      onFileTouched: () => undefined,
+      canUseTool: (toolName, input) => this.authorizeTool(this.selfId, requesterName, toolName, input, channel, cwd),
+      askUser: (question) => this.deps.questions.ask(this.selfId, requestId, channel, question),
+      ...(mac ? { macTools: mac.tools, macBrief: mac.brief } : {}),
+      ...(board?.tools ? { board: board.tools } : {}),
+      ...(sentinel ? { sentinelTools: sentinel.tools, sentinelBrief: sentinel.brief, ...(sentinel.dashboard ? { dashboardTools: sentinel.dashboard } : {}) } : {}),
+    });
   }
 
   /**

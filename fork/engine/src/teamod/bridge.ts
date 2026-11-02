@@ -10,6 +10,7 @@ import type { Args, Method } from '../ipc/api.js';
 import { SocketClient, type SocketLike } from '../ipc/socket-client.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
+import { SessionTools } from './session-tools.js';
 import { bandActive, statusLine } from './panes/band.js';
 import { SCREENS } from './panes/index.js';
 import { PANE_TITLES, Screens, type SiteId, type Viewport, isPane, isSite } from './screens.js';
@@ -37,6 +38,8 @@ export interface BridgeOptions {
   /** Reach the daemon (started if need be). */
   readonly connect: (caps: { readonly notify: (note: DesktopNote) => void }) => Promise<SocketClient>;
   readonly out: (line: BridgeLine) => void;
+  /** The folder the session works in (its tools' folder). */
+  readonly cwd?: string;
   readonly log?: (line: string) => void;
 }
 
@@ -107,9 +110,11 @@ export class Bridge {
   private retryMs = RETRY_MIN_MS;
   private stopped = false;
   private lastStatus?: string;
+  private readonly tools: SessionTools;
 
   constructor(private readonly opts: BridgeOptions) {
     this.socketPath = path.join(opts.runDir, `${process.pid}.sock`);
+    this.tools = new SessionTools((method, args) => this.callEngine(method, args), opts.cwd ?? process.cwd());
     this.screens = new Screens(
       {
         getState: () => this.state,
@@ -153,6 +158,7 @@ export class Bridge {
     this.stopped = true;
     clearTimeout(this.dirtyTimer);
     clearTimeout(this.retryTimer);
+    await this.tools.close().catch(() => undefined);
     this.client?.close();
     const server = this.server;
     if (server) await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -175,6 +181,7 @@ export class Bridge {
     });
     client.onIntent((intent) => {
       if (intent.type === 'toast') this.opts.out({ t: 'toast', text: intent.text });
+      if (intent.type === 'navigate') this.screens.follow(intent.view);
     });
     client.onClose((reason) => {
       if (this.client !== client) return;
@@ -263,6 +270,14 @@ export class Bridge {
         const site = url.pathname.slice('/view/'.length);
         for (const [key, view] of this.shown) if (view.site === site) this.shown.delete(key);
         return send(200, { ok: true });
+      }
+      if (req.method === 'GET' && url.pathname === '/tools') {
+        return send(200, { tools: await this.tools.list() });
+      }
+      if (req.method === 'POST' && url.pathname === '/tool') {
+        const body = JSON.parse(await readBody(req)) as { name?: unknown; args?: unknown };
+        if (typeof body.name !== 'string') return send(400, { error: 'Which tool?' });
+        return send(200, await this.tools.run(body.name, (body.args ?? {}) as Record<string, unknown>));
       }
       if (req.method === 'POST' && url.pathname === '/press') {
         const body = JSON.parse(await readBody(req)) as { site?: unknown; key?: unknown; value?: unknown; viewport?: Record<string, unknown> };

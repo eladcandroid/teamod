@@ -479,6 +479,8 @@ export interface AgentBackend {
   run(input: AgentRunInput): Promise<string>;
   /** The agent's own terminal app on `input.place`'s conversation, with teamod's tools and rules (ACME-534). */
   terminal?(input: AgentRunInput, sink: TerminalSink): Promise<TerminalLaunch>;
+  /** teamod's tools for a Claude Code session outside the daemon (teamod): mounted behind a token of its own. */
+  sessionTools?(input: AgentRunInput): Promise<import('./runtime/claude/terminal.js').SessionTools>;
   /** Fetch current plan usage without running a turn, when supported. */
   refreshUsage?(): Promise<Usage | undefined>;
   /** A short worktree name for a task (a small model names it). */

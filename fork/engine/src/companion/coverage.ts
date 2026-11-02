@@ -557,6 +557,9 @@ export const PHONE: Record<Method, Side> = {
   'sentinel.dataReveal': 'mac',
   // An action cell's button runs a sentinel with its row, as Run Now does from the phone.
   'sentinel.runRow': 'phone',
+  // Only teamod's mod asks these; a phone never gets a session's tools.
+  'teamod.sessionTools': 'mac',
+  'teamod.closeSessionTools': 'mac',
   'dashboard.refresh': 'phone',
   'dashboard.create': 'mac',
   'dashboard.update': 'mac',

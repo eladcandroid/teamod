@@ -91,6 +91,9 @@ async function apply($: EngineInterface, line: Line): Promise<void> {
         key: line.key,
         connected: true,
       }))
+      await registerTools($).catch(err => {
+        $.ui.log(`teamod tools: ${String(err)}`, { to: 'debug' })
+      })
 
       return
     case 'dirty':
@@ -257,6 +260,37 @@ export async function press(
   } catch (err) {
     $.ui.toast(`That did not work: ${String(err)}`)
   }
+}
+
+type Tools = { tools: { name: string; description: string; inputSchema: Record<string, unknown> }[] }
+
+/** The engine's tools, for the model of this session: each call goes through the engine's gate. */
+async function registerTools($: EngineInterface): Promise<void> {
+  const current = await readLink($)
+  if (!current) return
+  const { tools } = (await request($, current, '/tools')) as Tools
+  for (const tool of tools) {
+    await $.tool.register({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+    })
+  }
+}
+
+/** One of those tools, called by this session's model. */
+export async function runTool(
+  $: EngineInterface,
+  name: string,
+  args: Record<string, unknown>,
+): Promise<{ text: string; isError: boolean }> {
+  const current = await readLink($)
+  if (!current) return { text: 'teamod is not connected.', isError: true }
+
+  return (await request($, current, '/tool', {
+    method: 'POST',
+    body: JSON.stringify({ name, args }),
+  })) as { text: string; isError: boolean }
 }
 
 type Commanded = { open?: string; title?: string; text?: string }

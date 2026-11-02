@@ -3,32 +3,8 @@ import { initialState } from '../src/core/store.js';
 import type { AppState } from '../src/core/store.js';
 import { bandActive, statusLine, withAnswer } from '../src/teamod/panes/band.js';
 import { SCREENS } from '../src/teamod/panes/index.js';
-import { type ScreenHost, Screens, type Viewport } from '../src/teamod/screens.js';
-import type { Node } from '../src/teamod/tree.js';
-
-const viewport: Viewport = { surface: 'terminal', columns: 80, rows: 40 };
-
-const flat = (node: Node): Node[] => [node, ...(node.k === 'box' ? node.children.flatMap(flat) : [])];
-const labelled = (node: Node, label: string): Node | undefined => flat(node).find((n) => n.k === 'button' && n.label === label);
-const words = (node: Node): string =>
-  flat(node)
-    .map((n) => (n.k === 'text' ? n.spans.map((s) => s.t).join('') : n.k === 'button' ? n.label : n.k === 'md' ? n.text : ''))
-    .join('\n');
-
-function start(state: Partial<AppState> = {}): { screens: Screens; calls: Array<[string, readonly unknown[]]>; set: (next: Partial<AppState>) => void } {
-  let current = { ...initialState('room'), ...state } as unknown as AppState;
-  const calls: Array<[string, readonly unknown[]]> = [];
-  const host: ScreenHost = {
-    getState: () => current,
-    call: async (method, args) => {
-      calls.push([method, args]);
-      return undefined;
-    },
-    markDirty: () => undefined,
-    look: () => undefined,
-  };
-  return { screens: new Screens(host, SCREENS), calls, set: (next) => (current = { ...current, ...next }) };
-}
+import { type ScreenHost, Screens } from '../src/teamod/screens.js';
+import { flat, labelled, start, viewport, words } from './teamod-helpers.js';
 
 const project = (id: string, name: string, workspaces: unknown[] = []): AppState['projects'][number] => ({ id, name, root: `/r/${name}`, base: 'main', workspaces }) as AppState['projects'][number];
 const worktree = { id: 'w1', projectId: 'p1', projectRoot: '/r/alpha', name: 'add-login', path: '/r/w1', kind: 'worktree', createdAt: 1, external: false };

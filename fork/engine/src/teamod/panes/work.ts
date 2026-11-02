@@ -1,7 +1,7 @@
 import type { Project, Workspace } from '../../workspaces/types.js';
 import { worktreeOrigin } from '../../workspaces/origin.js';
 import type { Ctx, Screen } from '../screens.js';
-import { type Node, col, dim, line, span, text, title } from '../tree.js';
+import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
 import { type Place, back, chrome, empty, homePath, openWorkspace, page, statusOf } from './common.js';
 
 const PLACES: readonly Place[] = [{ id: 'projects', label: 'Projects', hotkey: 'p', route: { name: 'projects' } }];
@@ -56,15 +56,37 @@ function projects(ctx: Ctx): Node {
   );
 }
 
+/** What opens from a new message: a worktree of its own, or a chat that only answers. */
+function startWork(ctx: Ctx, project: Project): Node {
+  const [kind, setKind] = ctx.local<'worktree' | 'chat'>(`home:${project.id}:kind`, 'worktree');
+  return col([
+    ctx.draw.input(
+      `home:${project.id}:box`,
+      async (value) => {
+        const words = value?.trim();
+        if (!words) return;
+        const id = kind === 'worktree' ? await ctx.call('workspaces.startWorktree', project.id, words) : await ctx.call('workspaces.startChat', project.id, words);
+        if (typeof id === 'string') openWorkspace(ctx, id);
+      },
+      { placeholder: kind === 'worktree' ? 'Describe a task: it gets its own folder, branch and agent' : 'Ask about this project: nothing here changes', rows: 2, submitLabel: kind === 'worktree' ? 'start' : 'ask', autoFocus: true },
+    ),
+    row([
+      ctx.draw.button('kind:worktree', 'New Worktree', () => setKind('worktree'), { plain: true, hotkey: 'n', ...(kind === 'worktree' ? {} : { dim: true }) }),
+      ctx.draw.button('kind:chat', 'New Chat', () => setKind('chat'), { plain: true, hotkey: 'c', ...(kind === 'chat' ? {} : { dim: true }) }),
+    ]),
+  ]);
+}
+
 function projectHome(ctx: Ctx, id: string): Node {
   const project = ctx.state.projects.find((p) => p.id === id);
-  if (!project) return page(back(ctx), empty('That project is gone.'));
+  if (!project) return page(chrome(ctx, PLACES), back(ctx), empty('That project is gone.'));
   const active = activeOf(project);
   return page(
     chrome(ctx, PLACES),
     back(ctx, 'Projects'),
     col([title(project.name), dim(homePath(ctx.state, project.root))]),
     project.error ? text(project.error, { color: 'error' }) : undefined,
+    startWork(ctx, project),
     active.length === 0 ? empty('Nothing in progress here.') : col([line(span(`In progress (${active.length})`, { dim: true })), ...active.map((ws) => workspaceRow(ctx, ws))]),
   );
 }

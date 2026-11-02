@@ -1,4 +1,4 @@
-import type { AppState } from '../core/store.js';
+import type { AppState, View } from '../core/store.js';
 import { Draw, type Effects, type Node, type Surface, dim } from './tree.js';
 
 /** The native panes: each opens on demand and holds its own routes. */
@@ -105,12 +105,55 @@ export const HOME_ROUTE: Readonly<Record<SiteId, Route>> = {
   settings: { name: 'home' },
 };
 
+/** Where the engine's own idea of a place is drawn. */
+export function routeOfView(view: View): Route | undefined {
+  switch (view.kind) {
+    case 'workspace':
+      return { screen: 'task', name: view.tab === 'review' ? 'changes' : view.tab === 'files' ? 'files' : view.tab === 'terminal' ? 'terminal' : 'ws', params: { id: view.id } };
+    case 'project':
+      return { screen: 'work', name: 'project', params: { id: view.id } };
+    case 'overview':
+      return { screen: 'work', name: 'overview' };
+    case 'search':
+      return { screen: 'work', name: 'search' };
+    case 'usage':
+      return { screen: 'work', name: 'usage' };
+    case 'claude_code':
+      return { screen: 'work', name: 'activity' };
+    case 'assistant':
+      return { screen: 'work', name: 'assistant' };
+    case 'requests':
+      return { screen: 'team', name: 'requests' };
+    case 'conversation':
+      return { screen: 'team', name: 'conversation', params: { id: view.id } };
+    case 'tasks':
+      return { screen: 'board', name: 'tasks' };
+    case 'task':
+      return { screen: 'board', name: 'task', params: { id: view.id } };
+    case 'plans':
+      return { screen: 'board', name: 'plans' };
+    case 'plan':
+      return { screen: 'board', name: 'plan', params: { id: view.id } };
+    case 'issues':
+      return { screen: 'board', name: 'issues' };
+    case 'gh_issue':
+      return { screen: 'board', name: 'issue', params: { project: view.projectId, number: String(view.number) } };
+    case 'actions':
+      return { screen: 'board', name: 'actions' };
+    case 'gh_run':
+      return { screen: 'board', name: 'run', params: { project: view.projectId, run: String(view.runId) } };
+    default:
+      return undefined;
+  }
+}
+
 /** Every pane's place and memory for one session, and how a press finds its handler again. */
 export class Screens {
   private readonly routes = new Map<SiteId, Route[]>();
   private readonly cache = new Map<string, Cached>();
   private readonly memory = new Map<string, unknown>();
   private effects: Effects = {};
+  private lastPane: PaneId = 'work';
 
   constructor(
     private readonly host: ScreenHost,
@@ -206,6 +249,15 @@ export class Screens {
     }
   }
 
+  /**
+   * The engine moved somewhere (a worktree you started, a task it opened): show it where you last
+   * pressed. A view with no screen of ours stays where it is.
+   */
+  follow(view: View): void {
+    const route = routeOfView(view);
+    if (route) this.nav.go(this.lastPane, route);
+  }
+
   /** A pane's tree as it stands. */
   view(pane: SiteId, viewport: Viewport): Node {
     return this.drawn(pane, viewport).tree;
@@ -213,6 +265,7 @@ export class Screens {
 
   /** Run a control's handler; a key gone since the last draw (the row went) is no error. */
   async press(pane: SiteId, key: string, value: string | undefined, viewport: Viewport): Promise<Effects & { readonly ok: boolean; readonly error?: string }> {
+    if (pane !== 'band') this.lastPane = pane;
     const handler = this.drawn(pane, viewport).draw.handlers.get(key);
     if (!handler) return { ok: false, error: 'That is no longer there.' };
     this.effects = {};

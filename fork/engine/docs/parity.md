@@ -432,6 +432,8 @@ Columns: **Core** is the API method or intent it uses; **Mac** is where you find
 | `stripe.disconnect` | ✓ the Connect Stripe sheet › Disconnect |
 | `stripe.refresh` | ✓ Refresh in the sheet and the Overview's Earnings card (the daemon also looks for new payments every 10 minutes by itself) |
 | `support.answer` | ✓ the Star sheet after your first merge (Star on GitHub / Maybe Later) and the coffee sheet after your fifth (an amount, Not Now, Don't Ask Again) |
+| `teamod.sessionTools` | the mod's bridge, when a session starts: mounts your tools for it | n/a |
+| `teamod.closeSessionTools` | the mod's bridge, when a session ends | n/a |
 | `assistant.newChat` | ✓ Your Mac's tab strip › + (a new empty chat, open now); on the phone, New chat in Your Mac's chats list or ••• |
 | `assistant.openChat` | ✓ clicking one of Your Mac's tabs (or a notification from one of its chats); kept across restarts, and the phone's Ask your Mac follows it |
 | `assistant.deleteChat` | ✓ a tab's × › Delete Chat (asks first; its run stops, its messages, folder and agent transcript go for good, no archive; the last one leaves a fresh chat); on the phone, long-press in Your Mac's chats list or ••• › Delete this chat |

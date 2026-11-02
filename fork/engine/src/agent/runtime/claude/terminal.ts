@@ -79,6 +79,32 @@ export function sessionArgs(resume: string | undefined, fork: boolean, newId: ()
   return { args: ['--session-id', session], session, fresh: true };
 }
 
+/** teamod's tools mounted for a session outside the daemon: where they are and the token that reaches them. */
+export interface SessionTools {
+  readonly url: string;
+  readonly token: string;
+  readonly suites: readonly string[];
+  close(): void;
+}
+
+/** What a session outside the daemon doesn't get: each is for a run of a kind it isn't. */
+const NOT_FOR_A_SESSION = new Set(['teamod_view', 'teamod_phone', 'teamod_task', 'teamod_plan']);
+
+/**
+ * The same tools a run gets, behind the same gate (your rules, and you for the risky ones), for
+ * a Claude Code session that isn't a run: it reaches them through its bridge, with this token.
+ */
+export async function claudeSessionTools(input: AgentRunInput, opts: Pick<ClaudeTerminalOptions, 'bridge' | 'toolHost'>): Promise<SessionTools> {
+  const cwd = input.place?.cwd ?? os.homedir();
+  const policy: PolicyContext = { cwd, roots: [cwd], autoEdit: false, scope: input.scope, guest: false, dotenv: false };
+  const bridge = input.channel && opts.bridge.inChannel ? opts.bridge.inChannel(input.channel) : opts.bridge;
+  const suites = Object.fromEntries(Object.entries(runToolSuites(input, bridge, new TerminalShelf({ add: () => 0 } as unknown as TerminalSink), cwd)).filter(([name]) => !NOT_FOR_A_SESSION.has(name)));
+  const mounted = await (opts.toolHost ?? toolHost()).mount(suites, (name, args) => gateTool(name, args, input, policy));
+  const url = Object.values(mounted.servers)[0]?.env.TEAMOD_TOOLS_URL;
+  if (!url) throw new Error('No tools to mount.');
+  return { url, token: mounted.token, suites: Object.keys(mounted.servers), close: () => mounted.close() };
+}
+
 /** The servers Claude Code mounts, in a file only you can read, gone once the terminal closes. */
 function writeMcpConfig(servers: unknown, home: string = teamodHome()): { file: string; remove: () => void } {
   const dir = path.join(home, 'run');

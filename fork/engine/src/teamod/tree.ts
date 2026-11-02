@@ -75,6 +75,7 @@ export class Draw {
   }
 
   button(key: string, label: string, onPress: Handler, opts: { hotkey?: string; plain?: boolean; primary?: boolean; dim?: boolean; spans?: readonly Span[] } = {}): Node {
+    if (opts.hotkey !== undefined && !/^[a-z0-9]$/.test(opts.hotkey)) throw new Error(`A hotkey is one lowercase letter or digit, not ${opts.hotkey}`);
     this.add(key, onPress);
     return { k: 'button', key, label, ...opts };
   }

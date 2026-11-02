@@ -34,6 +34,7 @@ import { VIEWS_HANDLERS } from './views-handlers.js';
 import { FILES_EDIT_HANDLERS } from './files-handlers.js';
 import { COMPANION_HANDLERS } from './companion-handlers.js';
 import { ASSISTANT_HANDLERS } from './assistant-handlers.js';
+import { TEAMOD_HANDLERS } from './teamod-handlers.js';
 import { VOICE_HANDLERS } from './voice-handlers.js';
 import { TERMINAL_IMPORT_HANDLERS } from './terminal-import-handlers.js';
 import { AGENT_TERM_HANDLERS } from './agent-term-handlers.js';
@@ -380,6 +381,7 @@ export const HANDLERS = {
   ...FILES_EDIT_HANDLERS,
   ...COMPANION_HANDLERS,
   ...ASSISTANT_HANDLERS,
+  ...TEAMOD_HANDLERS,
   ...VOICE_HANDLERS,
   ...TERMINAL_IMPORT_HANDLERS,
   ...AGENT_TERM_HANDLERS,

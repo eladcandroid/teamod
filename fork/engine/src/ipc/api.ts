@@ -24,6 +24,7 @@ import { VIEWS_API } from './views-api.js';
 import { FILES_EDIT_API } from './files-api.js';
 import { COMPANION_API } from './companion-api.js';
 import { ASSISTANT_API } from './assistant-api.js';
+import { TEAMOD_API } from './teamod-api.js';
 import { VOICE_API } from './voice-api.js';
 import { TERMINAL_IMPORT_API } from './terminal-import-api.js';
 import { AGENT_TERM_API } from './agent-term-api.js';
@@ -450,6 +451,8 @@ export const API = {
   ...TERMINAL_IMPORT_API,
   // ---- the agent's own terminal on a conversation, and its visuals (agent-term-api.ts)
   ...AGENT_TERM_API,
+  // ---- what only teamod's Claude Code mod asks (teamod-api.ts)
+  ...TEAMOD_API,
 } as const;
 
 export type Api = typeof API;
