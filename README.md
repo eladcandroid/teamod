@@ -59,9 +59,10 @@ The engine keeps running after Claude Code exits, so schedules and teammates' re
 
 - Agents can edit files, commit and merge in the projects you add. Try it on a spare repository first.
 - A teammate you pair with can send requests to your agents. Their answers and requests are treated as untrusted data.
+- Teammates connect directly, with a Cloudflare relay as backup when a direct link fails. Change this in Settings.
 - Data lives in `~/.teamod`, apart from any teamod install. teamod invite links don't work here.
 
-Not yet tested: the desktop app, charts drawn as images, real GitHub pull requests, Linear, plan runs, scheduled automations, and pairing across networks.
+Not yet tested: the panes inside the Claude desktop app, charts drawn as images, real GitHub pull requests, Linear, plan runs, scheduled automations, and pairing across networks.
 
 ## Uninstall
 
