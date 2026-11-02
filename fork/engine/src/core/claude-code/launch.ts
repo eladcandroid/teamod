@@ -1,0 +1,54 @@
+import os from 'node:os';
+import path from 'node:path';
+import { teamodHome } from '../home.js';
+import type { Store } from '../store.js';
+import type { NoticeEvent } from '../notify.js';
+import { ClaudeCodeWatcher } from './watch.js';
+import { CodexSessionsWatcher } from './codex-watch.js';
+import { teamodEnv } from '../teamod-env.js';
+
+/**
+ * Start watching Claude Code for the daemon (the Mac app's teamod). Claude Code's folder is
+ * ~/.claude, or $CLAUDE_CONFIG_DIR when you moved it; TEAMOD_CLAUDE_HOME points elsewhere (tests).
+ * The demo watches only when TEAMOD_CLAUDE_HOME is set (it never shows your real sessions).
+ */
+export function claudeHome(env: NodeJS.ProcessEnv = process.env): string {
+  return teamodEnv('CLAUDE_HOME', env) || env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude');
+}
+
+const watchers = new WeakMap<object, ClaudeCodeWatcher>();
+
+export const attachClaudeCode = (session: object, watcher: ClaudeCodeWatcher): void => void watchers.set(session, watcher);
+
+/** The Claude Code watcher of this session, or a clear error where there's none (no daemon running it, e.g. tests). */
+export function claudeCodeOf(session: object): ClaudeCodeWatcher {
+  const watcher = watchers.get(session);
+  if (!watcher) throw new Error('Claude Code sessions show in the teamod app for Mac (its daemon).');
+  return watcher;
+}
+
+/** Codex's folder: ~/.codex, or $CODEX_HOME; TEAMOD_CODEX_HOME points elsewhere (tests). */
+export function codexHome(env: NodeJS.ProcessEnv = process.env): string {
+  return teamodEnv('CODEX_HOME', env) || env.CODEX_HOME || path.join(os.homedir(), '.codex');
+}
+
+export function launchClaudeCode(host: { readonly session: object; readonly store: Store; readonly demo: boolean; readonly notify?: (event: NoticeEvent) => void }): () => void {
+  // Codex's outside sessions show in Activity too (ACME-455); the demo only with TEAMOD_CODEX_HOME.
+  const codex = !host.demo || teamodEnv('CODEX_HOME') ? new CodexSessionsWatcher({ home: codexHome(), store: host.store }) : undefined;
+  codex?.start();
+  const stopCodex = (): void => codex?.stop();
+  if (host.demo && !teamodEnv('CLAUDE_HOME')) return stopCodex;
+  const watcher = new ClaudeCodeWatcher({
+    home: claudeHome(),
+    store: host.store,
+    // The demo keeps nothing on disk.
+    ...(host.demo ? {} : { ownFile: path.join(teamodHome(), 'claude-code-own.json') }),
+    notify: ({ title, body, failed }) => host.notify?.({ kind: failed ? 'problems' : 'background', tag: 'task', title, body }),
+  });
+  attachClaudeCode(host.session, watcher);
+  watcher.start();
+  return () => {
+    watcher.stop();
+    stopCodex();
+  };
+}

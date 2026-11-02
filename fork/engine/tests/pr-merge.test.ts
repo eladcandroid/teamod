@@ -1,0 +1,297 @@
+import { describe, expect, it, vi } from 'vitest';
+import { Store, initialState } from '../src/core/store.js';
+import type { PullRequest } from '../src/core/work-store.js';
+import type { NoticeEvent } from '../src/core/notify.js';
+import type { WorkspaceController } from '../src/core/workspace-controller.js';
+import { NO_CHECKS_GRACE_MS, Workbench } from '../src/core/workbench.js';
+
+const flush = async (): Promise<void> => {
+  for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+};
+import type { MergeOptions } from '../src/workspaces/pr.js';
+
+type ExecCb = (err: Error | null, stdout: string, stderr: string) => void;
+const exec = vi.hoisted(() => ({ impl: undefined as undefined | ((cmd: string, args: string[]) => { err?: Error; stdout?: string; stderr?: string }), calls: [] as Array<{ cmd: string; args: string[]; cwd?: string }> }));
+
+// gh stubbed at the process boundary: what `gh pr merge` is run with, and what it answers.
+vi.mock('node:child_process', async (orig) => ({
+  ...(await orig<typeof import('node:child_process')>()),
+  execFile: (cmd: string, args: string[], opts: { cwd?: string }, cb: ExecCb) => {
+    exec.calls.push({ cmd, args, cwd: opts.cwd });
+    const r = exec.impl?.(cmd, args) ?? { err: new Error('not mocked') };
+    queueMicrotask(() => cb(r.err ?? null, r.stdout ?? '', r.stderr ?? ''));
+  },
+}));
+
+const { explainMergeError, mergePr, deleteRemoteBranch, parsePr, prFromCommits, titleOfBranch } = await import('../src/workspaces/pr.js');
+const { planGitOf } = await import('../src/core/plans/plan-git.js');
+
+const pr = (more: Partial<PullRequest> = {}): PullRequest => ({ number: 42, url: 'https://github.com/o/r/pull/42', state: 'OPEN', title: 'Add auth', draft: false, checks: 'passing', ...more });
+
+describe('mergePr / deleteRemoteBranch (gh stubbed)', () => {
+  it('runs gh pr merge with the number and the way to merge, in the worktree', async () => {
+    exec.calls.length = 0;
+    exec.impl = () => ({ stdout: '' });
+    await mergePr('/code/auth', 42, { method: 'squash' });
+    await mergePr('/code/auth', 42, { method: 'rebase', auto: true });
+    // Pinned to a commit (the sentinel's merge gate): GitHub refuses if the head moved.
+    await mergePr('/code/auth', 42, { method: 'squash', matchHead: 'abc123' });
+    expect(exec.calls).toEqual([
+      { cmd: 'gh', args: ['pr', 'merge', '42', '--squash'], cwd: '/code/auth' },
+      { cmd: 'gh', args: ['pr', 'merge', '42', '--rebase', '--auto'], cwd: '/code/auth' },
+      { cmd: 'gh', args: ['pr', 'merge', '42', '--squash', '--match-head-commit', 'abc123'], cwd: '/code/auth' },
+    ]);
+  });
+
+  it("a plan's pull request merges through the same mergePr, as a merge commit", async () => {
+    exec.calls.length = 0;
+    exec.impl = () => ({ stdout: '' });
+    const controller = { manager: { repoProject: () => ({ root: '/code/app' }) } } as unknown as WorkspaceController;
+    await planGitOf(controller).mergePr('app', 7);
+    expect(exec.calls.filter((c) => c.args[0] === 'pr')).toEqual([{ cmd: 'gh', args: ['pr', 'merge', '7', '--merge'], cwd: '/code/app' }]);
+  });
+
+  it("throws gh's own words", async () => {
+    exec.impl = () => ({ err: new Error('exit 1'), stderr: 'X Pull request #42 is not mergeable: the merge commit cannot be cleanly created.\n' });
+    await expect(mergePr('/code/auth', 42, { method: 'merge' })).rejects.toThrow(/cannot be cleanly created/);
+  });
+
+  it('deletes the branch on GitHub with git push, never gh --delete-branch', async () => {
+    exec.calls.length = 0;
+    exec.impl = () => ({ stdout: '' });
+    await deleteRemoteBranch('/code/auth', 'teamod/auth');
+    expect(exec.calls).toEqual([{ cmd: 'git', args: ['push', 'origin', '--delete', 'teamod/auth'], cwd: '/code/auth' }]);
+  });
+});
+
+describe('explainMergeError', () => {
+  // What gh prints when GitHub says no.
+  const cases: Array<[string, string, RegExp]> = [
+    ['X Pull request #42 is not mergeable: the merge commit cannot be cleanly created.', 'conflicts', /conflicts with the base/],
+    ['GraphQL: At least 1 approving review is required by reviewers with write access. (mergePullRequest)', 'reviews', /approving review/],
+    ['GraphQL: Changes requested by a reviewer (mergePullRequest)', 'reviews', /approving review/],
+    ['GraphQL: Required status check "test" is expected. (mergePullRequest)', 'checks', /checks haven’t passed/],
+    ['X Pull request #42 is not mergeable: the base branch policy prohibits the merge.\nTo have the pull request merged after all the requirements have been met, add the `--auto` flag.', 'blocked', /rules don’t allow/],
+    ['GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge)', 'auto_off', /Allow auto-merge/],
+    ['GraphQL: Squash merges are not allowed on this repository. (mergePullRequest)', 'method', /Squash merging isn’t allowed/],
+    ['GraphQL: Pull Request is still a draft (mergePullRequest)', 'draft', /draft/],
+    ['X Pull request #42 was already merged', 'closed', /isn’t open/],
+    ['HTTP 403: Resource not accessible by integration', 'permission', /can’t merge/],
+    ['error connecting to api.github.com\ncheck your internet connection', 'other', /error connecting to api\.github\.com$/],
+  ];
+  it.each(cases)('%s → %s', (text, reason, message) => {
+    const out = explainMergeError(text, 'squash');
+    expect(out.reason).toBe(reason);
+    expect(out.message).toMatch(message);
+  });
+});
+
+describe('parsePr: merge fields', () => {
+  it('reads conflicts and auto-merge on open PRs only', () => {
+    expect(parsePr(JSON.stringify({ number: 1, url: 'u', state: 'OPEN', mergeable: 'CONFLICTING', autoMergeRequest: { mergeMethod: 'SQUASH' } }))).toMatchObject({ conflicts: true, autoMerge: true });
+    expect(parsePr(JSON.stringify({ number: 1, url: 'u', state: 'OPEN', mergeable: 'MERGEABLE', autoMergeRequest: null }))).not.toHaveProperty('conflicts');
+    expect(parsePr(JSON.stringify({ number: 1, url: 'u', state: 'MERGED', mergeable: 'CONFLICTING', autoMergeRequest: {} }))).not.toHaveProperty('autoMerge');
+    expect(parsePr(JSON.stringify({ number: 1, url: 'u', state: 'OPEN', headRefOid: 'abc123' }))).toMatchObject({ head: 'abc123' });
+  });
+});
+
+/** A Workbench with one worktree whose PR lives in a stubbed GitHub: merging changes what gh pr view says next. */
+function bench(start: PullRequest | undefined, answer: (opts: MergeOptions) => PullRequest | Error, unpushed = 0, pushFails?: Error) {
+  const store = new Store(initialState('t', 'ask'));
+  const ws: Record<string, unknown> = { id: 'auth', name: 'auth', kind: 'worktree', branch: 'teamod/auth', path: '/code/auth', projectId: 'p1', status: { changed: 0, ahead: 2, behind: 0 } };
+  const manager = { list: [{ id: 'p1', workspaces: [ws] }], find: (id: string) => (id === ws.id ? ws : undefined), setMergeWait: (_id: string, wait: unknown) => void (ws.mergeWhenReady = wait) };
+  let clock = 1_000_000;
+  let github = start;
+  const merges: Array<{ dir: string; number: number; opts: MergeOptions }> = [];
+  const deleted: string[] = [];
+  const toasts: Array<{ text: string; level?: string }> = [];
+  const notices: NoticeEvent[] = [];
+  const views: string[] = [];
+  const pushes: string[] = [];
+  const wb = new Workbench({
+    store,
+    controller: { manager, refresh: async () => undefined } as unknown as WorkspaceController,
+    now: () => clock,
+    notify: (e) => void notices.push(e),
+    toast: (text, level) => void toasts.push({ text, level }),
+    intend: () => undefined,
+    askClaude: () => undefined,
+    setPrefs: () => undefined,
+    hasGh: async () => true,
+    findPr: async (_dir, branch) => (views.push(branch), github),
+    remoteRef: () => undefined,
+    unpushedCommits: async () => unpushed,
+    pushForPr: async (_dir, head) => {
+      if (pushFails) throw pushFails;
+      pushes.push(head);
+      unpushed = 0;
+      return 'pushed';
+    },
+    mergePr: async (dir, number, opts) => {
+      merges.push({ dir, number, opts });
+      const next = answer(opts);
+      if (next instanceof Error) throw next;
+      github = next;
+    },
+    deleteRemoteBranch: async (_dir, branch) => void deleted.push(branch),
+  });
+  store.dispatch({ type: 'gh', ok: true });
+  if (start) store.dispatch({ type: 'pr', id: 'auth', pr: start });
+  const github$ = (next: PullRequest | undefined): void => void (github = next);
+  const later = (ms: number): void => void (clock += ms);
+  return { wb, store, ws, merges, pushes, deleted, toasts, notices, views, github: github$, later, pr: () => store.getState().prs.auth };
+}
+
+describe('Workbench.mergePr', () => {
+  it('merges with gh and shows Merged at once, without a second "was merged" notice', async () => {
+    const b = bench(pr(), () => pr({ state: 'MERGED' }));
+    const out = await b.wb.mergePr('auth', { method: 'squash' });
+    expect(out).toEqual({ ok: true, result: 'merged', message: 'Merged PR #42' });
+    expect(b.merges).toEqual([{ dir: '/code/auth', number: 42, opts: { method: 'squash' } }]);
+    expect(b.views).toEqual(['teamod/auth']);
+    expect(b.pr()?.state).toBe('MERGED');
+    expect(b.notices).toEqual([]);
+    expect(b.toasts.at(-1)).toEqual({ text: 'Merged PR #42', level: 'success' });
+  });
+
+  it('deletes the branch on GitHub only once merged', async () => {
+    const b = bench(pr(), () => pr({ state: 'MERGED' }));
+    await b.wb.mergePr('auth', { method: 'merge', deleteBranch: true });
+    expect(b.deleted).toEqual(['teamod/auth']);
+    const q = bench(pr({ checks: 'pending' }), () => pr({ state: 'MERGED' }));
+    await q.wb.mergePr('auth', { method: 'merge', auto: true, deleteBranch: true });
+    expect(q.deleted).toEqual([]);
+  });
+
+  it('Merge When Ready waits for the checks itself (never gh --auto), and merges once they pass', async () => {
+    const b = bench(pr({ checks: 'pending' }), () => pr({ state: 'MERGED' }));
+    const out = await b.wb.mergePr('auth', { method: 'squash', auto: true });
+    expect(out).toEqual({ ok: true, result: 'queued', message: 'PR #42 merges once its checks pass' });
+    await flush();
+    expect(b.merges).toEqual([]);
+    expect(b.ws.mergeWhenReady).toMatchObject({ number: 42, method: 'squash' });
+    b.github(pr({ checks: 'passing' }));
+    await b.wb.refreshPrs('auth');
+    await flush();
+    expect(b.merges.map((m) => m.opts)).toEqual([{ method: 'squash' }]);
+    expect(b.ws.mergeWhenReady).toBeUndefined();
+    expect(b.notices.map((n) => n.title)).toContain('PR #42 merged: its checks passed');
+  });
+
+  it('Merge When Ready stops, and says so, when a check fails or it conflicts', async () => {
+    for (const bad of [pr({ checks: 'failing' }), pr({ conflicts: true })]) {
+      const b = bench(pr({ checks: 'pending' }), () => pr({ state: 'MERGED' }));
+      await b.wb.mergePr('auth', { method: 'squash', auto: true });
+      b.github(bad);
+      await b.wb.refreshPrs('auth');
+      await flush();
+      expect(b.merges).toEqual([]);
+      expect(b.ws.mergeWhenReady).toBeUndefined();
+      expect(b.notices.at(-1)).toMatchObject({ kind: 'problems', title: expect.stringMatching(/not merging it/) });
+    }
+  });
+
+  it('with no checks yet, Merge When Ready gives them a moment to show up first', async () => {
+    const b = bench(pr({ checks: 'none' }), () => pr({ state: 'MERGED' }));
+    await b.wb.mergePr('auth', { method: 'merge', auto: true });
+    await flush();
+    expect(b.merges).toEqual([]);
+    b.later(NO_CHECKS_GRACE_MS);
+    await b.wb.refreshPrs('auth');
+    await flush();
+    expect(b.merges).toHaveLength(1);
+  });
+
+  it('Cancel Auto-Merge stops the wait', async () => {
+    const b = bench(pr({ checks: 'pending' }), () => pr({ state: 'MERGED' }));
+    await b.wb.mergePr('auth', { method: 'squash', auto: true });
+    expect(await b.wb.cancelMergeWhenReady('auth')).toMatchObject({ ok: true });
+    b.github(pr({ checks: 'passing' }));
+    await b.wb.refreshPrs('auth');
+    await flush();
+    expect(b.merges).toEqual([]);
+  });
+
+  it('says why GitHub refused (a review is required), and looks at the PR again', async () => {
+    const b = bench(pr({ review: 'REVIEW_REQUIRED' }), () => new Error('GraphQL: At least 1 approving review is required by reviewers with write access. (mergePullRequest)'));
+    const out = await b.wb.mergePr('auth', { method: 'squash' });
+    expect(out).toMatchObject({ ok: false, reason: 'reviews' });
+    expect(b.toasts.at(-1)?.level).toBe('error');
+    expect(b.views).toEqual(['teamod/auth']);
+    expect(b.pr()?.state).toBe('OPEN');
+  });
+
+  it('says when it conflicts', async () => {
+    const b = bench(pr(), () => new Error('X Pull request #42 is not mergeable: the merge commit cannot be cleanly created.'));
+    expect(await b.wb.mergePr('auth', { method: 'rebase' })).toMatchObject({ ok: false, reason: 'conflicts' });
+  });
+
+  it('pushes commits that aren’t on GitHub yet before merging, so the merge has them', async () => {
+    const b = bench(pr(), () => pr({ state: 'MERGED' }), 5);
+    expect(await b.wb.mergePr('auth', { method: 'squash' })).toMatchObject({ ok: true, result: 'merged' });
+    expect(b.pushes).toEqual(['teamod/auth']);
+    expect(b.merges).toHaveLength(1);
+    expect(b.toasts.some((t) => /^Pushing 5 commits to teamod\/auth before merging PR #42/.test(t.text))).toBe(true);
+    const auto = bench(pr({ checks: 'pending' }), () => pr({ state: 'MERGED' }), 1);
+    expect(await auto.wb.mergePr('auth', { method: 'squash', auto: true })).toMatchObject({ ok: true, result: 'queued' });
+    expect(auto.pushes).toEqual(['teamod/auth']);
+    expect(auto.ws.mergeWhenReady).toBeDefined();
+  });
+
+  it('won’t merge when that push fails: the commits would be left out', async () => {
+    for (const auto of [false, true]) {
+      const b = bench(pr(), () => pr({ state: 'MERGED' }), 2, new Error('GitHub has commits on teamod/auth that this worktree doesn’t: bring them in first (git pull), or check who pushed there'));
+      const out = await b.wb.mergePr('auth', { method: 'squash', ...(auto ? { auto } : {}) });
+      expect(out).toMatchObject({ ok: false, reason: 'unpushed', message: expect.stringMatching(/^Couldn’t push 2 commits in auth, so PR #42 isn’t merged .*: GitHub has commits on teamod\/auth/) });
+      expect(b.merges).toEqual([]);
+      expect(b.ws.mergeWhenReady).toBeUndefined();
+      expect(b.toasts.at(-1)?.level).toBe('error');
+    }
+  });
+
+  it('does nothing without an open PR, or while one merge is under way', async () => {
+    expect(await bench(undefined, () => pr()).wb.mergePr('auth', { method: 'squash' })).toMatchObject({ ok: false, reason: 'no_pr' });
+    const merged = bench(pr({ state: 'MERGED' }), () => pr());
+    expect(await merged.wb.mergePr('auth', { method: 'squash' })).toMatchObject({ ok: false, reason: 'closed', message: 'PR #42 is already merged' });
+    expect(merged.merges).toEqual([]);
+    const b = bench(pr(), () => pr({ state: 'MERGED' }));
+    const [first, second] = await Promise.all([b.wb.mergePr('auth', { method: 'squash' }), b.wb.mergePr('auth', { method: 'squash' })]);
+    expect(first.ok).toBe(true);
+    expect(second).toMatchObject({ ok: false, reason: 'busy' });
+    expect(b.merges).toHaveLength(1);
+  });
+});
+
+describe('Create PR without Claude', () => {
+  it('titles a pull request from its commits', () => {
+    expect(titleOfBranch('teamod/fix-login_redirect')).toBe('Fix login redirect');
+    expect(prFromCommits('teamod/x', ['Add session auth'])).toEqual({ title: 'Add session auth', body: '' });
+    expect(prFromCommits('teamod/add-auth', ['Second', 'First'])).toEqual({ title: 'Add auth', body: '- First\n- Second' });
+  });
+
+  it('pushes and opens it straight away, then shows it', async () => {
+    const store = new Store(initialState('t', 'ask'));
+    const ws = { id: 'auth', name: 'auth', kind: 'worktree', branch: 'teamod/add-auth', base: 'origin/main', path: '/code/auth', projectId: 'p1', status: { changed: 0, ahead: 1, behind: 0 } };
+    const manager = { list: [{ id: 'p1', workspaces: [ws] }], find: (id: string) => (id === ws.id ? ws : undefined), commitAll: vi.fn() };
+    const made: unknown[] = [];
+    exec.impl = (cmd, args) => (cmd === 'git' && args[0] === 'log' ? { stdout: 'Add session auth\n' } : { err: new Error('not mocked') });
+    const wb = new Workbench({
+      store,
+      controller: { manager, refresh: async () => undefined, open: () => undefined } as unknown as WorkspaceController,
+      notify: () => undefined,
+      toast: () => undefined,
+      intend: () => undefined,
+      askClaude: () => {
+        throw new Error('Create PR never asks Claude');
+      },
+      setPrefs: () => undefined,
+      remoteRef: () => undefined,
+      createPr: async (_dir, p) => (made.push(p), pr({ number: 9, title: p.title })),
+    });
+    store.dispatch({ type: 'gh', ok: true });
+    expect(await wb.quickPr('auth', { draft: true })).toMatchObject({ ok: true, message: 'Opened PR #9 as a draft: Add session auth' });
+    expect(made).toEqual([{ base: 'main', head: 'teamod/add-auth', title: 'Add session auth', body: '', draft: true }]);
+    expect(manager.commitAll).not.toHaveBeenCalled();
+    expect(store.getState().prs.auth?.number).toBe(9);
+  });
+});

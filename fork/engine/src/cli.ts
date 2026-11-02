@@ -1,0 +1,48 @@
+#!/usr/bin/env node
+// The engine the Mac app runs in the background (src-tauri/src/daemon.rs starts `cli.js daemon --keep-alive`).
+import { parseConfig } from './config.js';
+import { runDaemon } from './daemon/main.js';
+import { APP_ORIGINS } from './daemon/server.js';
+import { teamodEnv } from './core/teamod-env.js';
+import { installedVersion } from './core/version.js';
+
+const USAGE = `teamod's engine, for the Mac app.
+
+Usage:
+  cli.js daemon [--keep-alive] [demo]   run teamod in the background for the Mac app
+  cli.js mcp-serve <suite>              one suite of teamod's tools over stdio, for a run (TEAMOD_TOOLS_URL, TEAMOD_TOOLS_TOKEN)
+  cli.js --version                      show the version
+`;
+
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+  if (args[0] === '--version' || args[0] === '-v' || args[0] === 'version') {
+    process.stdout.write(`teamod ${installedVersion()}\n`);
+    return;
+  }
+  // Started by an agent's runtime with its run's token, never by hand (agent/tool-host.ts).
+  if (args[0] === 'mcp-serve') {
+    const url = teamodEnv('TOOLS_URL');
+    const token = teamodEnv('TOOLS_TOKEN');
+    if (!args[1] || !url || !token) throw new Error('mcp-serve needs a suite, TEAMOD_TOOLS_URL and TEAMOD_TOOLS_TOKEN');
+    const { serveStdio } = await import('./mcp-serve.js');
+    await serveStdio(args[1], url, token);
+    return;
+  }
+  if (args[0] !== 'daemon') {
+    process.stdout.write(USAGE);
+    process.exitCode = args[0] === '--help' || args[0] === '-h' || args[0] === undefined ? 0 : 1;
+    return;
+  }
+  const rest = args.slice(1).filter((a) => a !== '--keep-alive');
+  // The Mac app's web view; TEAMOD_ALLOW_ORIGINS adds more (its dev server while developing).
+  const extra = (teamodEnv('ALLOW_ORIGINS') ?? '').split(',').map((o) => o.trim()).filter(Boolean);
+  // TEAMOD_LAG_EVERY_MS: log the event-loop delay more often than every 30 s (scripts/perf-lag.mjs).
+  const lagEveryMs = Number(teamodEnv('LAG_EVERY_MS')) || undefined;
+  await runDaemon(parseConfig(rest), { version: installedVersion(), keepAlive: args.includes('--keep-alive') || teamodEnv('KEEP_ALIVE') === '1', allowedOrigins: [...APP_ORIGINS, ...extra], ...(lagEveryMs ? { lagEveryMs } : {}) });
+}
+
+main().catch((err: unknown) => {
+  process.stderr.write(`teamod: ${err instanceof Error ? err.message : String(err)}\n`);
+  process.exit(1);
+});
