@@ -6,8 +6,7 @@ import { MacAssistant } from '../src/core/assistant/assistant.js';
 import { pretendSystem } from '../src/core/gateway/demo-system.js';
 import { ALWAYS_ASK_YOU } from '../src/agent/policy.js';
 import { SentinelChats } from '../src/core/sentinel/chat.js';
-import { type RunSummary, type Sentinel, keepsChat, sentinelChatChannel } from '../src/core/sentinel/model.js';
-import { needsALook, sidebarSentinels } from '../packages/mac/src/sentinel/sentinel-model.js';
+import { keepsChat, sentinelChatChannel } from '../src/core/sentinel/model.js';
 import type { SentinelPlaces } from '../src/core/sentinel/runner.js';
 import { ToolDraftSchema, ToolPatchSchema } from '../src/core/sentinel/tool-draft.js';
 import { fromToolDraft } from '../src/core/sentinel/sentinels.js';
@@ -229,39 +228,6 @@ describe('a deleted chat takes its agent’s record with it', () => {
     expect(chats.place(sentinelChatChannel(id), 'me')!.resume).toBeUndefined();
     await chats.deleteChat(id);
     expect(existsSync(file)).toBe(false);
-  });
-});
-
-/** ACME-570: the sentinels that are on, under the sidebar's Sentinel row, each with its runs' kept chats. */
-describe('the sidebar’s sentinels', () => {
-  const item = (id: string, name: string, paused = false) => ({ id, name, paused }) as unknown as Sentinel;
-  const run = (id: string, sentinelId: string, startedAt: number, state: RunSummary['state'], extra: Partial<RunSummary> = {}) =>
-    ({ id, sentinelId, startedAt, state, headline: `${id} done`, steps: [{ id: 's1', state: 'done', channel: `ws:${id}` }], tasks: [], by: 'schedule', trigger: { kind: 'schedule', summary: '' }, ...extra }) as unknown as RunSummary;
-
-  it('lists the ones that are on (and a paused one still running or waiting), the one that ran last first', () => {
-    const items = [item('a', 'Alpha'), item('b', 'Beta'), item('p', 'Paused', true), item('w', 'Waits', true), item('n', 'Never ran')];
-    const runs = [run('r1', 'a', 10, 'done'), run('r2', 'b', 20, 'failed'), run('r3', 'p', 30, 'done'), run('r4', 'w', 5, 'needs-you')];
-    const side = sidebarSentinels({ items, runs });
-    expect(side.map((x) => x.sentinel.id)).toEqual(['b', 'a', 'w', 'n']);
-    expect(side[0]).toMatchObject({ failed: true, live: false, needs: false });
-    expect(side.find((x) => x.sentinel.id === 'w')?.needs).toBe(true);
-  });
-
-  it('folded, only those that need a look: running, waiting for you, or the last run failed', () => {
-    const items = [item('a', 'Quiet'), item('b', 'Broke'), item('c', 'Going'), item('w', 'Waits', true)];
-    const runs = [run('r1', 'a', 10, 'done'), run('r2', 'b', 20, 'failed'), run('r3', 'c', 30, 'running'), run('r4', 'w', 5, 'needs-you')];
-    expect(sidebarSentinels({ items, runs }).filter(needsALook).map((x) => x.sentinel.id)).toEqual(['c', 'b', 'w']);
-  });
-
-  it('its runs (ACME-576): every one, newest first, scripts-only too, each with its chat while it’s kept', () => {
-    const runs = [run('r1', 'a', 10, 'done', { putAway: true }), run('r2', 'a', 20, 'failed'), run('r3', 'a', 30, 'done', { channel: 'mac:assistant:abc12', steps: [] }), run('r4', 'a', 40, 'skipped', { steps: [] })];
-    const [a] = sidebarSentinels({ items: [item('a', 'Alpha')], runs });
-    expect(a!.runs.map((r) => [r.runId, r.chat])).toEqual([
-      ['r4', undefined],
-      ['r3', 'mac:assistant:abc12'],
-      ['r2', 'ws:r2'],
-      ['r1', undefined],
-    ]);
   });
 });
 

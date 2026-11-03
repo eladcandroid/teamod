@@ -4,8 +4,7 @@ import path from 'node:path';
 /**
  * teamod's home, set before anything of the engine loads: import this file first.
  *
- * It always wins over an inherited TEAMOD_HOME. A session started inside teamod's own terminal
- * inherits that variable, and following it would attach teamod to the person's real teamod.
+ * `TEAMOD_HOME` if set, else ~/.teamod; set here so every part of the engine reads the same one.
  */
 export const teamodHome = (env: NodeJS.ProcessEnv = process.env): string => env.TEAMOD_HOME || path.join(os.homedir(), '.teamod');
 

@@ -11,7 +11,6 @@ import { BOARD_API } from '../src/ipc/board-api.js';
 import { PLANS_API } from '../src/ipc/plans-api.js';
 import type { AgentRef } from '../src/protocol.js';
 import type { Project, Workspace } from '../src/workspaces/types.js';
-import { agentFields, sharedAgent, stepAgentChoice, withAgent } from '../packages/mac/src/sentinel/sentinel-model.js';
 import { fakePlaces, setup as sentinelSetup, until } from './sentinel-fakes.js';
 
 /** ACME-497: tasks, plans and Sentinel's agent steps each pick the agent (and model) that does them. */
@@ -151,24 +150,5 @@ describe('Sentinel’s Ask Your Agent step picks its agent and model (ACME-497)'
       ['c1', CODEX],
       ['c1', undefined],
     ]);
-  });
-
-  it('the Mac’s pop-up values: your default, a runtime and model, every step at once', () => {
-    expect(stepAgentChoice({})).toBe('');
-    expect(stepAgentChoice({ runtime: 'codex', model: 'gpt-5.5' })).toBe('codex:gpt-5.5');
-    expect(stepAgentChoice({ model: 'opus' })).toBe('claude:opus');
-    expect(agentFields('')).toEqual({ runtime: undefined, model: undefined });
-    expect(agentFields('local:')).toEqual({ runtime: 'local', model: undefined });
-    const steps = [
-      { id: 's1', kind: 'claude' as const, name: 'a', prompt: 'p', where: 'project' as const, model: 'opus' },
-      { id: 's2', kind: 'notify' as const, name: 'n', phone: false },
-      { id: 's3', kind: 'claude' as const, name: 'b', prompt: 'p', where: 'project' as const },
-    ];
-    expect(sharedAgent(steps)).toBeUndefined();
-    const all = withAgent(steps, 'codex:gpt-5.5');
-    expect(sharedAgent(all)).toBe('codex:gpt-5.5');
-    expect(all[1]).toEqual(steps[1]);
-    expect(sharedAgent(withAgent(all, ''))).toBe('');
-    expect(withAgent(all, '')[0]).not.toHaveProperty('runtime');
   });
 });

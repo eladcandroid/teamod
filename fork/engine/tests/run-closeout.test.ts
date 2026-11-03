@@ -6,7 +6,6 @@ import { type LogItem, Store, initialState, settleRun } from '../src/core/store.
 import { WorkspaceController } from '../src/core/workspace-controller.js';
 import type { BodyOf } from '../src/protocol.js';
 import { activityOf } from '../src/ui/workspace-models.js';
-import { workingCount } from '../packages/mac/src/layout/attention-model.js';
 import { decodeFailure } from '../src/shared/run-failure.js';
 import { waitFor } from './helpers.js';
 
@@ -102,7 +101,6 @@ describe('the tray and the sidebar', () => {
     store.dispatch({ type: 'history', channel: 'ws:c', items: [agentItem('3', 'interrupted')] });
     store.dispatch({ type: 'history', channel: 'ws:d', items: [agentItem('4', 'started', { owner: 'bob' })] });
     const st = store.getState();
-    expect(workingCount(st)).toBe(2);
     const sidebar = ['ws:a', 'ws:b', 'ws:c'].filter((c) => activityOf(st.log, c).running);
     expect(sidebar).toEqual(['ws:a', 'ws:b']);
   });

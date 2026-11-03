@@ -3,7 +3,6 @@ import { type PickerState, agentPicker, pickAction } from '../src/shared/agent-p
 import { runtimeChoices } from '../src/shared/agent-runtimes.js';
 import { modelMenu } from '../src/ui/settings-menus.js';
 import type { AppState } from '../src/core/store.js';
-import { demoPicker } from '../packages/companion/lib/link/demo/agents.js';
 
 /** ACME-446: the agent picker, runtimes as groups with their models, the Mac's, /model's and the phone's. */
 
@@ -77,20 +76,5 @@ describe('/model', () => {
     expect(menu.options.find((o) => o.id === 'runtime:codex')?.hint).toBe("Codex isn't set up on this Mac yet");
     const withCodex = modelMenu({ ...st, ...state([{ id: 'a' }]) } as unknown as AppState, 'ws:a', 'this conversation');
     expect(withCodex.options.map((o) => o.id)).toContain('agent:codex:gpt-5-codex');
-  });
-});
-
-describe("the phone's demo picker", () => {
-  it('shows the groups, and a pick moves the check', () => {
-    const p = demoPicker();
-    expect(p.groups.map((g) => [g.runtime, g.available])).toEqual([
-      ['claude', true],
-      ['codex', true],
-      ['local', false],
-    ]);
-    expect(p.label).toBe('Default');
-    const codex = demoPicker('codex', 'gpt-5-codex');
-    expect(codex.label).toBe('Codex · GPT-5 Codex');
-    expect(codex.groups.flatMap((g) => g.models.filter((m) => m.on).map((m) => `${g.runtime}:${m.value}`))).toEqual(['codex:gpt-5-codex']);
   });
 });

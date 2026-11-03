@@ -3,7 +3,6 @@ import type { LogItem } from '../src/core/store.js';
 import { Store, initialState } from '../src/core/store.js';
 import { asSent } from '../src/shared/claude-notices.js';
 import { inYourQueue } from '../src/ui/compose.js';
-import { withLiveTails } from '../packages/mac/src/chat/live-tail.js';
 
 /** A message waiting its turn sits in the queue above the box, not in the chat; once it runs, it's drawn where it ran (ACME-317). */
 
@@ -29,8 +28,6 @@ describe('asSent', () => {
     const rows = asSent(items, mine);
     expect(ids(rows)).toEqual(['ask', 'c-a', 'next', 'c-b']);
     expect(rows.slice(2).map((r) => r.ts)).toEqual([8, 8]);
-    // So the answer above isn't split around it.
-    expect(withLiveTails(rows).map((x) => x.key)).toEqual(['ask', 'c-a', 'next', 'c-b']);
     // The same rows each time (a row's memo holds).
     expect(asSent(items, mine)[2]).toBe(rows[2]);
   });

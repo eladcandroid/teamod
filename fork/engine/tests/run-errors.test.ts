@@ -15,7 +15,6 @@ import type { WorkspaceController } from '../src/core/workspace-controller.js';
 import type { BodyOf } from '../src/protocol.js';
 import { CONTINUE_PROMPT, CRASH_RETRY_MS, RunFailedError, classifyRun, decodeFailure, encodeFailure, failureText, failureTitle, resetFromText } from '../src/shared/run-failure.js';
 import type { Project, Workspace } from '../src/workspaces/types.js';
-import { PLATFORM_DOCS, signInChoices } from '../packages/mac/src/chat/sign-in-choices.js';
 import { waitFor } from './helpers.js';
 
 /** Running out of usage or Claude Code crashing: said in words, continued in one click, or by itself. */
@@ -84,19 +83,6 @@ describe('how a run ended, in words', () => {
       expect(f.kind).toBe('signed_out');
       expect(failureTitle(f)).toBe('Claude Code’s sign-in on this Mac expired');
     }
-  });
-
-  it('Sign In offers /login’s three choices: a subscription, a Console account, or a 3rd-party platform’s setup page', () => {
-    const picked: string[] = [];
-    const opened: string[] = [];
-    const rows = signInChoices((how) => picked.push(how), (url) => opened.push(url));
-    expect(rows.map((r) => r.label)).toEqual(['Claude account with subscription', 'Anthropic Console account', '3rd-party platform']);
-    rows[0]!.onSelect();
-    rows[1]!.onSelect();
-    expect(picked).toEqual(['claudeai', 'console']);
-    expect(rows[2]!.submenu?.map((r) => r.label)).toEqual(['Amazon Bedrock', 'Microsoft Foundry', 'Google Vertex AI']);
-    rows[2]!.submenu!.forEach((r) => r.onSelect());
-    expect(opened).toEqual(PLATFORM_DOCS.map((p) => p.url));
   });
 
   it('a Claude or Console account signs in with its own flag of `claude auth login`', async () => {

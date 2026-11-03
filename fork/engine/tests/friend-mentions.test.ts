@@ -57,11 +57,4 @@ describe('@ata is Ata, @claude:ata is Ata’s Claude', () => {
     expect(personMentions('@claude fix it', friends)).toEqual([]);
     expect(mentionNote('kay', 'fix-auth (ata-api)', '@ata can you look?')).toBe('kay mentioned you in fix-auth (ata-api):\n\n@ata can you look?');
   });
-
-  it('draws @claude:ata as a pill for a friend who isn’t in the room', async () => {
-    const { resolveMention } = await import('../packages/mac/src/chat/mentions.js');
-    const world = { friends: [{ name: 'ata', peerId: 'a1' }], peers: [], projects: [], workspaces: [] };
-    expect(resolveMention('claude:ata', world)).toEqual({ kind: 'claude', label: 'ata’s agent', id: 'a1' });
-    expect(resolveMention('ata', world)).toEqual({ kind: 'friend', label: 'ata', id: 'a1' });
-  });
 });

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { convertParts, convertTotals, currencyChoices, earningsCurrency, mainCurrency, minorUnits } from '../src/core/earnings-store.js';
-import { convertSummary, formatGlance, formatMoney, missingNote, ratesWhen } from '../packages/mac/src/lib/money.js';
 import { PrefsPatch } from '../src/ipc/api.js';
 import { prefsFrom } from '../src/core/store.js';
 import { Settings } from '../src/shared/settings-schema.js';
@@ -104,8 +103,6 @@ describe('showing earnings in one currency', () => {
     expect(all.missing).toEqual([]);
     expect(all.converted).toBe(true);
     expect(all.amount).toBe(1_425_500 + Math.round((5812.29 + 269 / 84) * 34 * 100));
-    expect(missingNote([{ currency: 'inr', amount: 26_900 }])).toBe('₹269.00 not included (no rate yet)');
-    expect(missingNote([])).toBeUndefined();
   });
 
   it('uses the currency you chose, else the one most was earned in', () => {
@@ -119,41 +116,6 @@ describe('showing earnings in one currency', () => {
     expect(currencyChoices({ rates: { zar: 18, eur: 0.9, try: 34, aed: 3.67, inr: 84 }, at: 1 })).toEqual(['usd', 'eur', 'try', 'inr', 'aed', 'zar']);
     expect(currencyChoices(undefined)).toEqual(['usd']);
     expect(currencyChoices(undefined, 'gbp')).toEqual(['usd', 'gbp']);
-  });
-
-  it('adds every project up, the biggest first, each with its part of the total', () => {
-    const items = [
-      { name: 'flyingpenguin', totals: [{ currency: 'try', amount: 1_425_500 }] },
-      { name: 'vaas', totals: [{ currency: 'usd', amount: 581_229 }, { currency: 'inr', amount: 26_900 }] },
-      { name: 'counting', totals: undefined },
-    ];
-    const summary = convertSummary(items, (i) => i.totals, 'usd', rates);
-    expect(summary.rows.map((r) => r.item.name)).toEqual(['vaas', 'flyingpenguin', 'counting']);
-    const lira = Math.round((14_255 / 34) * 100);
-    const vaas = 581_229 + Math.round((269 / 84) * 100);
-    expect(summary.total.amount).toBe(lira + vaas);
-    expect(summary.total.converted).toBe(true);
-    expect(summary.rows[0]!.share + summary.rows[1]!.share).toBeCloseTo(1);
-    expect(summary.rows[2]!.share).toBe(0);
-    // Without a rupee rate: the rupees are left out, once, for the whole.
-    const partial = convertSummary(items, (i) => i.totals, 'usd', { rates: { try: 34 }, at: 1 });
-    expect(partial.total.amount).toBe(lira + 581_229);
-    expect(partial.total.missing).toEqual([{ currency: 'inr', amount: 26_900 }]);
-  });
-
-  it('formats a glance: exact when small, compact when large, symbols rather than codes', () => {
-    expect(formatGlance(8_450, 'usd')).toBe('$84.50');
-    expect(formatGlance(581_229, 'usd')).toBe('$5,812');
-    expect(formatGlance(21_460_000, 'try')).toBe('₺214.6K');
-    expect(formatMoney(1_425_500, 'try')).toBe('₺14,255.00');
-    expect(formatMoney(150_000, 'cad', true)).toBe('CA$1.5K');
-  });
-
-  it('says how fresh the rates are', () => {
-    const now = new Date(2026, 9, 19, 15).getTime();
-    expect(ratesWhen(new Date(2026, 9, 19, 8).getTime(), now)).toBe('today');
-    expect(ratesWhen(new Date(2026, 9, 18, 8).getTime(), now)).toBe('yesterday');
-    expect(ratesWhen(new Date(2026, 9, 12, 8).getTime(), now)).toMatch(/^on \D*12|^on 12/);
   });
 
   it('keeps the choice in settings, and clears it with null', () => {

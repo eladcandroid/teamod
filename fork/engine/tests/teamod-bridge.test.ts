@@ -4,11 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// env.ts sets the home as it loads: keep it on the test's own, never the real ~/.teamod.
-vi.hoisted(() => {
-  process.env.TEAMOD_HOME = process.env.TEAMOD_HOME;
-});
-
 import { DaemonServer } from '../src/daemon/server.js';
 import { Store, initialState } from '../src/core/store.js';
 import { Bridge, type BridgeLine, connectAsMod } from '../src/teamod/bridge.js';
@@ -138,15 +133,15 @@ describe('the bridge', () => {
 });
 
 describe('the daemon environment', () => {
-  it('leaves out Claude Code and teamod variables, and marks lanes', () => {
+  it('leaves out Claude Code variables and the forked-from app’s, and marks lanes', () => {
     const env = daemonEnv({ HOME: '/h', CLAUDECODE: '1', CLAUDE_CODE_ENTRYPOINT: 'cli', TEAMOD_TOOLS_TOKEN: 'secret', TEAMOD_HOME: '/old', OTHER: 'kept' }, '/h/.teamod', '/bin');
-    expect(env).toEqual({ HOME: '/h', OTHER: 'kept', TEAMOD_HOME: '/h/.teamod', TEAMOD_HOME: '/h/.teamod', TEAMOD_DAEMON: '1', PATH: '/bin' });
+    expect(env).toEqual({ HOME: '/h', OTHER: 'kept', TEAMOD_HOME: '/h/.teamod', TEAMOD_DAEMON: '1', PATH: '/bin' });
   });
 });
 
 describe('the home folder', () => {
-  it('is ~/.teamod unless TEAMOD_HOME says otherwise, whatever TEAMOD_HOME holds', () => {
-    expect(teamodHome({ TEAMOD_HOME: '/real/.teamod' })).toBe(path.join(os.homedir(), '.teamod'));
+  it('is ~/.teamod unless TEAMOD_HOME says otherwise', () => {
+    expect(teamodHome({})).toBe(path.join(os.homedir(), '.teamod'));
     expect(teamodHome({ TEAMOD_HOME: '/elsewhere' })).toBe('/elsewhere');
   });
 });

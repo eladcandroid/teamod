@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { AgentBackend, AgentRunInput } from '../src/agent/types.js';
 import { AgentHost } from '../src/core/agent-host.js';
-import { Store, initialState } from '../src/core/store.js';
+import { type CompactMark, type LogItem, Store, initialState } from '../src/core/store.js';
 import type { BodyOf } from '../src/protocol.js';
 import { COMPACT_INSTRUCTIONS } from '../src/shared/context-usage.js';
 import { MockContext, mockSummary, seedMockContext } from '../src/agent/mock-context.js';
 import { createMockBackend } from '../src/agent/mock.js';
-import { isCompactItem } from '../packages/mac/src/chat/context-model.js';
 import { waitFor } from './helpers.js';
 
 const ME = 'me';
@@ -81,6 +80,9 @@ function host(agent: AgentBackend, prefs: { autoCompact?: boolean; autoCompactAt
   return { h, store, ask, toasts };
 }
 
+/** A compaction divider in the chat. */
+type CompactItem = Extract<LogItem, { type: 'system' }> & { readonly compact: CompactMark };
+const isCompactItem = (l: LogItem): l is CompactItem => l.type === 'system' && Boolean((l as { compact?: CompactMark }).compact);
 const dividers = (store: Store) => store.getState().log.filter(isCompactItem);
 const cards = (store: Store) => store.getState().log.filter((l) => l.type === 'agent');
 

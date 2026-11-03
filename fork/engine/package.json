@@ -1,8 +1,8 @@
 {
-  "name": "teamod",
+  "name": "teamod-engine",
   "private": true,
   "version": "0.6.2",
-  "description": "teamod's engine: what the Mac app (packages/mac) runs in the background. Not published.",
+  "description": "teamod's engine: what the Claude Code mod runs in the background. Not published.",
   "homepage": "https://github.com/eladcandroid/teamod#readme",
   "repository": {
     "type": "git",
@@ -11,7 +11,7 @@
   "bugs": {
     "url": "https://github.com/eladcandroid/teamod/issues"
   },
-  "author": "Ada Lovelace",
+  "author": "Elad Cohen",
   "license": "MIT",
   "type": "module",
   "engines": {

@@ -25,7 +25,8 @@ export function loginPath(env: NodeJS.ProcessEnv = process.env): string | undefi
 
 /**
  * What the daemon starts with. Claude Code's own variables stay out, so a lane isn't taken for a
- * nested session, and teamod's stay out, so a session in teamod's terminal can't lend its tokens.
+ * nested session, and those of the app teamod was forked from (TEAMOD_*, TEAMOD_*) stay out, so a
+ * session started in that app's terminal can't lend its tokens.
  * TEAMOD_DAEMON tells the mod, loaded inside each lane, to stay out of it.
  */
 export function daemonEnv(base: NodeJS.ProcessEnv, home: string, pathValue: string | undefined): NodeJS.ProcessEnv {
@@ -33,7 +34,6 @@ export function daemonEnv(base: NodeJS.ProcessEnv, home: string, pathValue: stri
   for (const [name, value] of Object.entries(base)) {
     if (!/^(CLAUDE|TEAMOD_|TEAMOD_|TEAMOD_)/.test(name)) env[name] = value;
   }
-  env.TEAMOD_HOME = home;
   env.TEAMOD_HOME = home;
   env.TEAMOD_DAEMON = '1';
   if (pathValue) env.PATH = pathValue;

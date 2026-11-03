@@ -49,7 +49,7 @@ export const InvitationRecord = z.object({
 });
 export type InvitationRecord = z.infer<typeof InvitationRecord>;
 
-/** teamod's own network: a teamod link never opens here, and a teamod one never opens there. */
+/** teamod's own network: a link of the app it was forked from (teamod://, teamod://) never opens here. */
 export const LINK_SCHEME = 'teamod://';
 
 export const formatCode = (code: string): string => (code.match(/.{1,4}/g) ?? []).join('-');

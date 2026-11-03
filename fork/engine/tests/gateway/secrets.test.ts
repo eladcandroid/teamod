@@ -6,10 +6,7 @@ import { secretLabel } from '../../src/core/gateway/model.js';
 import { describeForClaude } from '../../src/core/gateway/result.js';
 import { teamodHome } from '../../src/core/home.js';
 import { isNeverSent, isReceivedTaskFile, secretKindOf } from '../../src/core/shares.js';
-import type { Approval } from '../../src/core/store.js';
 import { cannotTake } from '../../src/net/mesh/features.js';
-import { popupButtons } from '../../packages/mac/src/gateway/popup-model.js';
-import { notificationActions, outsideStep, trayRequests } from '../../packages/mac/src/gateway/request-actions.js';
 
 /** Secrets with their own approval (ACME-209): what kind each is, what never goes, and what every screen offers. */
 
@@ -78,17 +75,5 @@ describe('the requester’s side', () => {
     // Without it (someone else's Claude), and anywhere else, a key is still refused.
     expect(decideTool('Read', { file_path: saved }, { ...ctx, dotenv: false })).toBe('deny');
     expect(decideTool('Read', { file_path: path.join(home, '.ssh', 'id_ed25519') }, ctx)).toBe('deny');
-  });
-});
-
-describe('its approval offers only Allow once / Decline, everywhere', () => {
-  const secret: Approval = { id: 'a1', kind: 'request', title: "kay's Claude wants your private SSH key id_ed25519", detail: '', peer: 'kay-peer-0001', task: 't_abcdefghijk', once: true };
-  it('the pop-up, the menu bar and the notification have no Always', () => {
-    expect(popupButtons({ kind: 'file', secret: 'your private SSH key id_ed25519' }).map((b) => b.label)).toEqual(['Decline', 'Allow Once']);
-    expect(trayRequests([secret])[0]!.always).toBe(false);
-    expect(notificationActions({ approval: 'a1', task: 't_abcdefghijk', once: true })).toEqual({ actionTypeId: 'teamod-review' });
-    // An "Always" that comes anyway only opens it.
-    expect(outsideStep('always', secret, undefined)).toEqual({ kind: 'review', task: 't_abcdefghijk' });
-    expect(outsideStep('approve', secret, undefined)).toMatchObject({ kind: 'decide', decision: { answer: 'yes' } });
   });
 });

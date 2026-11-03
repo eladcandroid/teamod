@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { type DomainState, initialState, reduce } from '../src/core/store.js';
+import { type CompactMark, type DomainState, type LogItem, initialState, reduce } from '../src/core/store.js';
 import { compactText, parseContextEvent } from '../src/core/context-log.js';
-import { breakdownRows, dividerText, isCompactItem, meterModel, usageLine, whenText } from '../packages/mac/src/chat/context-model.js';
 
 const CH = 'ws:w1';
 const ev = (event: 'context' | 'compact', data: object, ts = 1000, requestId = 'r1') =>
   ({ type: 'agent_event' as const, owner: 'me', requestId, requester: 'me', event, text: JSON.stringify(data), ts, channel: CH, itemId: requestId });
+/** A compaction divider in the chat. */
+type CompactItem = Extract<LogItem, { type: 'system' }> & { readonly compact: CompactMark };
+const isCompactItem = (l: LogItem): l is CompactItem => l.type === 'system' && Boolean((l as { compact?: CompactMark }).compact);
 const dividers = (s: DomainState) => s.log.filter(isCompactItem);
 
 describe('compaction in the chat', () => {
@@ -65,46 +67,5 @@ describe('compaction in the chat', () => {
     expect(parseContextEvent('7')).toBeUndefined();
     expect(parseContextEvent(JSON.stringify({ used: -5, window: 'big', trigger: 'sometimes', summary: '  ', breakdown: { conversation: 1 }, key: 3 }))).toEqual({});
     expect(parseContextEvent(JSON.stringify({ summary: 'x'.repeat(50_000) }))!.summary).toHaveLength(40_000);
-  });
-});
-
-describe('the Mac meter model', () => {
-  it('has nothing to show until the context is known, then the numbers, the tone and the last compaction', () => {
-    let s = initialState('room');
-    expect(meterModel(s, CH)).toBeUndefined();
-    s = reduce(s, ev('compact', { pre: 150_000, post: 18_000 }, Date.UTC(2026, 9, 19, 14, 14)));
-    s = reduce(s, ev('context', { used: 150_000, window: 200_000 }));
-    const m = meterModel(s, CH)!;
-    expect(m).toMatchObject({ pct: 75, tone: 'warn', compacting: false, busy: false });
-    expect(m.last?.compact.pre).toBe(150_000);
-    expect(usageLine(m.info!)).toBe('75% of 200k · 150k tokens');
-  });
-
-  it('knows when Claude is working there (Compact Now waits for its turn)', () => {
-    let s = initialState('room');
-    s = reduce(s, ev('context', { used: 10_000, window: 200_000 }));
-    s = reduce(s, { type: 'agent_event', owner: 'me', requestId: 'run', requester: 'me', event: 'started', text: '', ts: 5, channel: CH });
-    expect(meterModel(s, CH)?.busy).toBe(true);
-  });
-
-  it('words the divider: compacted, auto-compacted, running, unfinished', () => {
-    const now = Date.UTC(2026, 9, 19, 15, 0);
-    const at = now - 30 * 60_000;
-    const item = (compact: object) => ({ id: 'd', type: 'system' as const, channel: CH, text: '', ts: at, level: 'info' as const, compact: compact as never });
-    expect(dividerText(item({ state: 'done', pre: 152_000, post: 21_000, trigger: 'manual' }), false, now)).toBe(`Context compacted · 152k → 21k tokens · ${whenText(at, now)}`);
-    expect(dividerText(item({ state: 'done', pre: 152_000, post: 21_000, trigger: 'auto' }), false, now)).toMatch(/^Auto-compacted · 152k → 21k/);
-    expect(dividerText(item({ state: 'running', trigger: 'auto' }), false, now)).toBe('Context nearly full · compacting…');
-    expect(dividerText(item({ state: 'running' }), false, now)).toBe('Compacting…');
-    expect(dividerText(item({ state: 'running' }), true, now)).toMatch(/^Compaction didn’t finish/);
-    expect(whenText(now - 3 * 86_400_000, now)).toMatch(/,/);
-  });
-
-  it('turns the breakdown into rows with their share of the window', () => {
-    expect(breakdownRows({ used: 100_000, window: 200_000, breakdown: { conversation: 50_000, tools: 40_000, system: 10_000 } })).toEqual([
-      { key: 'conversation', label: 'Conversation', tokens: 50_000, share: 0.25 },
-      { key: 'tools', label: 'Tool results', tokens: 40_000, share: 0.2 },
-      { key: 'system', label: 'System & files', tokens: 10_000, share: 0.05 },
-    ]);
-    expect(breakdownRows({ used: 1, window: 200_000 })).toEqual([]);
   });
 });

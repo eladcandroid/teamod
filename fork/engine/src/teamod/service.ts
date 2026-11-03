@@ -17,7 +17,7 @@ const xml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'
 
 /** A LaunchAgent: running from login, started again if it dies, never when it stopped on purpose. */
 export function launchAgent(input: ServiceInput): string {
-  const env: Readonly<Record<string, string>> = { TEAMOD_HOME: input.home, TEAMOD_HOME: input.home, TEAMOD_DAEMON: '1', PATH: input.path };
+  const env: Readonly<Record<string, string>> = { TEAMOD_HOME: input.home, TEAMOD_DAEMON: '1', PATH: input.path };
   const log = path.join(input.home, 'logs', 'daemon.log');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -55,7 +55,6 @@ Description=teamod engine
 
 [Service]
 ExecStart=${quoted(input.node)} ${quoted(input.cli)} daemon --keep-alive
-Environment=${quoted(`TEAMOD_HOME=${input.home}`)}
 Environment=${quoted(`TEAMOD_HOME=${input.home}`)}
 Environment=TEAMOD_DAEMON=1
 Environment=${quoted(`PATH=${input.path}`)}

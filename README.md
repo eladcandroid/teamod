@@ -2,7 +2,6 @@
 
 Run a team of Claude Code agents from panes beside your session. Each task gets its own git worktree and agent. Teammates connect peer-to-peer, with no server to host.
 
-A Claude Code mod built on a fork of [teamod](https://github.com/eladcandroid/teamod) (MIT).
 
 ## Install
 
@@ -68,7 +67,7 @@ The engine keeps running after Claude Code exits, so schedules and teammates' re
 - Agents can edit files, commit and merge in the projects you add. Try it on a spare repository first.
 - A teammate you pair with can send requests to your agents. Their answers and requests are treated as untrusted data.
 - Teammates connect directly, with a Cloudflare relay as backup when a direct link fails. Change this in Settings.
-- Data lives in `~/.teamod`, apart from any teamod install. teamod invite links don't work here.
+- Data lives in `~/.teamod`.
 
 Not yet tested: the panes inside the Claude desktop app, charts drawn as images, real GitHub pull requests, Linear, plan runs, scheduled automations, and pairing across networks.
 
@@ -92,7 +91,7 @@ node dist/teamod/cli.js setup --from-source
 claude --plugin-dir ../mod
 ```
 
-- `fork/engine`: the teamod engine as a git subtree, plus `src/teamod`. Changes to teamod's files are listed in `fork/UPSTREAM.md`.
+- `fork/engine`: the engine; teamod's screens and bridge are in `src/teamod`.
 - `fork/mod`: the Claude Code mod.
 - `fork/PARITY.md`: every engine API method and the pane that shows it.
 

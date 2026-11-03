@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { CLAUDE_CAPABILITIES } from '../src/agent/runtime/claude/index.js';
@@ -50,13 +49,6 @@ const runtimeTable = (): { header: string[]; rows: string[][]; text: string } =>
   return { header: cells(lines[0]!), rows: lines.slice(2).map(cells), text };
 };
 
-/** Where screens and the core say a fallback: every `fallbackFor(…, 'id')` outside the table itself. */
-const shownFallbacks = (): Set<string> => {
-  // No shell: Windows' cmd.exe would hand git the quotes, and it would match nothing.
-  const files = execFileSync('git', ['ls-files', 'src/*.ts', 'packages/mac/src/*.ts', 'packages/mac/src/*.tsx', 'packages/companion/app/*.tsx'], { encoding: 'utf8' }).split('\n').filter((f) => f && f !== 'src/shared/runtime-fallbacks.ts');
-  return new Set(files.flatMap((f) => [...readFileSync(f, 'utf8').matchAll(/fallbackFor\([^;]*?'([a-z_]+)'\)/g)].map((m) => m[1]!)));
-};
-
 describe('docs/parity.md, per runtime', () => {
   const { header, rows, text } = runtimeTable();
   const codexFallbacks = Object.keys(RUNTIME_FALLBACKS.codex ?? {});
@@ -75,11 +67,6 @@ describe('docs/parity.md, per runtime', () => {
     const named = rows.filter((r) => r[3]!.startsWith('fallback')).map((r) => /`fallback:([a-z_]+)`/.exec(r[3]!)?.[1] ?? `(none in "${r[0]}")`);
     expect(named.filter((id) => !codexFallbacks.includes(id))).toEqual([]);
     expect(codexFallbacks.filter((id) => !named.includes(id))).toEqual([]);
-  });
-
-  it('shows every fallback somewhere (greyed with its reason, or the reason beside the control)', () => {
-    const shown = shownFallbacks();
-    expect(codexFallbacks.filter((id) => !shown.has(id))).toEqual([]);
   });
 
   it('accounts for every capability Codex lacks, and every fallback stands for one it does lack', () => {

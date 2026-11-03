@@ -61,15 +61,7 @@ function offenders(root: string): string[] {
 }
 
 describe('screens say the agent, not "Claude"', () => {
-  it('the Mac app', () => {
-    expect(offenders(path.join(repo, 'packages/mac/src'))).toEqual([]);
-  });
-
   it('the shared models the screens import', () => {
     expect([...offenders(path.join(repo, 'src/ui')), ...offenders(path.join(repo, 'src/shared'))]).toEqual([]);
-  });
-
-  it('the phone app', () => {
-    expect(['app', 'components', 'lib'].flatMap((d) => offenders(path.join(repo, 'packages/companion', d)))).toEqual([]);
   });
 });

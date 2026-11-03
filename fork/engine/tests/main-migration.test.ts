@@ -4,13 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { initialScreen, reduceScreen, viewFor } from '../src/client/screen.js';
-import { type View, initialState } from '../src/core/store.js';
+import { initialState } from '../src/core/store.js';
 import { noticeTarget } from '../src/ui/notice-models.js';
 import { chatTitleOf, migrateMainConversations } from '../src/workspaces/main-migration.js';
 import { WorkspaceManager, mainId } from '../src/workspaces/manager.js';
 import { WorkspaceStore } from '../src/workspaces/store.js';
 import type { Project, Workspace, WorkspaceRecord } from '../src/workspaces/types.js';
-import { newChatProject } from '../packages/mac/src/lib/project-home.js';
 
 /**
  * No standing main conversation per project (ACME-70): at startup, a main checkout's conversation
@@ -144,7 +143,6 @@ describe('migrating a project’s main conversation into a chat (ACME-70)', () =
 describe('nothing opens a main checkout as a conversation (ACME-70)', () => {
   const ws = (id: string, over: Partial<Workspace> = {}): Workspace => ({ id, projectRoot: '/r', name: id, path: `/r/${id}`, kind: 'worktree', createdAt: 0, projectId: 'p', external: false, ...over });
   const project = (main: Partial<Workspace> = {}): Project => ({ id: 'p', name: 'p', root: '/r', base: 'main', workspaces: [ws('p:main', { kind: 'main', path: '/r', ...main }), ws('wt'), ws('chat-1', { kind: 'chat', path: '/r' })] });
-  const chats: Project = { id: 'chats', name: 'Chats', root: '', base: '', workspaces: [ws('solo', { kind: 'chat', projectId: 'chats', projectRoot: '' })] };
 
   it('going to it goes to the project’s home, or the chat its old conversation became; it never becomes a tab', () => {
     const domain = { ...initialState('room'), projects: [project()] };
@@ -163,15 +161,4 @@ describe('nothing opens a main checkout as a conversation (ACME-70)', () => {
     expect(noticeTarget({ projects: [project({ movedTo: 'chat-1' })], shared: [] }, 'ws:p:main')).toEqual({ kind: 'workspace', id: 'chat-1' });
   });
 
-  it('New Chat (⌘N) in a project starts a chat on its main folder; elsewhere a chat of its own', () => {
-    const projects = [chats, project()];
-    const plans = { plans: [{ id: 'pl', projectId: 'p' }] } as never;
-    const at = (view: View) => newChatProject({ projects, view, plans });
-    expect(at({ kind: 'project', id: 'p' })).toBe('p');
-    expect(at({ kind: 'workspace', id: 'wt', tab: 'chat' })).toBe('p');
-    expect(at({ kind: 'draft', projectId: 'p', back: { kind: 'room' } })).toBe('p');
-    expect(at({ kind: 'plan', id: 'pl' })).toBe('p');
-    expect(at({ kind: 'workspace', id: 'solo', tab: 'chat' })).toBe('chats');
-    expect(at({ kind: 'overview' })).toBe('chats');
-  });
 });

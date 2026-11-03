@@ -1,11 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { friendNamed, inviteRoute, newChannelLine, parseInvite } from '../src/shared/invite-route.js';
 import { suggest } from '../src/ui/suggest.js';
-import { channelSuggestions } from '../packages/mac/src/network/chat-model.js';
-import { inviteFor, invitePlace } from '../packages/mac/src/lib/invite-model.js';
 import { NO_NETWORK } from '../src/core/network-store.js';
-import type { FriendView, GroupView } from '../src/net/mesh/views.js';
-import type { AppState } from '../src/core/store.js';
+import type { FriendView } from '../src/net/mesh/views.js';
 import type { Session } from '../src/core/session.js';
 import { runCommand } from '../src/core/commands.js';
 import { handoffPeople, shareRowDetail, worktreeShareRows } from '../src/ui/worktree-share.js';
@@ -74,30 +71,6 @@ describe('where /invite @name goes', () => {
   });
 });
 
-describe('what the Mac sees on screen', () => {
-  const g: GroupView = { id: 'f'.repeat(32), name: 'design', members: [{ peerId: ata.peerId, name: 'ata', online: true, presence: { state: 'online' }, admin: true, self: false }], admin: true, active: true, unread: 0, requests: [], createdAt: 0 } as unknown as GroupView;
-  const state = (view: AppState['view']): Pick<AppState, 'view' | 'projects' | 'network'> => ({
-    view,
-    projects: [{ id: 'p1', name: 'teamod', root: '/p', workspaces: [{ id: 'w1', name: 'add-auth', projectId: 'p1' }] }] as unknown as AppState['projects'],
-    network: { ...NO_NETWORK, enabled: true, friends, groups: [g] },
-  });
-
-  it('reads the DM, the channel, the worktree and the project in view', () => {
-    expect(invitePlace(state({ kind: 'conversation', id: `dm:${ata.peerId}` }))).toEqual({ kind: 'dm', peerId: ata.peerId, name: 'ata' });
-    expect(invitePlace(state({ kind: 'conversation', id: `group:${g.id}` }))).toEqual({ kind: 'group', groupId: g.id, name: 'design', members: [ata.peerId], admin: true, active: true });
-    expect(invitePlace(state({ kind: 'workspace', id: 'w1', tab: 'chat' } as AppState['view']))).toEqual({ kind: 'workspace', workspaceId: 'w1', projectId: 'p1', name: 'add-auth' });
-    expect(invitePlace(state({ kind: 'project', id: 'p1' }))).toEqual({ kind: 'project', projectId: 'p1', name: 'teamod' });
-    expect(invitePlace(state({ kind: 'overview' } as AppState['view']))).toEqual({ kind: 'none' });
-  });
-
-  it('routes what was typed, and leaves other words alone', () => {
-    expect(inviteFor('/invite', state({ kind: 'overview' } as AppState['view']))).toEqual({ kind: 'add_friend' });
-    expect(inviteFor('/invite @cy', state({ kind: 'conversation', id: `group:${g.id}` }))).toMatchObject({ kind: 'add_members', friends: [{ peerId: cy.peerId }] });
-    expect(inviteFor('hello @cy', state({ kind: 'overview' } as AppState['view']))).toBeUndefined();
-    expect(inviteFor('/invitation', state({ kind: 'overview' } as AppState['view']))).toBeUndefined();
-  });
-});
-
 describe('completing friends after /invite', () => {
   it('in the chat box: /invite, then your friends by @handle', () => {
     const ctx = { peers: [], selfId: id('k'), friends: friends.map((f) => ({ name: f.name, online: true })) };
@@ -106,12 +79,6 @@ describe('completing friends after /invite', () => {
     expect(suggest('/invite @b', ctx).map((s) => [s.label, s.enter])).toEqual([['@BoLin', 'submit']]);
   });
 
-  it('in a DM’s or channel’s box: /invite, then friends who aren’t in it', () => {
-    const people = [{ peerId: ata.peerId, name: 'ata' }];
-    expect(channelSuggestions('/in', { people, friends }).map((s) => [s.label, s.value])).toEqual([['/invite', '/invite @']]);
-    expect(channelSuggestions('/invite @', { people, friends }).map((s) => s.value)).toEqual(['/invite @BoLin', '/invite @cy']);
-    expect(channelSuggestions('/invite @c', { people, friends }).map((s) => s.label)).toEqual(['cy']);
-  });
 });
 
 describe('/invite @friend in a worktree, read by the daemon (ACME-340)', () => {

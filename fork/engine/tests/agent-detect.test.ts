@@ -10,8 +10,6 @@ import { Store, initialState } from '../src/core/store.js';
 import { Workbench, withRuntimeStatus } from '../src/core/workbench.js';
 import type { WorkspaceController } from '../src/core/workspace-controller.js';
 import { type RuntimeChoice, runtimeChoices } from '../src/shared/agent-runtimes.js';
-import { agentRows, awaitingAgent, pickDefault } from '../packages/mac/src/onboarding/agent-setup.js';
-import { STEPS, groupOf, inTour, stepBy } from '../packages/mac/src/onboarding/onboarding-model.js';
 
 /** Your agents, found (ACME-507): Claude Code's sign-in, every runtime's state kept and merged, and onboarding's rows. */
 
@@ -139,51 +137,5 @@ describe('the runtimes as the pickers have them', () => {
     expect(readFileSync(opened[0]!, 'utf8')).toContain('/Users/me/.teamod/claude-code/2.1/claude auth login');
     expect(await wb.agentSignIn('local')).toBe(false);
     wb.stop();
-  });
-});
-
-describe("onboarding's Your agents step", () => {
-  it('comes right after the welcome, before the tour, in a group of its own', () => {
-    expect(STEPS.slice(0, 3)).toEqual(['hello', 'yourAgents', 'parallel']);
-    expect(stepBy('hello', 1)).toBe('yourAgents');
-    expect(inTour('yourAgents')).toBe(false);
-    expect(groupOf('yourAgents')).toBe('other');
-  });
-
-  const choices = (over: Partial<Record<string, Partial<RuntimeChoice>>> = {}): RuntimeChoice[] =>
-    [
-      { id: 'claude', label: 'Claude', available: true },
-      { id: 'codex', label: 'Codex', available: true },
-      { id: 'local', label: 'Local model', available: false, state: 'no_endpoint' as const },
-    ].map((r) => ({ ...r, ...over[r.id] }));
-
-  it('says each one’s state in words with its one fix', () => {
-    const rows = agentRows(choices({ claude: { available: false, state: 'signed_out' }, codex: { available: false, state: 'missing' } }), true);
-    expect(rows.map((r) => [r.id, r.words, r.fix])).toEqual([
-      ['claude', 'Not signed in', 'sign_in'],
-      ['codex', 'Not installed', 'install'],
-      ['local', 'No endpoint', 'set_up'],
-    ]);
-    expect(agentRows(choices(), true).map((r) => r.words)).toEqual(['Ready', 'Ready', 'No endpoint']);
-  });
-
-  it('one not asked yet is still being looked for', () => {
-    expect(agentRows(choices({ codex: { available: false } }), false).find((r) => r.id === 'codex')).toMatchObject({ state: undefined, words: 'Checking…' });
-    expect(agentRows(choices({ codex: { available: false } }), true).find((r) => r.id === 'codex')).toMatchObject({ state: 'missing', fix: 'install' });
-  });
-
-  it('keeps yours when it’s ready, else picks the first ready one; with none ready, picks none', () => {
-    expect(pickDefault(agentRows(choices(), true), 'codex')).toBe('codex');
-    expect(pickDefault(agentRows(choices({ claude: { available: false, state: 'signed_out' } }), true), 'claude')).toBe('codex');
-    expect(pickDefault(agentRows(choices({ claude: { available: false, state: 'signed_out' }, codex: { available: false, state: 'missing' } }), true), 'claude')).toBeUndefined();
-  });
-
-  it('keeps looking on its own while Codex or Claude is missing or signed out, not for a local model', () => {
-    expect(awaitingAgent(agentRows(choices({ codex: { available: false, state: 'missing' } }), true))).toBe(true);
-    expect(awaitingAgent(agentRows(choices({ claude: { available: false, state: 'signed_out' } }), true))).toBe(true);
-    // All ready but the local model (no endpoint): nothing to wait for.
-    expect(awaitingAgent(agentRows(choices(), true))).toBe(false);
-    // Not asked yet: the first look is already on its way.
-    expect(awaitingAgent(agentRows(choices({ codex: { available: false } }), false))).toBe(false);
   });
 });

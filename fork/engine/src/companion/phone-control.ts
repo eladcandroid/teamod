@@ -114,13 +114,13 @@ export interface PhoneControlDeps {
 
 /** What a tool needs to act: which phone, by which route, and the adb for it when there is one. */
 /** teamod Link, the phone's add-on with the Accessibility service (ACME-377), and that service. */
-export const LINK_PACKAGE = 'dev.teamod.app.control';
-export const LINK_SERVICE = `${LINK_PACKAGE}/dev.teamod.app.addon.TeamodAccessibilityService`;
+export const LINK_PACKAGE = 'dev.teamod.teamod.control';
+export const LINK_SERVICE = `${LINK_PACKAGE}/dev.teamod.teamod.addon.TeamodAccessibilityService`;
 /** Each release carries teamod Link under this name (ACME-391). */
 export const LINK_APK_URL = 'https://github.com/eladcandroid/teamod/releases/latest/download/teamod-Link.apk';
 
 /** The app itself: Link only works signed with the same key (ACME-430). */
-export const APP_PACKAGE = 'dev.teamod.app';
+export const APP_PACKAGE = 'dev.teamod.teamod';
 
 /** Who signed a package, from `dumpsys package <name>` ("signatures:[8f3c1a2b]"), or undefined when it doesn't say. */
 export function signerOf(dumpsys: string): string | undefined {
@@ -135,7 +135,7 @@ export function withLinkService(current: string): string {
   const kept = current
     .split(':')
     .map((x) => x.trim())
-    .filter((x) => x && x !== 'null' && !x.startsWith('dev.teamod.app/'));
+    .filter((x) => x && x !== 'null' && !x.startsWith('dev.teamod.teamod/'));
   // Written back through the phone's shell: anything else on the list must stay exactly as it is.
   if (kept.some((x) => !/^[\w.$/]+$/.test(x))) throw new Error('The phone’s Accessibility list has a service teamod can’t safely rewrite: turn on teamod Link in Android › Accessibility instead.');
   return kept.includes(LINK_SERVICE) ? kept.join(':') : [...kept, LINK_SERVICE].join(':');
@@ -307,7 +307,7 @@ export class PhoneControl {
   }
 
   private async factsOf(adb: Adb): Promise<{ teamod: boolean; name: string }> {
-    const res = await adb.shell('pm path dev.teamod.app; settings get global device_name', 8_000).catch(() => undefined);
+    const res = await adb.shell('pm path dev.teamod.teamod; settings get global device_name', 8_000).catch(() => undefined);
     const lines = (res?.stdout ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
     return { teamod: lines.some((l) => l.startsWith('package:')), name: lines.filter((l) => !l.startsWith('package:')).at(-1) ?? '' };
   }
@@ -318,7 +318,7 @@ export class PhoneControl {
     const adb = await this.ensureAdb();
     const row = adb ? (await this.attached()).find((d) => d.usb && d.state === 'device') : undefined;
     if (!adb || !row) throw new Error('Plug the phone in, with USB debugging on and this Mac allowed.');
-    const res = await new Adb(this.deps.sys, adb.path, row.serial).shell(`am start -a android.intent.action.VIEW -d '${link}' dev.teamod.app`, 10_000);
+    const res = await new Adb(this.deps.sys, adb.path, row.serial).shell(`am start -a android.intent.action.VIEW -d '${link}' dev.teamod.teamod`, 10_000);
     if (res.code !== 0 || /Error|Exception/.test(res.stdout + res.stderr)) throw new Error('The phone didn’t open teamod’s pairing: open teamod on the phone and try again.');
   }
 

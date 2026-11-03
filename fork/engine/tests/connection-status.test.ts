@@ -4,7 +4,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketServer } from 'ws';
-import { connectionLine } from '../packages/mac/src/views/room/connection-model.js';
 import { Session } from '../src/core/session.js';
 import { ShareService } from '../src/core/shares.js';
 import { Store, initialState } from '../src/core/store.js';
@@ -212,16 +211,5 @@ describe('patientTimeout', () => {
     patientTimeout(2000, fired, 1000)();
     vi.advanceTimersByTime(5000);
     expect(fired).not.toHaveBeenCalled();
-  });
-});
-
-describe('connectionLine', () => {
-  const base = { attempt: 3, reason: 'Opening handshake has timed out', since: 0 };
-  it('counts down to the next try', () => {
-    expect(connectionLine({ ...base, state: 'reconnecting', retryAt: 12_000 }, 400)).toEqual({ lead: 'Can’t reach the room', detail: 'retrying in 12s', canRetry: true });
-    expect(connectionLine({ ...base, state: 'reconnecting', retryAt: 12_000 }, 12_500)).toMatchObject({ detail: 'retrying now…', canRetry: false });
-  });
-  it('says why when offline for good', () => {
-    expect(connectionLine({ ...base, state: 'offline', reason: 'You were removed' }, 0)).toEqual({ lead: 'Offline', detail: 'You were removed', canRetry: false });
   });
 });

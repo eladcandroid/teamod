@@ -13,8 +13,6 @@ import type { AgentRunInput, RoomBridge } from '../src/agent/types.js';
 import { status } from '../src/workspaces/git.js';
 import { WorkspaceManager } from '../src/workspaces/manager.js';
 import { WorkspaceStore } from '../src/workspaces/store.js';
-import type { Project, Workspace } from '../src/workspaces/types.js';
-import { agoText, homeModel, mainLineOf } from '../packages/mac/src/views/project/home-model.js';
 
 /** "Never change main": runs in a project's main folder are questions only (see policy.ts). */
 
@@ -210,48 +208,6 @@ describe('carrySession', () => {
     expect(existsSync(path.join(config, 'projects', encodeProjectDir('/work/wt/feature'), 'abc-123.jsonl'))).toBe(true);
     expect(carrySession('missing', '/work/app', '/work/wt/feature', config)).toBe(false);
     expect(carrySession('../evil', '/work/app', '/work/wt/feature', config)).toBe(false);
-  });
-});
-
-describe('the project home (Mac)', () => {
-  const ws = (over: Partial<Workspace>): Workspace => ({ id: 'w', projectRoot: '/p', name: 'w', path: '/wt/w', kind: 'worktree', branch: 'teamod/w', base: 'origin/main', createdAt: 1, projectId: 'p1', external: false, status: { changed: 0, ahead: 0, behind: 0 }, ...over });
-  const project: Project = {
-    id: 'p1',
-    name: 'api',
-    root: '/p',
-    base: 'origin/main',
-    workspaces: [
-      ws({ id: 'main', name: 'main', kind: 'main', path: '/p', branch: 'main', askOnly: true, status: { branch: 'main', changed: 0, ahead: 0, behind: 0, upstream: { name: 'origin/main', ahead: 0, behind: 2 } } }),
-      ws({ id: 'auth', name: 'add-auth', status: { changed: 0, ahead: 2, behind: 0 }, createdAt: 5 }),
-      ws({ id: 'hooks', name: 'webhooks', status: { changed: 1, ahead: 0, behind: 0 }, createdAt: 9 }),
-      ws({ id: 'ext', name: 'ext', external: true, path: '/x/.claude/worktrees/a' }),
-      ws({ id: 'q', name: 'how does auth work', kind: 'chat', path: '/p', askOnly: true, createdAt: 3 }),
-      ws({ id: 'old', name: 'old', archived: true, createdAt: 2 }),
-    ],
-  };
-
-  it('lists worktrees, questions and archived, with counts', () => {
-    const m = homeModel({ log: [], conflicts: {}, prs: {} }, project);
-    expect(m.worktrees.map((w) => w.id)).toEqual(['hooks', 'auth']);
-    expect(m.asks.map((w) => w.id)).toEqual(['q']);
-    expect(m.archived.map((w) => w.id)).toEqual(['old']);
-    expect(m.stats).toEqual({ active: 2, ready: 1, archived: 1 });
-    expect(m.mainLine).toEqual({ label: '2 behind origin/main', tone: 'info' });
-  });
-
-  it("doesn't count a worktree whose PR is merged or closed as ready to merge", () => {
-    const pr = { number: 7, url: 'u', title: 'T', draft: false, checks: 'passing' as const };
-    expect(homeModel({ log: [], conflicts: {}, prs: { auth: { ...pr, state: 'OPEN' } } }, project).stats.ready).toBe(1);
-    expect(homeModel({ log: [], conflicts: {}, prs: { auth: { ...pr, state: 'MERGED' } } }, project).stats.ready).toBe(0);
-    expect(homeModel({ log: [], conflicts: {}, prs: { auth: { ...pr, state: 'CLOSED' } } }, project).stats.ready).toBe(0);
-  });
-
-  it('says how main compares with origin', () => {
-    const at = (status: Workspace['status']) => mainLineOf(ws({ kind: 'main', status }));
-    expect(at({ changed: 0, ahead: 0, behind: 0, upstream: { name: 'origin/main', ahead: 0, behind: 0 } })).toEqual({ label: 'Up to date with origin/main', tone: 'ok' });
-    expect(at({ changed: 3, ahead: 0, behind: 0, upstream: { name: 'origin/main', ahead: 1, behind: 0 } })).toEqual({ label: '1 ahead of origin/main', tone: 'warn', dirty: '3 uncommitted changes in main' });
-    expect(at({ changed: 0, ahead: 0, behind: 0 })).toEqual({ label: 'Not tracking a remote branch', tone: 'muted' });
-    expect(agoText(1000, 1000 + 5 * 60_000)).toBe('5 min ago');
   });
 });
 

@@ -8,7 +8,6 @@ import type { MilestoneView, PlanView, TaskView } from '../src/core/plans/progre
 import { checkPrompt, criteriaNeedCheck, deferredItems } from '../src/core/plans/prompt.js';
 import { Store, initialState } from '../src/core/store.js';
 import type { Project, Workspace } from '../src/workspaces/types.js';
-import { checklist, toggleCheck } from '../packages/mac/src/tasks/tasks-model.js';
 
 /** A task's acceptance criteria count: met or explained before review, and the milestone check sees them. */
 
@@ -43,13 +42,6 @@ describe('criteria: ticked, explained, or open', () => {
     expect(tallyWords(tally(text))).toBe('1/5 · 2 deferred · 1 not done');
     expect(tallyWords(tally('- [x] a\n- [ ] b'))).toBe('1/2');
     expect(criterionLine(criteria(text)[1]!)).toBe('- [ ] Two — deferred: suites run at the end of the plan');
-  });
-
-  it('on the Mac: counted with their states, and ticking one drops its reason', () => {
-    const text = '- [x] One\n- [ ] Two — deferred: at the end';
-    expect(checklist(text)).toMatchObject({ done: 1, deferred: 1, total: 2 });
-    expect(toggleCheck(text, 1)).toBe('- [x] One\n- [x] Two');
-    expect(toggleCheck(text, 0)).toBe('- [ ] One\n- [ ] Two — deferred: at the end');
   });
 
   it('a plan re-applying its tasks keeps ticks and reasons', () => {

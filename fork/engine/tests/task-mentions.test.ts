@@ -12,7 +12,6 @@ import { readInline } from '../src/shared/render/inline-model.js';
 import { stripCode } from '../src/companion/strip.js';
 import { suggest } from '../src/ui/suggest.js';
 import { gatewayTarget } from '../src/agent/mock.js';
-import { linkMentions, parseMentionHref, resolveMention, splitMentions, tasksIn, type MentionWorld } from '../packages/mac/src/chat/mentions.js';
 
 /** "@ACME-24" names a task on the board (ACME-56): suggested as you type, a chip once it's there. */
 
@@ -135,34 +134,6 @@ describe('another project’s tasks in the "@" list (ACME-397)', () => {
   it('only a few of them, below this project’s', () => {
     const many = Array.from({ length: 10 }, (_, i) => away(t(`RAT-${i + 1}`, `Task ${i + 1}`)));
     expect(suggest('@RAT', { ...ctx, tasks: many }).filter((s) => s.task)).toHaveLength(3);
-  });
-});
-
-describe('a task mention in the words', () => {
-  const world: MentionWorld = { friends: [{ name: 'mia', peerId: 'mia-1' }], peers: [], projects: [], workspaces: [], tasks };
-
-  it('is a task chip when the key is on the board, picked or typed', () => {
-    expect(resolveMention('ACME-24', world)).toEqual({ kind: 'task', label: 'ACME-24', id: 'ACME-24' });
-    expect(resolveMention('acme-24', world)).toEqual({ kind: 'task', label: 'ACME-24', id: 'ACME-24' });
-    expect(resolveMention('ACME-99', world)).toBeUndefined();
-    expect(resolveMention('ACME-24', { ...world, tasks: undefined })).toBeUndefined();
-    expect(splitMentions('@mia see @ACME-24, then @ACME-99.', world)).toEqual([
-      { raw: '@mia', ref: { kind: 'friend', label: 'mia', id: 'mia-1' } },
-      { text: ' see ' },
-      { raw: '@ACME-24', ref: { kind: 'task', label: 'ACME-24', id: 'ACME-24' } },
-      { text: ', then @ACME-99.' },
-    ]);
-  });
-
-  it('becomes a link the message draws as the live task chip', () => {
-    const md = linkMentions('fix @ACME-24 please', world);
-    const href = /\]\(([^)]+)\)/.exec(md)?.[1] ?? '';
-    expect(parseMentionHref(href)).toEqual({ kind: 'task', label: 'ACME-24', id: 'ACME-24' });
-  });
-
-  it('the box lists each task it names once, for the chips above it', () => {
-    expect(tasksIn('@ACME-24 and @acme-24 and @OPS-24 and @ACME-99', world)).toEqual(['ACME-24', 'OPS-24']);
-    expect(tasksIn('no tasks here', world)).toEqual([]);
   });
 });
 

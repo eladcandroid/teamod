@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { localMentions, portableMentions, sharedProjects, sharedTasks } from '../../src/core/team/mentions.js';
-import { askAboutTask, channelSuggestions, channelTasks } from '../../packages/mac/src/network/chat-model.js';
 import type { Issue } from '../../src/core/board/model.js';
 import type { TeamState } from '../../src/core/team/model.js';
 
@@ -35,18 +34,5 @@ describe('team tasks in chats', () => {
     expect(localMentions(wire, [])).toContain('take @API-12?');
     // Twice in one message, and an email-like "a@API-12" left alone.
     expect(portableMentions('@API-12 and @api-12, a@API-12', shared)).toBe('[@API-12](teamod-task-id:i_1) and [@API-12](teamod-task-id:i_1), a@API-12');
-  });
-
-  it('the @ menu in a friend chat lists the tasks you share, after the Claudes and people', () => {
-    const tasks = channelTasks(ata, team, [{ peerId: 'kay', name: 'kay' }]);
-    expect(tasks.map((t) => t.key)).toEqual(['API-12']);
-    const list = channelSuggestions('look at @API', { people: [{ peerId: 'kay', name: 'kay' }], tasks });
-    expect(list.map((s) => [s.label, s.value])).toEqual([['@API-12', 'look at @API-12 ']]);
-    expect(channelSuggestions('@', { people: [{ peerId: 'kay', name: 'kay' }], tasks }).map((s) => s.label)).not.toContain('@API-12');
-  });
-
-  it('asking about a task from its menu writes the words for their chat', () => {
-    expect(askAboutTask('API-12', 'Kay Stone', true)).toMatch(/^@claude:\S+ @API-12 $/);
-    expect(askAboutTask('API-12', 'kay', false)).toBe('@API-12 ');
   });
 });

@@ -219,7 +219,7 @@ describe('capabilities: the screen and device info', () => {
     expect(parseBattery("Now drawing from 'AC Power'\n -InternalBattery-0 (id=1)\t100%; charged; 0:00 remaining present: true")).toMatchObject({ percent: 100, charging: true, power: 'AC Power' });
     expect(parseBattery("Now drawing from 'AC Power'\n")).toBeUndefined();
     const info = await deviceInfo(pretendSystem());
-    expect(info.apps).toEqual(['teamod', 'Figma', 'Safari', 'Xcode']);
+    expect(info.apps).toEqual(['Figma', 'Safari', 'teamod', 'Xcode']);
     expect(describeDevice(info)).toContain('4 apps in /Applications');
   });
 });

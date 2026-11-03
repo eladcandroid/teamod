@@ -25,11 +25,12 @@ describe("teamod's network is its own", () => {
     expect(encodeInvite({ url: `p2p://${key}`, secret: 'k3JdQ9vXr2Lm8TzW4yBn' }).startsWith('teamod://')).toBe(true);
   });
 
+  // Links of the app teamod was forked from (teamod://, and its older teamod://) never open here.
   it.each([`teamod://add#${secret}`, `teamod://add#${secret}`, 'teamod://add?code=K7QM-4XPA-R2TD', 'teamod://join?code=K7QM-4XPA-R2TD', `add me: teamod://join#${secret} thanks`])('refuses %s', (link) => {
     expect(parseTicket(link)).toBeUndefined();
   });
 
-  it('refuses a teamod room invite', () => {
+  it('refuses a room invite of the app it was forked from', () => {
     expect(() => decodeInvite(`teamod://${key}#k3JdQ9vXr2Lm8TzW4yBn`)).toThrow(/teamod invite/);
     expect(() => decodeInvite(`teamod://${key}#k3JdQ9vXr2Lm8TzW4yBn`)).toThrow(/teamod invite/);
   });
@@ -110,9 +111,10 @@ describe('a notification from the operating system', () => {
 });
 
 describe('what the daemon inherits', () => {
-  it("drops a session's tool tokens and teamod's home", () => {
+  it("drops the forked-from app's tool tokens and home, and sets teamod's", () => {
     const env = daemonEnv({ TEAMOD_TOOLS_TOKEN: 't', TEAMOD_HOME: '/h/.teamod', TEAMOD_TOOLS_TOKEN: 't', CLAUDE_CODE_OAUTH_TOKEN: 'x' }, '/h/.teamod', undefined);
     expect(env.TEAMOD_TOOLS_TOKEN).toBeUndefined();
+    expect(env.TEAMOD_HOME).toBeUndefined();
     expect(env.TEAMOD_TOOLS_TOKEN).toBeUndefined();
     expect(env.TEAMOD_HOME).toBe('/h/.teamod');
     expect(env.TEAMOD_DAEMON).toBe('1');

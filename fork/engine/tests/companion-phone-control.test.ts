@@ -297,7 +297,7 @@ describe('a smooth mirror (ACME-184)', () => {
   it('keeps only the cause’s own words from the app’s native errors', () => {
     expect(phoneErrorText("Call to function 'PhoneControl.perform' has been rejected.\n\u00e2\u0086\u0092 Caused by: java.lang.IllegalStateException: No text field has the focus")).toBe('No text field has the focus');
     expect(phoneErrorText("Call to function 'PhoneControl.perform' has been rejected.\n→ Caused by: java.util.concurrent.ExecutionException: java.lang.IllegalStateException: The screenshot failed (code 3); x")).toBe('The screenshot failed (code 3); x');
-    expect(phoneErrorText('dev.teamod.app.control.TeamodAccessibilityService$TooSoon: The screenshot failed (code 3): asked too soon')).toBe('The screenshot failed (code 3): asked too soon');
+    expect(phoneErrorText('dev.teamod.teamod.control.TeamodAccessibilityService$TooSoon: The screenshot failed (code 3): asked too soon')).toBe('The screenshot failed (code 3): asked too soon');
     expect(phoneErrorText('Turn on Accessibility for teamod on the phone')).toBe('Turn on Accessibility for teamod on the phone');
   });
 
@@ -493,7 +493,7 @@ describe('Wireless debugging, safely (ACME-187)', () => {
     const base = fakeLink(id, wifiState, (op, args) => {
       if (op !== 'proof') return {};
       kept = String(args.nonce);
-      return { path: '/storage/emulated/0/Android/data/dev.teamod.app/files/teamod-proof' };
+      return { path: '/storage/emulated/0/Android/data/dev.teamod.teamod/files/teamod-proof' };
     });
     const link: PhoneLinkHandle = { ...base, proofs };
     const { sys, calls } = fakeSys([
@@ -517,7 +517,7 @@ describe('Wireless debugging, safely (ACME-187)', () => {
     ctl.stop();
     expect(r?.route).toBe('wifi');
     expect(r?.adb?.serial).toBe('192.168.1.9:40000');
-    expect(calls.some((c) => /-s 192\.168\.1\.9:40000 shell cat \/storage\/emulated\/0\/Android\/data\/dev\.teamod\.app\/files\/teamod-proof/.test(c))).toBe(true);
+    expect(calls.some((c) => /-s 192\.168\.1\.9:40000 shell cat \/storage\/emulated\/0\/Android\/data\/dev\.teamod\.teamod\/files\/teamod-proof/.test(c))).toBe(true);
     expect(ctl.controlView(id).wifiPath).toBe('direct');
   });
 
@@ -598,13 +598,13 @@ describe('a phone on the cable (ACME-190)', () => {
     const script = [
       { match: /-p IOUSB/, out: ioreg },
       { match: /devices -l/, out: 'List of devices attached\nR5CX72 device usb:1-1 product:x model:SM_S926B\n' },
-      { match: /pm path dev\.teamod\.app/, out: 'package:/data/app/dev.teamod.app/base.apk\nSad Printer\n' },
+      { match: /pm path dev\.teamod\.teamod/, out: 'package:/data/app/dev.teamod.teamod/base.apk\nSad Printer\n' },
     ];
     const fresh = fakeSys(script);
     const ctl = new PhoneControl({ sys: fresh.sys, devices: book([]), link: () => undefined, onChange: () => {}, adbPath: '/fake/adb' });
     expect(await ctl.scanCable()).toEqual({ state: 'ready', name: 'Sad Printer', canPair: true });
     await ctl.openPairingOnCable('teamod://device#AbCdEfGhIjKlMnOpQrStUv?r=wss%3A%2F%2Fx.trycloudflare.com');
-    expect(fresh.calls.some((l) => l.includes("shell am start -a android.intent.action.VIEW -d 'teamod://device#AbCdEfGhIjKlMnOpQrStUv?r=wss%3A%2F%2Fx.trycloudflare.com' dev.teamod.app"))).toBe(true);
+    expect(fresh.calls.some((l) => l.includes("shell am start -a android.intent.action.VIEW -d 'teamod://device#AbCdEfGhIjKlMnOpQrStUv?r=wss%3A%2F%2Fx.trycloudflare.com' dev.teamod.teamod"))).toBe(true);
     await expect(ctl.openPairingOnCable("teamod://device#x'; reboot; '")).rejects.toThrow(/Not a pairing link/);
     // Already paired with this Mac (its name): nothing to offer.
     const paired = fakeSys(script);
@@ -734,7 +734,7 @@ describe('teamod Link from the Mac (ACME-391)', () => {
   it('adds Link to the Accessibility services on, keeps the others, and drops teamod’s own from before 1.6.0', () => {
     expect(withLinkService('null')).toBe(LINK_SERVICE);
     expect(withLinkService('')).toBe(LINK_SERVICE);
-    expect(withLinkService('com.a/.Svc:dev.teamod.app/dev.teamod.app.control.TeamodAccessibilityService')).toBe(`com.a/.Svc:${LINK_SERVICE}`);
+    expect(withLinkService('com.a/.Svc:dev.teamod.teamod/dev.teamod.teamod.control.TeamodAccessibilityService')).toBe(`com.a/.Svc:${LINK_SERVICE}`);
     expect(withLinkService(`com.a/com.a.Svc$Inner:${LINK_SERVICE}`)).toBe(`com.a/com.a.Svc$Inner:${LINK_SERVICE}`);
     expect(() => withLinkService("com.a/.Svc';reboot")).toThrow(/can’t safely rewrite/);
   });
@@ -780,7 +780,7 @@ describe('teamod Link from the Mac (ACME-391)', () => {
       { match: /devices -l/, out: 'List\nR5CX12 device usb:1-1\n' },
       { match: /pm list packages/, out: `package:${LINK_PACKAGE}\n` },
       { match: new RegExp(`dumpsys package ${LINK_PACKAGE.replace(/\./g, '\\.')}$`), out: 'signatures:[aaaa1111]\n' },
-      { match: /dumpsys package dev\.teamod\.app$/, out: 'signatures:[bbbb2222]\n' },
+      { match: /dumpsys package dev\.teamod\.teamod$/, out: 'signatures:[bbbb2222]\n' },
       { match: /install -r --user 0/, get out() { return tries++ === 0 ? 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]\n' : 'Success\n'; } },
       { match: /settings get secure enabled_accessibility_services/, out: `${LINK_SERVICE}\n` },
     ]);

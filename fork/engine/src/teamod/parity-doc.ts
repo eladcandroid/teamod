@@ -19,7 +19,7 @@ const PLACES: ReadonlyArray<readonly [Place, string]> = [
 export function parityDoc(): string {
   const entries = Object.entries(SURFACE);
   const lines: string[] = [
-    '# Parity with teamod',
+    '# API coverage',
     '',
     'Generated from `engine/src/teamod/coverage.ts` by `npx tsx src/teamod/parity-doc.ts` in `engine/`. `engine/tests/teamod-parity.test.ts` holds it to the code: a method counts as done only when the mod or bridge source names it.',
     '',
