@@ -1,4 +1,8 @@
 import type { AppState, View } from '../core/store.js';
+import { appendFileSync } from 'node:fs';
+import { type Lang, translate, untranslated } from './i18n/i18n.js';
+import { DEFAULT_PREFS, type Prefs, fixesRtl, languageOf } from './prefs.js';
+import { present } from './present.js';
 import type { TermHub } from './term-hub.js';
 import { Draw, type Effects, type Node, type Surface, autoFocused, dim, inert } from './tree.js';
 
@@ -47,6 +51,9 @@ export interface ScreenHost {
   look(channel: string | undefined): void;
   /** This session's open terminals. */
   readonly terminals?: TermHub;
+  /** How screens read (language, right-to-left text, hotkeys); defaults when not given. */
+  prefs?(): Prefs;
+  setPrefs?(change: Partial<Prefs>): void;
 }
 
 /** One drawing of a screen: the state, the viewport, and how to act. */
@@ -77,6 +84,10 @@ export interface Ctx extends Viewport {
   look(channel: string | undefined): void;
   /** This session's open terminals (none in a test that doesn't give them). */
   readonly terminals?: TermHub;
+  /** How screens read, and the language they are drawn in. Screens draw English; it's translated after. */
+  readonly prefs: Prefs;
+  readonly lang: Lang;
+  setPrefs(change: Partial<Prefs>): void;
 }
 
 export interface Loaded<T> {
@@ -228,7 +239,39 @@ export class Screens {
       },
       look: (channel) => this.host.look(channel),
       ...(this.host.terminals ? { terminals: this.host.terminals } : {}),
+      prefs: this.prefs(),
+      lang: languageOf(this.prefs()),
+      setPrefs: (change) => {
+        this.host.setPrefs?.(change);
+        this.host.markDirty();
+      },
     };
+  }
+
+  private prefs(): Prefs {
+    return this.host.prefs?.() ?? DEFAULT_PREFS;
+  }
+
+  /** The language screens are drawn in now. */
+  lang(): Lang {
+    return languageOf(this.prefs());
+  }
+
+  /** Words for the person (a toast, an error) in their language. */
+  words(text: string): string {
+    return translate(text, this.lang());
+  }
+
+  /** A drawn tree as this person reads it. */
+  private shown(tree: Node, viewport: Viewport): Node {
+    const prefs = this.prefs();
+    // For translators: TEAMOD_I18N_MISSING=<file> lists every drawn word the Hebrew catalog lacks.
+    const missing = process.env.TEAMOD_I18N_MISSING;
+    if (missing) {
+      const words = untranslated(inert(tree), 'he');
+      if (words.length) appendFileSync(missing, `${words.map((w) => `${this.lastDrawn ?? '?'}\t${JSON.stringify(w)}`).join('\n')}\n`);
+    }
+    return present(inert(tree), { lang: languageOf(prefs), fixRtl: fixesRtl(prefs, viewport.surface), keys: prefs.keys, columns: viewport.columns });
   }
 
   private loaded<T>(key: string, loader: () => Promise<T>, ttlMs?: number): Loaded<T> {
@@ -266,22 +309,27 @@ export class Screens {
     ];
   }
 
+  /** The screen and route last drawn, to say where a missing word was seen. */
+  private lastDrawn?: string;
+
   private drawn(pane: SiteId, viewport: Viewport): { tree: Node; draw: Draw } {
     const draw = new Draw();
+    const route = this.nav.routeOf(pane);
+    this.lastDrawn = `${route.screen ?? pane}/${route.name}`;
     const state = this.host.getState();
-    if (!state) return { tree: dim('Connecting to the engine...'), draw };
+    if (!state) return { tree: this.shown(dim('Connecting to the engine...'), viewport), draw };
     try {
       const ctx = this.context(pane, state, viewport, draw);
       const answer = isRich(pane) ? this.answers.get(pane) : undefined;
-      if (isRich(pane) && answer === undefined) return { tree: dim('This answer is gone from memory.'), draw };
-      return { tree: inert(answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx)), draw };
+      if (isRich(pane) && answer === undefined) return { tree: this.shown(dim('This answer is gone from memory.'), viewport), draw };
+      return { tree: this.shown(answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx), viewport), draw };
     } catch (err) {
       // Never a dead end: Back and Work still work from a screen that failed.
       const rescue = new Draw();
       const out = [dim(`This screen failed: ${errorText(err)}`)];
       if (this.nav.canGoBack(pane)) out.push(rescue.button('back', 'Back', () => this.nav.back(pane), { plain: true, hotkey: 'b' }));
       if (isPane(pane)) out.push(rescue.button('screen:work', 'Work', () => this.nav.go(pane, { ...HOME_ROUTE.work, screen: 'work' }), { plain: true, hotkey: 'w' }));
-      return { tree: inert({ k: 'box', dir: 'column', children: out }), draw: rescue };
+      return { tree: this.shown({ k: 'box', dir: 'column', children: out }, viewport), draw: rescue };
     }
   }
 
@@ -306,20 +354,24 @@ export class Screens {
     return this.drawn(pane, viewport).tree;
   }
 
+  private translated(effects: Effects): Effects {
+    return effects.toast ? { ...effects, toast: this.words(effects.toast) } : effects;
+  }
+
   /** Run a control's handler; a key gone since the last draw (the row went) is no error. */
   async press(pane: SiteId, key: string, value: string | undefined, viewport: Viewport): Promise<Effects & { readonly ok: boolean; readonly error?: string }> {
     if (isPane(pane)) this.lastPane = pane;
     const handler = this.drawn(pane, viewport).draw.handlers.get(key);
-    if (!handler) return { ok: false, error: 'That is no longer there.' };
+    if (!handler) return { ok: false, error: this.words('That is no longer there.') };
     this.effects = {};
     const before = new Set(autoFocused(this.drawn(pane, viewport).tree));
     try {
       await handler(value);
       this.host.markDirty();
       const brought = autoFocused(this.drawn(pane, viewport).tree).find((field) => !before.has(field));
-      return { ok: true, ...this.effects, ...(brought ? { focus: brought } : {}) };
+      return { ok: true, ...this.translated(this.effects), ...(brought ? { focus: brought } : {}) };
     } catch (err) {
-      return { ok: false, error: errorText(err), ...this.effects };
+      return { ok: false, error: this.words(errorText(err)), ...this.translated(this.effects) };
     }
   }
 }

@@ -12,6 +12,7 @@ const asText = (Text: (props: never) => unknown, spans: readonly Span[]): unknow
       ...(s.dim ? { dimColor: true } : {}),
       ...(s.color ? { color: s.color } : {}),
       ...(s.weight ? { weight: s.weight } : {}),
+      ...(s.inverse ? { inverse: true } : {}),
     }
 
     return Text(props as never)
@@ -37,7 +38,8 @@ export function draw(
     switch (n.k) {
       case 'box':
         return make('Box', {
-          ...(n.dir ? { flexDirection: n.dir } : {}),
+          ...(n.dir || n.reverse ? { flexDirection: `${n.dir ?? 'row'}${n.reverse ? '-reverse' : ''}` } : {}),
+          ...(n.align ? { alignItems: n.align } : {}),
           ...(n.gap !== undefined ? { gap: n.gap } : {}),
           ...(n.pad !== undefined ? { padding: n.pad } : {}),
           ...(n.padX !== undefined ? { paddingX: n.padX } : {}),
@@ -48,10 +50,12 @@ export function draw(
           ...(n.justify ? { justifyContent: n.justify } : {}),
           ...(n.wrap ? { flexWrap: 'wrap' } : {}),
           ...(n.border ? { borderStyle: n.border } : {}),
+          ...(n.borderColor ? { borderColor: n.borderColor } : {}),
+          ...(n.borderDim ? { borderDimColor: true } : {}),
           children: n.children.map(walk),
         })
       case 'text':
-        return make('Text', { children: asText(Text, n.spans) })
+        return make('Text', { ...(n.dir ? { dir: n.dir } : {}), children: asText(Text, n.spans) })
       case 'button':
         return make('Button', {
           key: n.key,

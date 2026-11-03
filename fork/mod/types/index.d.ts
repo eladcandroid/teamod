@@ -12,6 +12,7 @@ export type Span = {
   dim?: boolean
   color?: string
   weight?: 'semibold' | 'bold'
+  inverse?: boolean
 }
 
 /** A screen from the bridge, as data (engine/src/teamod/tree.ts). */
@@ -29,9 +30,13 @@ export type Node =
       justify?: string
       wrap?: boolean
       border?: string
+      borderColor?: string
+      borderDim?: boolean
+      align?: 'flex-start' | 'center' | 'flex-end' | 'stretch'
+      reverse?: boolean
       children: Node[]
     }
-  | { k: 'text'; spans: Span[] }
+  | { k: 'text'; spans: Span[]; dir?: 'ltr' | 'rtl' }
   | {
       k: 'button'
       key: string

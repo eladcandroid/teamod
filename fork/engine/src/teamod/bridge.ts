@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { chmodSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { type IncomingMessage, type Server, type ServerResponse, createServer } from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import WebSocket from 'ws';
 import type { AppState } from '../core/store.js';
@@ -18,6 +19,8 @@ import { TermHub, type TermKey } from './term-hub.js';
 import { bandActive, statusLine } from './panes/band.js';
 import { SCREENS } from './panes/index.js';
 import { PANE_TITLES, Screens, type SiteId, type Viewport, isPane, isSite } from './screens.js';
+import { PrefsFile } from './prefs.js';
+import { teamodHome } from './env.js';
 import { type Node, type Surface, col } from './tree.js';
 
 /** What the bridge tells the mod on stdout. Small lines only: a view is fetched, never pushed. */
@@ -61,6 +64,20 @@ export const connectAsMod = (port: number, token: string, version: string, caps?
   });
 
 /** Remove sockets left by bridges that died. */
+/** The longest socket path every platform takes (macOS allows 104 bytes, Linux 108). */
+const MAX_SOCKET_PATH = 100;
+
+/**
+ * Where this bridge's socket goes: the home's run folder, or, when that path is too long for a
+ * socket (a home deep in some folder), a private folder of its own in the system's temp folder.
+ */
+export function socketDir(runDir: string): string {
+  if (Buffer.byteLength(path.join(runDir, `${2 ** 22}.sock`)) <= MAX_SOCKET_PATH) return runDir;
+  const tag = createHash('sha256').update(path.resolve(runDir)).digest('hex').slice(0, 12);
+  const short = path.join(os.tmpdir(), `teamod-${tag}`);
+  return Buffer.byteLength(path.join(short, `${2 ** 22}.sock`)) <= MAX_SOCKET_PATH ? short : path.join('/tmp', `teamod-${process.getuid?.() ?? 0}-${tag}`);
+}
+
 function pruneSockets(runDir: string): void {
   for (const name of readdirSync(runDir)) {
     const pid = Number(/^(\d+)\.sock$/.exec(name)?.[1]);
@@ -116,11 +133,14 @@ export class Bridge {
   private retryMs = RETRY_MIN_MS;
   private stopped = false;
   private lastStatus?: string;
+  private readonly runDir: string;
+  private readonly prefsFile = PrefsFile.in(teamodHome());
   private readonly tools: SessionTools;
   private readonly terminals: TermHub;
 
   constructor(private readonly opts: BridgeOptions) {
-    this.socketPath = path.join(opts.runDir, `${process.pid}.sock`);
+    this.runDir = socketDir(opts.runDir);
+    this.socketPath = path.join(this.runDir, `${process.pid}.sock`);
     this.tools = new SessionTools((method, args) => this.callEngine(method, args), opts.cwd ?? process.cwd());
     this.terminals = new TermHub((key) => {
       if (!this.client) throw new Error('Not connected to the engine');
@@ -130,6 +150,8 @@ export class Bridge {
       {
         terminals: this.terminals,
         getState: () => this.state,
+        prefs: () => this.prefsFile.get(),
+        setPrefs: (change) => void this.prefsFile.set(change),
         call: (method, args) => this.callEngine(method, args),
         markDirty: () => this.markDirty(),
         look: (channel) => {
@@ -152,9 +174,12 @@ export class Bridge {
 
   /** Attach to the daemon and open the socket; then tell the mod how to reach it. */
   async start(): Promise<void> {
-    mkdirSync(this.opts.runDir, { recursive: true, mode: 0o700 });
-    chmodSync(this.opts.runDir, 0o700);
-    pruneSockets(this.opts.runDir);
+    mkdirSync(this.runDir, { recursive: true, mode: 0o700 });
+    // In a shared temp folder someone else could have made it first: only ever our own folder.
+    const made = lstatSync(this.runDir);
+    if (!made.isDirectory() || (process.getuid && made.uid !== process.getuid())) throw new Error(`${this.runDir} is not a folder of yours`);
+    chmodSync(this.runDir, 0o700);
+    pruneSockets(this.runDir);
     rmSync(this.socketPath, { force: true });
     await this.attach();
     const server = createServer((req, res) => void this.answer(req, res));
@@ -183,7 +208,7 @@ export class Bridge {
     const client = await this.opts.connect({
       notify: (note) => {
         notifyNatively(note);
-        this.opts.out({ t: 'toast', text: `${brandWords(note.title)}: ${brandWords(note.body)}` });
+        this.opts.out({ t: 'toast', text: `${this.screens.words(brandWords(note.title))}: ${this.screens.words(brandWords(note.body))}` });
       },
     }, { start });
     this.client = client;
@@ -194,7 +219,7 @@ export class Bridge {
       this.markDirty();
     });
     client.onIntent((intent) => {
-      if (intent.type === 'toast') this.opts.out({ t: 'toast', text: brandWords(intent.text) });
+      if (intent.type === 'toast') this.opts.out({ t: 'toast', text: this.screens.words(brandWords(intent.text)) });
       if (intent.type === 'navigate') this.screens.follow(intent.view);
     });
     client.onClose((reason) => {
@@ -238,7 +263,7 @@ export class Bridge {
       const status = this.state ? statusLine(this.state) : undefined;
       if (status !== this.lastStatus) {
         this.lastStatus = status;
-        this.opts.out({ t: 'status', ...(status ? { text: status } : {}) });
+        this.opts.out({ t: 'status', ...(status ? { text: this.screens.words(status) } : {}) });
       }
     }, DIRTY_EVERY_MS);
   }

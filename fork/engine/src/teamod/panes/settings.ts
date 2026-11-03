@@ -3,6 +3,7 @@ import { DND_CHOICES, type DndChoice, dndActive, dndFor, dndLabel } from '../../
 import { joinArgs, shellName, splitArgs } from '../../shared/shells.js';
 import { TUNNEL_LABELS, TUNNEL_ORDER } from '../../ui/settings-menus.js';
 import type { Project } from '../../workspaces/types.js';
+import { type Prefs, systemLanguage } from '../prefs.js';
 import type { Ctx, Screen } from '../screens.js';
 import { type Node, col, dim, line, row, span, title } from '../tree.js';
 import { back, chrome, empty, page } from './common.js';
@@ -23,6 +24,7 @@ const general = (ctx: Ctx): Node => {
   return page(
     chrome(ctx, SETTINGS_PLACES, 'general'),
     back(ctx),
+    language(ctx),
     field(ctx, 'name', 'Your name', name, (next) => (next ? ctx.call('session.rename', next) : undefined), { detail: 'What friends see in the room. Letters, numbers, . - _', placeholder: 'your-name', hotkey: 'c' }),
     col([title('Approvals'), toggle(ctx, 'pref:selfApproval', 'Ask before running commands', p.selfApproval === 'ask', (next) => setPrefs(ctx, { selfApproval: next ? 'ask' : 'never' }), 'Your own agent. Secrets stay blocked either way.')]),
     col([
@@ -34,6 +36,40 @@ const general = (ctx: Ctx): Node => {
     ]),
   );
 };
+
+/** teamod's own: the language its screens are in, and how right-to-left letters are drawn. */
+function language(ctx: Ctx): Node {
+  const system = systemLanguage();
+  return col([
+    title('Language'),
+    choice(
+      ctx,
+      'pref:lang',
+      'Language',
+      ctx.prefs.lang,
+      [
+        { value: 'auto', label: `Like this computer (${system === 'he' ? 'עברית' : 'English'})` },
+        { value: 'en', label: 'English' },
+        { value: 'he', label: 'עברית' },
+      ],
+      (next) => ctx.setPrefs({ lang: next as Prefs['lang'] }),
+      'teamod’s screens. What people and agents write stays as they wrote it.',
+    ),
+    choice(
+      ctx,
+      'pref:rtl',
+      'Hebrew letters',
+      ctx.prefs.rtl,
+      [
+        { value: 'auto', label: 'Automatic' },
+        { value: 'fix', label: 'teamod puts them in order' },
+        { value: 'terminal', label: 'My terminal does' },
+      ],
+      (next) => ctx.setPrefs({ rtl: next as Prefs['rtl'] }),
+      'Choose the one where this reads right: שלום, זה טקסט בעברית',
+    ),
+  ]);
+}
 
 type Toggle = 'needsYou' | 'done' | 'doneHere' | 'mentions' | 'people' | 'background' | 'sentinels' | 'problems' | 'pr' | 'planMilestones';
 

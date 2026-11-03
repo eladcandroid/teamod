@@ -10,6 +10,8 @@ export interface Span {
   readonly dim?: boolean;
   readonly color?: string;
   readonly weight?: 'semibold' | 'bold';
+  /** Drawn with the colors swapped: the selected tab, a status pill. */
+  readonly inverse?: boolean;
 }
 
 export type Node =
@@ -26,9 +28,16 @@ export type Node =
       readonly justify?: 'flex-start' | 'center' | 'flex-end' | 'space-between';
       readonly wrap?: boolean;
       readonly border?: 'single' | 'round';
+      /** The border dim, or in a theme color: a card is quiet, the one that needs you isn't. */
+      readonly borderColor?: string;
+      readonly borderDim?: boolean;
+      /** How children line up across the box (a right-to-left screen sets flex-end). */
+      readonly align?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
+      /** Children in the opposite order: a row of a right-to-left screen. */
+      readonly reverse?: boolean;
       readonly children: readonly Node[];
     }
-  | { readonly k: 'text'; readonly spans: readonly Span[] }
+  | { readonly k: 'text'; readonly spans: readonly Span[]; readonly dir?: 'ltr' | 'rtl' }
   | { readonly k: 'button'; readonly key: string; readonly label: string; readonly hotkey?: string; readonly plain?: boolean; readonly primary?: boolean; readonly dim?: boolean; readonly spans?: readonly Span[] }
   | { readonly k: 'input'; readonly key: string; readonly label?: string; readonly placeholder?: string; readonly value?: string; readonly rows?: number; readonly submitLabel?: string; readonly autoFocus?: boolean }
   | { readonly k: 'select'; readonly key: string; readonly label?: string; readonly value?: string; readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }> }

@@ -2,6 +2,7 @@ import { initialState } from '../src/core/store.js';
 import type { AppState } from '../src/core/store.js';
 import { SCREENS } from '../src/teamod/panes/index.js';
 import { type ScreenHost, Screens, type Viewport } from '../src/teamod/screens.js';
+import { DEFAULT_PREFS, type Prefs } from '../src/teamod/prefs.js';
 import type { Node } from '../src/teamod/tree.js';
 
 /** What a test draws for. Draw for `desktop` too where a screen differs by surface. */
@@ -35,8 +36,14 @@ export function start(state: Partial<AppState> = {}): Started {
   let current = { ...initialState('room'), ...state } as unknown as AppState;
   const calls: Array<[string, readonly unknown[]]> = [];
   const answers = new Map<string, (args: readonly unknown[]) => unknown>();
+  // Hotkeys drawn, so tests can check them; a person sees them after pressing Keys.
+  let prefs: Prefs = { ...DEFAULT_PREFS, keys: true };
   const host: ScreenHost = {
     getState: () => current,
+    prefs: () => prefs,
+    setPrefs: (change) => {
+      prefs = { ...prefs, ...change };
+    },
     call: async (method, args) => {
       calls.push([method, args]);
       return answers.get(method)?.(args);
