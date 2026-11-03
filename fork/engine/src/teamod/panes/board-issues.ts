@@ -7,7 +7,7 @@ import type { GitHubRepo } from '../../workspaces/github.js';
 import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
 import { type Asked, MAIN_KEY, MORE_KEY, asking, choices, fromGitHub, notReadable, projectHere, projectSwitch, prop, readingWords, subPage, toggle, top, webLink, windowed, written } from './board-common.js';
-import { ago, empty, findWorkspace, openWorkspace, page } from './common.js';
+import { ago, card, empty, findWorkspace, meta, openWorkspace, page, section } from './common.js';
 
 /** What's read lately stays a little (the engine keeps it a minute too). */
 const ISSUES_TTL_MS = 30_000;
@@ -41,7 +41,7 @@ const issueRow = (ctx: Ctx, projectId: string, repo: GitHubRepo, issue: GhIssue)
       span(issue.title, closed ? { dim: true } : {}),
       ...issue.labels.slice(0, 4).map((l) => span(`  ${l.name}`, { dim: true })),
       ...(mate ? [span(`  ${mate.words}`, { color: 'warning' })] : []),
-      ...(stage ? [span(`  ${stage.label}`, stage.tone === 'claude' ? { color: 'claude' } : stage.tone === 'ok' ? { color: 'success' } : { dim: true })] : []),
+      ...(stage ? [span(`  ● ${stage.label}`, stage.tone === 'claude' ? { color: 'claude' } : stage.tone === 'ok' ? { color: 'success' } : { dim: true })] : []),
       ...(issue.comments ? [span(`  ${issue.comments} comment${issue.comments === 1 ? '' : 's'}`, { dim: true })] : []),
       span(`  ${ago(issue.updatedAt)}`, { dim: true }),
     ],
@@ -67,11 +67,11 @@ export function issuesPage(ctx: Ctx): Node {
     top(ctx, 'issues'),
     projectSwitch(ctx, projects, here),
     row([
-      choices(ctx, 'issues:state', [{ value: 'open' as const, label: 'Open', hotkey: '1' }, { value: 'closed' as const, label: 'Closed', hotkey: '2' }], state, (s) => setState(s)),
+      choices(ctx, 'issues:state', [{ value: 'open' as const, label: 'Open Issues', hotkey: '1' }, { value: 'closed' as const, label: 'Closed Issues', hotkey: '2' }], state, (s) => setState(s)),
       ctx.draw.button('issues:find', search ? `Search: ${search}` : 'Search', () => setFinding(!finding), { plain: true, hotkey: 'f', dim: true }),
       list && list.kind !== 'none' && ctx.draw.button('issues:pulls', 'Pull Requests', () => ctx.go({ name: 'pulls', params: { project: here.id } }), { plain: true, hotkey: 'u', dim: true }),
       list && list.kind !== 'none' && ctx.draw.button('issues:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true }),
-    ]),
+    ], { gap: 2 }),
     finding &&
       ctx.draw.input(
         'issues:search',
@@ -84,7 +84,7 @@ export function issuesPage(ctx: Ctx): Node {
     readingWords(ctx, key, loaded, `Asking GitHub for ${here.name}’s issues...`, 'Couldn’t read the issues'),
     list && list.kind !== 'github' && notReadable(ctx, list, 'Issues', loaded.refresh),
     list?.kind === 'github' && !issues.length && empty(search ? 'Nothing matches. Try other words, or the other tab.' : state === 'open' ? `No open issues in ${repoSlug(list.repo)}.` : `Nothing closed in ${repoSlug(list.repo)} yet.`),
-    list?.kind === 'github' && issues.length > 0 && col([rows.earlier, ...rows.rows.map((issue) => issueRow(ctx, here.id, list.repo, issue)), rows.more]),
+    list?.kind === 'github' && issues.length > 0 && card([rows.earlier, ...rows.rows.map((issue) => issueRow(ctx, here.id, list.repo, issue)), rows.more]),
     list?.kind === 'github' && issues.length > 0 && dim(`${issues.length}${list.more ? '+' : ''} ${state} · ${repoSlug(list.repo)} · from GitHub ${ago(list.fetchedAt)}${list.more ? ' · the most recently updated: search to find others' : ''}`),
     list && list.kind !== 'none' && webLink(`${list.repo.url}/issues`, 'Open on GitHub'),
   );
@@ -106,22 +106,22 @@ export function pullsPage(ctx: Ctx, projectId: string): Node {
   const pullRow = (pull: GhPull): Node => {
     const ws = worktreeOn(pull.branch);
     const words = `#${pull.number} ${pull.title}`;
-    const meta = line(
+    const about = line(
       span([pull.author, pull.branch, pull.draft ? 'Draft' : undefined, reviewWords(pull)].filter(Boolean).join(' · '), { dim: true }),
       pull.checks !== 'none' ? span(`  checks ${pull.checks}`, checksStyle(pull.checks)) : undefined,
       span(`  ${ago(pull.updatedAt)}`, { dim: true }),
     );
-    return col([ws ? ctx.draw.button(`pull:${pull.number}`, words, () => openWorkspace(ctx, ws), { plain: true }) : (webLink(pull.url, words) ?? text(words)), meta]);
+    return col([ws ? ctx.draw.button(`pull:${pull.number}`, words, () => openWorkspace(ctx, ws), { plain: true, spans: [span(`#${pull.number}  `, { dim: true }), span(pull.title, { weight: 'bold' })] }) : (webLink(pull.url, words) ?? text(words)), about]);
   };
   return subPage(
     ctx,
     'issues',
     'Issues',
-    row([title(`Pull Requests in ${project.name}`), list && list.kind !== 'none' && ctx.draw.button('pulls:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true })]),
+    row([text(`Pull Requests in ${project.name}`, { weight: 'bold' }), list && list.kind !== 'none' && ctx.draw.button('pulls:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true })], { justify: 'space-between' }),
     readingWords(ctx, key, loaded, 'Asking GitHub for the open pull requests...', 'Couldn’t read the pull requests'),
     list && list.kind !== 'github' && notReadable(ctx, list, 'Pull requests', loaded.refresh),
     list?.kind === 'github' && !pulls.length && empty(`No open pull requests in ${repoSlug(list.repo)}.`),
-    list?.kind === 'github' && pulls.length > 0 && col([rows.earlier, ...rows.rows.map(pullRow), rows.more], { gap: 1 }),
+    list?.kind === 'github' && pulls.length > 0 && card([col([rows.earlier, ...rows.rows.map(pullRow), rows.more], { gap: 1 })]),
     list?.kind === 'github' && list.total > pulls.length && dim(`${list.total} open; the latest ${pulls.length} are here.`),
     list && list.kind !== 'none' && webLink(`${list.repo.url}/pulls`, 'Show All on GitHub'),
   );
@@ -162,8 +162,8 @@ function composer(ctx: Ctx, projectId: string, number: number, task: Issue | und
     setAskedAnyway(null);
     ctx.effect({ toast: way === 'investigate' ? `The agent is investigating #${number}${work?.key ? ` (${work.key})` : ''}` : way === 'fix' ? `The agent is fixing #${number}${work?.key ? ` (${work.key})` : ''}` : look ? `${work?.key ?? 'The task'}: the agent is looking at the code to write it` : `#${number} is on the board${work?.key ? ` as ${work.key}` : ''}` });
   };
-  return col([
-    text(task ? `${task.key} is on the board. What should your agent do?` : 'What should your agent do?', { weight: 'semibold' }),
+  return card([
+    text(task ? `${task.key} is on the board. What should your agent do?` : 'What should your agent do?', { weight: 'bold' }),
     choices(ctx, `${prefix}:way`, ways.map((w) => ({ value: w, label: WAYS[w].label, hotkey: WAYS[w].hotkey })), way, (w) => setWay(w)),
     writing
       ? dim(`The agent is still writing ${task?.key ?? 'the task'} up; then it can start.`)
@@ -218,11 +218,11 @@ function nextStep(ctx: Ctx, projectId: string, issue: GhIssueFull, stage: IssueS
   const where = place ? span(`  in ${place}`, { dim: true }) : undefined;
   switch (stage.kind) {
     case 'investigating':
-      return col([line(span('The agent is investigating', { color: 'claude', weight: 'semibold' }), where), dim(`Finding out why it happens and reproducing it. What it finds goes into ${task.key}’s brief; nothing is fixed yet.`), row([chat(true), taskButton])]);
+      return card([line(span('The agent is investigating', { color: 'claude', weight: 'bold' }), where), dim(`Finding out why it happens and reproducing it. What it finds goes into ${task.key}’s brief; nothing is fixed yet.`), row([chat(true), taskButton])]);
     case 'investigated': {
       const found = findingsIn(ctx, stage);
-      return col([
-        line(span('The agent investigated', { weight: 'semibold' }), where),
+      return card([
+        line(span('The agent investigated', { weight: 'bold' }), where),
         found ? written(found) : dim('Its report is in the conversation.'),
         ctx.draw.button(`issue:${n}:fix`, 'Fix It', async () => {
           const work = (await ctx.call('issues.fix', projectId, n)) as { readonly key?: string } | undefined;
@@ -234,19 +234,19 @@ function nextStep(ctx: Ctx, projectId: string, issue: GhIssueFull, stage: IssueS
     }
     case 'fixing': {
       const said = !stage.working ? lastReport(ctx.state.log, `ws:${stage.ws}`) : undefined;
-      return col([
-        line(span(stage.working ? 'The agent is fixing it' : 'The agent stopped before a pull request', stage.working ? { color: 'claude', weight: 'semibold' } : { weight: 'semibold' }), where),
+      return card([
+        line(span(stage.working ? 'The agent is fixing it' : 'The agent stopped before a pull request', stage.working ? { color: 'claude', weight: 'bold' } : { weight: 'bold' }), where),
         said ? written(said) : dim(stage.working ? `Its pull request closes #${n} when it merges.` : 'See what it said in the conversation: it may need you, or it may not be a bug.'),
         row([chat(true), taskButton]),
       ]);
     }
     case 'review': {
       const pr = task.pr;
-      return col([text(pr ? 'Its pull request is open' : 'In review', { weight: 'semibold' }), dim(`Merging it closes #${n} and finishes ${task.key}.`), pr ? webLink(pr.url, `Open Pull Request #${pr.number}`) : undefined, taskButton]);
+      return card([text(pr ? 'Its pull request is open' : 'In review', { weight: 'bold' }), dim(`Merging it closes #${n} and finishes ${task.key}.`), pr ? webLink(pr.url, `Open Pull Request #${pr.number}`) : undefined, taskButton]);
     }
     case 'closed':
-      return col([
-        text(task.status === 'done' ? `Done in ${task.key}` : `${task.key} was canceled`, { weight: 'semibold', ...(task.status === 'done' ? { color: 'success' } : { dim: true }) }),
+      return card([
+        text(task.status === 'done' ? `Done in ${task.key}` : `${task.key} was canceled`, { weight: 'bold', ...(task.status === 'done' ? { color: 'success' } : { dim: true }) }),
         task.status === 'done' ? (issue.state === 'open' ? dim('Its pull request closes the issue on GitHub when it merges, or close it there.') : undefined) : dim('Reopen it on its page to work on the issue again.'),
         taskButton,
       ]);
@@ -254,7 +254,7 @@ function nextStep(ctx: Ctx, projectId: string, issue: GhIssueFull, stage: IssueS
 }
 
 const post = (who: string | undefined, at: number, what: string, body: string, url: string): Node =>
-  col([row([line(span(who ?? 'Someone', { weight: 'semibold' }), span(`  ${what} ${ago(at)}`, { dim: true })), webLink(url, 'Open on GitHub')]), body.trim() ? written(body) : dim('No description.')]);
+  col([row([line(span(who ?? 'Someone', { weight: 'bold' }), span(`  ${what} ${ago(at)}`, { dim: true })), webLink(url, 'Open on GitHub')], { justify: 'space-between' }), body.trim() ? written(body) : dim('No description.')]);
 
 type IssueRead = { readonly repo: GitHubRepo; readonly issue: GhIssueFull };
 
@@ -278,14 +278,21 @@ export function issuePage(ctx: Ctx, projectId: string, number: number): Node {
     ctx,
     'issues',
     'Issues',
-    col([title(issue.title), line(span(state.label, state.color ? { color: state.color } : { dim: true }), span(`  #${number}  ${issue.author ?? 'Someone'} opened this ${ago(issue.createdAt)}${issue.comments ? ` · ${issue.comments} comment${issue.comments === 1 ? '' : 's'}` : ''}`, { dim: true }))]),
+    card([text(issue.title, { weight: 'bold' }), meta(span(`● ${state.label}`, state.color ? { color: state.color } : { dim: true }), `#${number}`, `${issue.author ?? 'Someone'} opened this ${ago(issue.createdAt)}`, issue.comments > 0 && `${issue.comments} comment${issue.comments === 1 ? '' : 's'}`)]),
     readingWords(ctx, key, loaded, '', ''),
     nextStep(ctx, projectId, issue, stage),
-    post(issue.author, issue.createdAt, 'opened this', issue.body, issue.url),
-    thread.earlier,
-    ...thread.rows.map((c: GhComment) => post(c.author, c.createdAt, 'commented', c.body, c.url)),
-    thread.more,
-    (issue.moreComments || hidden > 0) && webLink(issue.url, hidden > 0 ? `${hidden} more on GitHub` : 'More on GitHub'),
+    section('Conversation', [
+      col(
+        [
+          post(issue.author, issue.createdAt, 'opened this', issue.body, issue.url),
+          thread.earlier,
+          ...thread.rows.map((c: GhComment) => post(c.author, c.createdAt, 'commented', c.body, c.url)),
+          thread.more,
+          (issue.moreComments || hidden > 0) && webLink(issue.url, hidden > 0 ? `${hidden} more on GitHub` : 'More on GitHub'),
+        ],
+        { gap: 1 },
+      ),
+    ]),
     ctx.draw.input(
       `${key}:comment`,
       async (value) => {
@@ -299,19 +306,22 @@ export function issuePage(ctx: Ctx, projectId: string, number: number): Node {
       },
       { ...(draft ? { value: draft } : {}), label: `Comment on #${number}`, placeholder: 'On GitHub as you, for everyone who can see the issue. Markdown works.', rows: 2, submitLabel: 'comment' },
     ),
-    col([
-      prop(ctx, `issue:${number}:state`, 'State', [span(state.label, state.color ? { color: state.color } : {})]),
-      task ? prop(ctx, `issue:${number}:task-prop`, 'Task', [span(`${task.key}  ${STATUS_INFO[task.status].label}`)], () => ctx.go({ name: 'task', params: { id: task.id } })) : prop(ctx, `issue:${number}:task-prop`, 'Task', 'None yet'),
+    section('Details', [
+      prop(ctx, `issue:${number}:state`, 'State', [span(`● ${state.label}`, state.color ? { color: state.color } : { dim: true })]),
+      task ? prop(ctx, `issue:${number}:task-prop`, 'Task', [span(task.key), span(`  ${STATUS_INFO[task.status].label}`, { dim: true })], () => ctx.go({ name: 'task', params: { id: task.id } })) : prop(ctx, `issue:${number}:task-prop`, 'Task', 'None yet'),
       prop(ctx, `issue:${number}:labels`, 'Labels', issue.labels.length ? issue.labels.map((l) => l.name).join(', ') : 'None'),
       prop(ctx, `issue:${number}:assignees`, 'Assignees', issue.assignees.length ? issue.assignees.join(', ') : 'No one'),
       prop(ctx, `issue:${number}:updated`, 'Updated', ago(issue.updatedAt)),
       issue.closedAt ? prop(ctx, `issue:${number}:closed`, 'Closed', ago(issue.closedAt)) : undefined,
       webLink(issue.url, `${repoSlug(repo)}#${number}`),
     ]),
-    row([
+    row(
+      [
       ctx.draw.button(`issue:${number}:refresh`, loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true }),
       ctx.draw.button(`issue:${number}:more`, 'More', () => ctx.go({ name: 'issue-more', params: { project: projectId, number: String(number) } }), { plain: true, hotkey: MORE_KEY, dim: true }),
-    ]),
+      ],
+      { gap: 2 },
+    ),
   );
 }
 

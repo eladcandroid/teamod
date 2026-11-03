@@ -7,8 +7,8 @@ import { type DayTotal, dailyTotals, tokensOf } from '../../workspaces/usage-day
 import type { Project, Workspace } from '../../workspaces/types.js';
 import type { AppState } from '../../core/store.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, row, span, title } from '../tree.js';
-import { back, chrome, empty, page } from './common.js';
+import { type Node, col, dim, line, row, span, text } from '../tree.js';
+import { actions, back, card, chrome, empty, meta, page, section } from './common.js';
 import { agoWords, placesOf, plural, projectRoute, segments, windowed } from './work-common.js';
 
 /** Usage: your plans' limits and friends', tokens and cost per day, and the disk your worktrees take. */
@@ -46,37 +46,47 @@ function activityCard(state: AppState): Node {
   const allCost = usages.reduce((n, u) => n + (u?.cost ?? 0), 0);
   const hasDays = usages.some((u) => u?.days && Object.keys(u.days).length);
   const change = weekChange(sum(week, 'tokens'), sum(before, 'tokens'));
-  if (!allTokens) return col([title('Agents this week'), dim('Nothing yet. Tokens and cost add up here as your agent works in your projects.')]);
-  if (!hasDays) return col([title('Agents so far'), line(`${shortTokens(allTokens)} tokens`, span(`  ${costWords(allCost)}`, { dim: true })), dim('A day-by-day list starts with your agent’s next run.')]);
-  return col([
-    title('Agents this week'),
-    line(`${shortTokens(sum(week, 'tokens'))} tokens`, span(`  ${costWords(sum(week, 'cost'))}`, { dim: true }), span(`  ${shortTokens(allTokens)}, ${costWords(allCost)} all time`, { dim: true })),
-    today ? dim(`Today ${shortTokens(today.tokens)}, ${costWords(today.cost)}${change ? `. ${change}` : ''}`) : undefined,
-    ...days
-      .filter((d) => d.tokens > 0)
-      .reverse()
-      .map((d) => line(span(dayWords(d, d === today).padEnd(14), { dim: true }), span(shortTokens(d.tokens).padEnd(8)), span(costWords(d.cost), { dim: true }))),
+  if (!allTokens) return section('Agents this week', [card([dim('Nothing yet. Tokens and cost add up here as your agent works in your projects.')])]);
+  if (!hasDays) return section('Agents so far', [card([line(span(`${shortTokens(allTokens)} tokens`, { weight: 'bold' }), span(`  ${costWords(allCost)}`, { dim: true })), dim('A day-by-day list starts with your agent’s next run.')])]);
+  return section('Agents this week', [
+    card([
+      line(span(`${shortTokens(sum(week, 'tokens'))} tokens`, { weight: 'bold' }), span(`  ${costWords(sum(week, 'cost'))}`, { dim: true })),
+      meta(`${shortTokens(allTokens)}, ${costWords(allCost)} all time`, change),
+      col(
+        days
+          .filter((d) => d.tokens > 0)
+          .reverse()
+          .map((d) => line(span(dayWords(d, d === today).padEnd(14), d === today ? {} : { dim: true }), span(shortTokens(d.tokens).padEnd(8)), span(costWords(d.cost), { dim: true }))),
+        { top: 1 },
+      ),
+    ]),
   ]);
 }
 
 const resetWords = (w: CardWindow, now: number): string => (w.resetsAt && w.resetsAt > now ? `resets ${new Date(w.resetsAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}` : `${100 - w.pct}% left`);
 
+/** How full a window is, in ten cells. */
+const meter = (pct: number): string => {
+  const full = Math.max(0, Math.min(10, Math.round(pct / 10)));
+  return `${'█'.repeat(full)}${'░'.repeat(10 - full)}`;
+};
+
 const windowColor = (pct: number): { color?: string; dim?: boolean } => (pct >= 90 ? { color: 'error' } : pct >= 70 ? { color: 'warning' } : {});
 
 /** One provider: its plan's windows, or a local model's tokens and speed; and making it your default. */
-function providerCard(ctx: Ctx, card: ProviderCard, now: number): Node {
-  const agent: AgentRef | null = card.agent.runtime === 'claude' ? null : { runtime: card.agent.runtime, label: card.agent.label, ...(card.agent.model ? { model: card.agent.model } : {}) };
-  return col([
+function providerCard(ctx: Ctx, it: ProviderCard, now: number): Node {
+  const agent: AgentRef | null = it.agent.runtime === 'claude' ? null : { runtime: it.agent.runtime, label: it.agent.label, ...(it.agent.model ? { model: it.agent.model } : {}) };
+  return card([
     row([
-      line(span(card.agent.label, { weight: 'semibold' }), card.plan ? span(`  ${card.plan}`, { dim: true }) : undefined, card.updatedAt ? span(`  updated ${agoWords(card.updatedAt)}`, { dim: true }) : undefined),
-      card.isDefault ? dim('Default') : ctx.draw.button(`default:${card.key}`, 'Make Default', () => ctx.call('session.setPrefs', { defaultAgent: agent }), { plain: true, dim: true }),
-    ]),
-    !card.signedIn ? dim(`Not signed in. Sign in to ${card.agent.label} on this computer to use it.`) : undefined,
-    card.signedIn && card.shape === 'quota' ? col(card.windows.map((w) => line(span(`${w.label}  `, { dim: true }), span(`${w.pct}% used`, windowColor(w.pct)), span(`  ${resetWords(w, now)}`, { dim: true })))) : undefined,
-    card.signedIn && card.shape === 'tokens'
-      ? line(span(card.tokens ? `${shortTokens(card.tokens.input + card.tokens.output)} tokens` : 'No tokens yet'), span(card.tokensPerSec !== undefined ? `  ${Math.round(card.tokensPerSec)} tokens a second` : '', { dim: true }))
+      line(span(it.agent.label, { weight: 'bold' }), it.plan ? span(`  ${it.plan}`, { dim: true }) : undefined, it.updatedAt ? span(`  updated ${agoWords(it.updatedAt)}`, { dim: true }) : undefined),
+      it.isDefault ? text('✓ Default', { color: 'success' }) : ctx.draw.button(`default:${it.key}`, 'Make Default', () => ctx.call('session.setPrefs', { defaultAgent: agent }), { plain: true, dim: true }),
+    ], { justify: 'space-between', gap: 2 }),
+    !it.signedIn ? dim(`Not signed in. Sign in to ${it.agent.label} on this computer to use it.`) : undefined,
+    it.signedIn && it.shape === 'quota' ? col(it.windows.map((w) => line(span(`${w.label}  `, { dim: true }), span(`${meter(w.pct)} `, windowColor(w.pct)), span(`${w.pct}% used`, windowColor(w.pct)), span(`  ${resetWords(w, now)}`, { dim: true })))) : undefined,
+    it.signedIn && it.shape === 'tokens'
+      ? line(span(it.tokens ? `${shortTokens(it.tokens.input + it.tokens.output)} tokens` : 'No tokens yet'), span(it.tokensPerSec !== undefined ? `  ${Math.round(it.tokensPerSec)} tokens a second` : '', { dim: true }))
       : undefined,
-    card.signedIn && card.shape === 'empty' ? dim(`${card.agent.label}’s usage shows up here after its next run.`) : undefined,
+    it.signedIn && it.shape === 'empty' ? dim(`${it.agent.label}’s usage shows up here after its next run.`) : undefined,
   ]);
 }
 
@@ -86,15 +96,10 @@ function plansCard(ctx: Ctx, now: number): Node {
   const me = state.peers.find((p) => p.peerId === selfId) ?? state.self;
   const cards = providerCards(me, state.prefs.defaultAgent);
   const rooms = friendRooms(state.peers, selfId);
-  return col(
-    [
-      title('Plan limits'),
-      ...cards.map((c) => providerCard(ctx, c, now)),
-      rooms.length > 0 && dim('Friends'),
-      ...rooms.slice(0, 20).map((r) => line(span(r.name), span(`  ${r.agent.label}  `, { dim: true }), span(r.windows.map((w) => `${w.short} ${w.pct}%`).join('  ')))),
-    ],
-    { gap: 1 },
-  );
+  return col([
+    section('Plan limits', cards.map((c) => providerCard(ctx, c, now))),
+    rooms.length > 0 && section('Friends', [card(rooms.slice(0, 20).map((r) => line(span(r.name), span(`  ${r.agent.label}  `, { dim: true }), span(r.windows.map((w) => `${w.short} ${w.pct}%`).join('  ')))))], rooms.length),
+  ]);
 }
 
 /** A project's row: worktree bytes (the main folder is the project itself, so it isn't counted), tokens and cost. */
@@ -145,17 +150,31 @@ export function usagePage(ctx: Ctx): Node {
     back(ctx),
     plansCard(ctx, now),
     activityCard(ctx.state),
-    col([
-      title('Disk'),
+    section('Disk', [
       !anyProject && empty('Nothing to measure yet. Add your projects: the disk their worktrees take and what your agent uses in them show up here.'),
-      anyProject && row([line(`Worktrees take ${formatBytes(total)}`), measure.loading ? dim('Measuring...') : ctx.draw.button('usage:measure', 'Measure Again', () => ctx.refresh('usage:measured'), { plain: true, dim: true, hotkey: 'e' }), ctx.draw.button('usage:worktrees', 'Free Up Space', () => ctx.go({ name: 'worktrees' }), { plain: true, hotkey: 'a' })]),
-      measure.error ? dim(`Couldn’t measure disk space: ${measure.error}`) : undefined,
+      anyProject &&
+        card([
+          line(span(`Worktrees take ${formatBytes(total)}`, { weight: 'bold' })),
+          measure.error ? dim(`Couldn’t measure disk space: ${measure.error}`) : undefined,
+          actions(
+            ctx.draw.button('usage:worktrees', 'Free Up Space', () => ctx.go({ name: 'worktrees' }), { plain: true, hotkey: 'a', spans: [span('Free Up Space ›', { color: 'claude' })] }),
+            measure.loading ? dim('Measuring...') : ctx.draw.button('usage:measure', 'Measure Again', () => ctx.refresh('usage:measured'), { plain: true, dim: true, hotkey: 'e' }),
+          ),
+        ]),
     ]),
-    rows.length > 0 && segments(ctx, 'usage:sort', [{ value: 'size' as const, label: 'By Size' }, { value: 'tokens' as const, label: 'By Tokens' }, { value: 'recent' as const, label: 'Latest' }], sort, setSort),
-    ...window.shown.map((r) => {
-      const words = `  ${formatBytes(r.disk)}  ${shortTokens(r.tokens)} tokens  ${costWords(r.cost)}  ${r.lastActive ? agoWords(r.lastActive) : ''}${r.agents ? `  ${plural(r.agents, 'sub-agent worktree')}` : ''}`;
-      return r.project.root ? ctx.draw.button(`usage:${r.project.id}`, r.project.name, () => ctx.go(projectRoute(r.project.id)), { plain: true, spans: [span(r.project.name), span(words, { dim: true })] }) : line(span('Chats'), span(words, { dim: true }));
-    }),
-    window.controls,
+    rows.length > 0 &&
+      section('By project', [
+        segments(ctx, 'usage:sort', [{ value: 'size' as const, label: 'By Size' }, { value: 'tokens' as const, label: 'By Tokens' }, { value: 'recent' as const, label: 'Latest' }], sort, setSort),
+        card(
+          window.shown.map((r) => {
+            const facts = meta(formatBytes(r.disk), `${shortTokens(r.tokens)} tokens`, costWords(r.cost), r.lastActive ? agoWords(r.lastActive) : undefined, r.agents ? plural(r.agents, 'sub-agent worktree') : undefined);
+            return col([
+              r.project.root ? ctx.draw.button(`usage:${r.project.id}`, r.project.name, () => ctx.go(projectRoute(r.project.id)), { plain: true, spans: [span(r.project.name, { weight: 'semibold' }), span('  ›', { dim: true })] }) : text('Chats', { weight: 'semibold' }),
+              facts,
+            ]);
+          }),
+        ),
+        window.controls,
+      ], rows.length),
   );
 }

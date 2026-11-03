@@ -180,7 +180,7 @@ describe('the Work screen, on a real engine', () => {
     // On its project's home: Delete asks first too, and then it's gone.
     await kay.press('screen:work');
     await kay.press(`project:${id}`);
-    await kay.says('Archived (1)');
+    await kay.says('Archived  1');
     await kay.press(`arch:${ws.id}:delete`);
     await kay.says('You can’t undo this');
     expect(kay.project().workspaces.some((w) => w.id === ws.id)).toBe(true);

@@ -7,8 +7,8 @@ import { worktreeOrigin } from '../../workspaces/origin.js';
 import type { Project, ProjectSync, Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
 import { type Node, type Span, col, dim, line, row, span, text, title } from '../tree.js';
-import { back, chrome, empty, homePath, openWorkspace, page } from './common.js';
-import { activeOf, agoWords, askFirst, backTo, isReady, openOnce, placesOf, plural, windowed, workspaceRow } from './work-common.js';
+import { type Tone, actions, back, card, chrome, empty, homePath, meta, openWorkspace, page, pill, section } from './common.js';
+import { CARD_LIMIT, activeOf, agoWords, askFirst, backTo, isReady, openOnce, placesOf, plural, windowed, workspaceCard, workspaceRow } from './work-common.js';
 
 /**
  * A project's home: how its main folder stands against origin, the box that starts work, what's in
@@ -39,6 +39,20 @@ function mainLineOf(sync: ProjectSync): MainLine {
   if (!sync.ahead && !sync.behind) return { label: `Up to date with ${up}`, style: OK, ...extra };
   const label = sync.ahead && sync.behind ? `${sync.ahead} ahead, ${sync.behind} behind ${up}` : sync.ahead ? `${sync.ahead} ahead of ${up}` : `${sync.behind} behind ${up}`;
   return { label, style: sync.ahead ? WARN : {}, ...(sync.behind ? { canUpdate: true } : {}), ...extra };
+}
+
+const toneOf = (style: Omit<Span, 't'>): Tone => (style === OK ? 'ok' : style === WARN ? 'warn' : style === QUIET ? 'quiet' : 'info');
+
+/** Main against origin in a glance, for a project's card: `main · ✓ Up to date` or `main · ↓ 2`. */
+export function syncParts(sync: ProjectSync | undefined): Span[] {
+  if (!sync) return [];
+  const branch = span(sync.branch, { dim: true });
+  if (sync.fetching) return [branch, pill('Fetching...', 'quiet', '◌')];
+  if (!sync.upstream) return [branch, pill('No remote', 'quiet', '○')];
+  if (!sync.local) return [branch, pill('New on the remote', 'info', '↓')];
+  if (!sync.ahead && !sync.behind) return [branch, pill('Up to date', 'ok', '✓')];
+  const arrows = [sync.ahead ? `↑ ${sync.ahead}` : '', sync.behind ? `↓ ${sync.behind}` : ''].filter(Boolean).join('  ');
+  return [branch, span(arrows, sync.ahead ? { color: 'warning' } : { color: 'claude' })];
 }
 
 /** What an update came back with that needs you (the rest the engine already said). */
@@ -97,7 +111,7 @@ function askingCard(ctx: Ctx, project: Project, sync: ProjectSync, asking: Askin
         text('Your uncommitted changes are in the way', { weight: 'semibold', color: 'warning' }),
         dim(`${upstream} has ${plural(asking.behind, 'new commit')}, and some change files you’ve edited in main. The engine can stash your changes, update, and put them back, or move them to a worktree of their own first.`),
         someFiles(asking.files),
-        row([
+        actions(
           ctx.draw.button('sync:stash', 'Stash and Update', async () => {
             setAsking(undefined);
             decide((await ctx.call('git.stashAndUpdate', project.id)) as StashUpdateOutcome | undefined);
@@ -108,31 +122,31 @@ function askingCard(ctx: Ctx, project: Project, sync: ProjectSync, asking: Askin
             decide(out?.outcome);
           }, { plain: true }),
           cancel(),
-        ]),
+        ),
       ]);
     case 'agent':
       return col([
         text(asking.heading, { weight: 'semibold', color: 'warning' }),
         dim(asking.message),
         dim(asking.inMain ? 'Your agent can do it in the main folder: it may only sync git there, keeps your changes, never pushes, and explains what it did.' : 'Your agent works it out in a worktree of its own, leaves the main folder and your changes alone, never pushes, and tells you the step left, if any.'),
-        row([ctx.draw.button('sync:agent', 'Let Your Agent Handle It', agent, { primary: true }), cancel()]),
+        actions(ctx.draw.button('sync:agent', 'Let Your Agent Handle It', agent, { primary: true }), cancel()),
       ]);
     case 'conflicts':
       return col([
         text('Your changes conflicted with the update', { weight: 'semibold', color: 'warning' }),
         dim(asking.message),
         someFiles(asking.files),
-        row([ctx.draw.button('sync:agent', 'Let Your Agent Handle It', agent, { primary: true }), cancel('I’ll Handle It')]),
+        actions(ctx.draw.button('sync:agent', 'Let Your Agent Handle It', agent, { primary: true }), cancel('I’ll Handle It')),
       ]);
     case 'switch':
       return col([
         text(`Switch the main folder to ${branch}?`, { weight: 'semibold' }),
         dim(`It has ${plural(asking.dirty, 'uncommitted change')} on ${sync.current ?? 'a detached HEAD'}. Move ${sync.current ?? 'that work'} and its changes to a worktree of their own (recommended), or bring the changes along to ${branch}.`),
-        row([
+        actions(
           ctx.draw.button('sync:switch-move', 'Move to Worktree', () => switchTo('move'), { primary: true }),
           ctx.draw.button('sync:switch-stash', 'Bring Them Along', () => switchTo('stash'), { plain: true }),
           cancel(),
-        ]),
+        ),
       ]);
   }
 }
@@ -170,9 +184,9 @@ function mainSync(ctx: Ctx, project: Project): Node | undefined {
   };
   const fetched = sync.fetching ? 'Fetching...' : sync.fetchedAt ? `fetched ${agoWords(sync.fetchedAt)}` : 'never fetched';
   const trouble = !sync.fetchError ? undefined : sync.fetchError.reason === 'auth' ? 'Sign-in needed to fetch' : sync.fetchError.reason === 'offline' ? 'Couldn’t reach the remote' : 'Couldn’t fetch';
-  return col([
-    line(span(`${branch}  `, { weight: 'semibold' }), span(mainLine.label, mainLine.style), mainLine.dirty ? span(`  ${mainLine.dirty}`, WARN) : undefined),
-    mainLine.elsewhere &&
+  return card([
+    line(pill(mainLine.label, toneOf(mainLine.style)), mainLine.dirty ? span(`  ${mainLine.dirty}`, WARN) : undefined),
+    Boolean(mainLine.elsewhere) &&
       row([
         line(span(`${mainLine.elsewhere}. `, WARN), span(`Updating and History here are about ${branch}.`, QUIET)),
         ctx.draw.button('sync:switch', `Switch to ${branch}`, switchNow, { plain: true }),
@@ -182,13 +196,14 @@ function mainSync(ctx: Ctx, project: Project): Node | undefined {
         line(span(`Your agent is updating ${branch}. `, { color: 'claude' }), span(updating.kind === 'worktree' ? 'It works in a worktree of its own. Nothing is pushed.' : 'It may only sync git here. Nothing is pushed.', QUIET)),
         ctx.draw.button('sync:open', 'Open', () => openWorkspace(ctx, updating.id), { plain: true }),
       ]),
-    row([
-      showUpdate && ctx.draw.button('sync:update', busy ? 'Updating...' : `Update ${branch}`, update, { hotkey: 'e', ...(asking ? { plain: true } : { primary: true }) }),
-      sync.upstream ? ctx.draw.button('sync:fetch', 'Fetch', () => ctx.call('git.fetch', project.id), { plain: true, dim: true, hotkey: 'f' }) : undefined,
-      trouble ? ctx.draw.button('sync:why', trouble, () => setAsking(fetchAsking(sync.fetchError?.message ?? 'Couldn’t fetch.')), { plain: true, spans: [span(trouble, WARN)] }) : sync.upstream ? dim(fetched) : undefined,
-    ]),
-    asking && askingCard(ctx, project, sync, asking, setAsking, upstream),
-  ]);
+    (showUpdate || Boolean(sync.upstream)) &&
+      actions(
+        showUpdate && ctx.draw.button('sync:update', busy ? 'Updating...' : `Update ${branch}`, update, { hotkey: 'e', ...(asking ? { plain: true } : {}) }),
+        sync.upstream ? ctx.draw.button('sync:fetch', 'Fetch', () => ctx.call('git.fetch', project.id), { plain: true, dim: true, hotkey: 'f' }) : undefined,
+        trouble ? ctx.draw.button('sync:why', trouble, () => setAsking(fetchAsking(sync.fetchError?.message ?? 'Couldn’t fetch.')), { plain: true, spans: [span(trouble, WARN)] }) : sync.upstream ? dim(fetched) : undefined,
+      ),
+    asking && col([askingCard(ctx, project, sync, asking, setAsking, upstream)], { top: 1 }),
+  ], { title: [span(branch, { weight: 'bold' }), span('  main folder', QUIET)], ...(asking ? { tone: 'warn' as const } : {}) });
 }
 
 // ---------------------------------------------------------------- starting work
@@ -255,7 +270,7 @@ function startWork(ctx: Ctx, project: Project): Node {
     setAgent(undefined);
     if (typeof id === 'string') openOnce(ctx, id);
   };
-  return col([
+  return card([
     ctx.draw.input(`home:${project.id}:box`, start, {
       placeholder: worktree ? 'Describe a task: it gets its own folder, branch and agent' : 'Ask about this project: nothing here changes',
       rows: 2,
@@ -263,7 +278,7 @@ function startWork(ctx: Ctx, project: Project): Node {
       autoFocus: !naming,
       ...(draft ? { value: draft.prompt } : {}),
     }),
-    project.root && row([
+    Boolean(project.root) && row([
       ctx.draw.button('kind:worktree', 'New Worktree', () => setKind('worktree'), { plain: true, hotkey: 'n', ...(worktree ? {} : { dim: true }) }),
       ctx.draw.button('kind:chat', 'New Chat', () => setKind('chat'), { plain: true, hotkey: 'c', ...(worktree ? { dim: true } : {}) }),
       worktree && ctx.draw.button('home:template', 'From a Template', () => ctx.go({ name: 'templates', params: { project: project.id } }), { plain: true, dim: true, hotkey: 'z' }),
@@ -282,7 +297,7 @@ function startWork(ctx: Ctx, project: Project): Node {
         : ctx.draw.button('home:name', name ? `Name: ${name}` : 'Name: from the task', () => setNaming(true), { plain: true, dim: true, hotkey: 'd' })),
     worktree && agent ? row([dim(`Starts with ${agent.label}${agent.model ? ` · ${agent.model}` : ''}`), ctx.draw.button('home:agent-clear', 'Use Your Agent', () => setAgent(undefined), { plain: true, dim: true })]) : undefined,
     draft?.plan && worktree ? dim('This template plans first.') : undefined,
-  ]);
+  ], { title: worktree ? 'Start a task' : 'Ask about it', tone: 'accent' });
 }
 
 // ---------------------------------------------------------------- pull requests
@@ -302,9 +317,9 @@ function pullRow(ctx: Ctx, project: Project, pull: GhPull): Node {
   const ws = project.workspaces.find((w) => w.kind === 'worktree' && !w.archived && w.branch === pull.branch);
   const facts = [`#${pull.number}`, pull.author, pull.branch, pull.draft ? 'Draft' : pull.review ? REVIEW[pull.review] : undefined].filter(Boolean).join(' · ');
   const checks = pull.checks === 'none' ? undefined : CHECKS[pull.checks];
-  const about = line(span(`  ${facts}`, QUIET), checks ? span(`  ${checks.words}`, checks.style) : undefined);
+  const about = meta(facts, checks ? span(checks.words, checks.style) : undefined);
   return col([
-    ws ? ctx.draw.button(`pull:${pull.number}`, pull.title, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(pull.title), span('  in a worktree', QUIET)] }) : { k: 'link', href: pull.url, text: pull.title },
+    ws ? ctx.draw.button(`pull:${pull.number}`, pull.title, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(pull.title, { weight: 'semibold' }), span('  in a worktree', QUIET)] }) : { k: 'link', href: pull.url, text: pull.title },
     about,
   ]);
 }
@@ -318,11 +333,16 @@ function pullsSection(ctx: Ctx, project: Project): Node | undefined {
   if (list.kind === 'error') return dim(`Couldn’t read its pull requests: ${list.message}`);
   if (list.kind !== 'github' || !list.pulls.length) return undefined;
   const rest = list.total - Math.min(HOME_PULLS, list.pulls.length);
-  return col([
-    dim(`Pull requests (${list.total})`),
-    ...list.pulls.slice(0, HOME_PULLS).map((pull) => pullRow(ctx, project, pull)),
-    rest > 0 && ctx.draw.button('pulls:board', `The Other ${rest} on the Board`, () => ctx.show('board', { name: 'pulls', params: { project: project.id } }), { plain: true, dim: true }),
-  ]);
+  return section(
+    'Pull requests',
+    [
+      card([
+        col(list.pulls.slice(0, HOME_PULLS).map((pull) => pullRow(ctx, project, pull)), { gap: 1 }),
+        rest > 0 && col([ctx.draw.button('pulls:board', `The Other ${rest} on the Board`, () => ctx.show('board', { name: 'pulls', params: { project: project.id } }), { plain: true, dim: true })], { top: 1 }),
+      ]),
+    ],
+    list.total,
+  );
 }
 
 // ---------------------------------------------------------------- scripts and what was put away
@@ -331,26 +351,25 @@ const SCRIPT_SOURCE: Readonly<Record<string, string>> = { yours: 'set by you', c
 
 function scriptsSection(ctx: Ctx, project: Project): Node {
   const s = project.scripts ?? {};
-  const script = (label: string, it: { readonly command: string; readonly source: string } | undefined): Node => line(span(`${label}: `, QUIET), it ? it.command : span('none', QUIET), it ? span(`  ${SCRIPT_SOURCE[it.source] ?? it.source}`, QUIET) : undefined);
-  return col([script('Setup', s.setup), script('Run', s.run), ctx.state.prefs.autoSetup ? undefined : dim('Setup in new worktrees is off (Settings, Worktrees).')]);
+  const script = (label: string, it: { readonly command: string; readonly source: string } | undefined): Node => line(span(`${label}  `, QUIET), it ? it.command : span('none', QUIET), it ? span(`  ${SCRIPT_SOURCE[it.source] ?? it.source}`, QUIET) : undefined);
+  return section('Scripts', [script('Setup', s.setup), script('Run', s.run), ctx.state.prefs.autoSetup ? undefined : dim('Setup in new worktrees is off (Settings, Worktrees).')]);
 }
 
 /** Put-away worktrees and chats, the newest first: bring one back, read it, or delete it for good (after asking). */
 function archivedSection(ctx: Ctx, project: Project, archived: readonly Workspace[]): Node | undefined {
   if (!archived.length) return undefined;
   const window = windowed(ctx, `archived:${project.id}`, archived, { size: 10 });
-  return col([
-    dim(`Archived (${archived.length})`),
+  return section('Archived', [
     ...window.shown.map((ws) =>
       row([
-        text(ws.name, { dim: true }),
+        text(ws.name),
         ws.archive || ws.branch || ws.kind !== 'worktree' ? ctx.draw.button(`arch:${ws.id}:restore`, 'Restore', () => ctx.call('workspaces.restore', ws.id), { plain: true }) : dim('Can’t come back'),
         ctx.draw.button(`arch:${ws.id}:read`, 'Read', () => openWorkspace(ctx, ws.id), { plain: true, dim: true }),
         ctx.draw.button(`arch:${ws.id}:delete`, 'Delete', () => askFirst(ctx, 'delete', { ids: ws.id }), { plain: true, dim: true }),
-      ]),
+      ], { gap: 2 }),
     ),
     window.controls,
-  ]);
+  ], archived.length);
 }
 
 export function projectHome(ctx: Ctx, id: string): Node {
@@ -363,16 +382,25 @@ export function projectHome(ctx: Ctx, id: string): Node {
   const archived = project.workspaces.filter((w) => w.archived).sort((a, b) => b.createdAt - a.createdAt);
   const ready = worktrees.filter((w) => isReady(ctx.state, w)).length;
   const inProgress = windowed(ctx, `home:${project.id}:active`, [...worktrees, ...chats], { size: 30 });
+  const asCards = active.length <= CARD_LIMIT;
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, 'Projects'),
-    col([title(project.name), project.root ? dim(homePath(ctx.state, project.root)) : undefined]),
+    col([text(project.name, { weight: 'bold' }), project.root ? dim(homePath(ctx.state, project.root)) : undefined]),
     project.error ? text(project.error, { color: 'error' }) : undefined,
-    project.root ? mainSync(ctx, project) : undefined,
     startWork(ctx, project),
+    project.root ? mainSync(ctx, project) : undefined,
     active.length === 0
       ? empty('Nothing in progress here.')
-      : col([line(span(`In progress (${active.length})`, QUIET), ready ? span(`  ${ready} ready to merge`, OK) : undefined), ...inProgress.shown.map((ws) => workspaceRow(ctx, ws)), inProgress.controls]),
+      : section(
+          'In progress',
+          [
+            ready ? line(span(`${ready} ready to merge`, OK)) : undefined,
+            asCards ? col(inProgress.shown.map((ws) => workspaceCard(ctx, ws))) : col(inProgress.shown.map((ws) => workspaceRow(ctx, ws))),
+            inProgress.controls,
+          ],
+          active.length,
+        ),
     project.root ? pullsSection(ctx, project) : undefined,
     project.root ? scriptsSection(ctx, project) : undefined,
     archivedSection(ctx, project, archived),
@@ -392,20 +420,23 @@ export function projectMore(ctx: Ctx, id: string): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, project.name),
-    title(project.name),
-    dim(group ? `In group: ${group.name}` : 'Not in a group'),
-    ctx.draw.button('more:finder', 'Show in Finder', () => ctx.call('local.openFolder', project.root), { plain: true }),
-    ctx.draw.button('more:worktrees', 'Its Worktrees', () => ctx.go({ name: 'worktrees', params: { project: project.id } }), { plain: true }),
-    ctx.draw.button('more:import', 'Import a Conversation', () => ctx.go({ name: 'import', params: { project: project.id } }), { plain: true }),
-    agents + outside > 0 ? ctx.draw.button('more:clean', `Clean Up Worktrees (${agents + outside})`, () => ctx.go({ name: 'clean', params: { project: project.id } }), { plain: true }) : undefined,
-    ctx.draw.button('more:agent', 'Agent for This Project', () => ctx.go({ name: 'project-agent', params: { id: project.id } }), { plain: true }),
-    ctx.draw.button('more:group', 'Move to Group', () => ctx.go({ name: 'project-group', params: { id: project.id } }), { plain: true }),
-    ctx.draw.button('more:arrange', 'Arrange Projects', () => ctx.go({ name: 'arrange' }), { plain: true }),
-    ctx.draw.button('more:hide', 'Hide This Project', async () => {
-      await ctx.call('workspaces.hideProject', project.id);
-      backTo(ctx, 'projects');
-    }, { plain: true, dim: true }),
-    ctx.draw.button('more:delete', 'Delete from teamod', () => askFirst(ctx, 'remove-project', { project: project.id }), { plain: true, dim: true }),
+    col([text(project.name, { weight: 'bold' }), meta(group ? `In group: ${group.name}` : 'Not in a group', homePath(ctx.state, project.root))]),
+    section('This project', [
+      ctx.draw.button('more:finder', 'Show in Finder', () => ctx.call('local.openFolder', project.root), { plain: true }),
+      ctx.draw.button('more:worktrees', 'Its Worktrees', () => ctx.go({ name: 'worktrees', params: { project: project.id } }), { plain: true }),
+      ctx.draw.button('more:import', 'Import a Conversation', () => ctx.go({ name: 'import', params: { project: project.id } }), { plain: true }),
+      agents + outside > 0 ? ctx.draw.button('more:clean', `Clean Up Worktrees (${agents + outside})`, () => ctx.go({ name: 'clean', params: { project: project.id } }), { plain: true }) : undefined,
+      ctx.draw.button('more:agent', 'Agent for This Project', () => ctx.go({ name: 'project-agent', params: { id: project.id } }), { plain: true }),
+    ]),
+    section('In the list', [
+      ctx.draw.button('more:group', 'Move to Group', () => ctx.go({ name: 'project-group', params: { id: project.id } }), { plain: true }),
+      ctx.draw.button('more:arrange', 'Arrange Projects', () => ctx.go({ name: 'arrange' }), { plain: true }),
+      ctx.draw.button('more:hide', 'Hide This Project', async () => {
+        await ctx.call('workspaces.hideProject', project.id);
+        backTo(ctx, 'projects');
+      }, { plain: true, dim: true }),
+      ctx.draw.button('more:delete', 'Delete from teamod', () => askFirst(ctx, 'remove-project', { project: project.id }), { plain: true, dim: true }),
+    ]),
   );
 }
 
@@ -422,7 +453,7 @@ export function projectAgentPage(ctx: Ctx, id: string): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, project.name),
-    title(`Agent for ${project.name}`),
+    col([text(`Agent for ${project.name}`, { weight: 'bold' }), dim('Who answers in this project, and who starts the next worktree.')]),
     ctx.draw.select(
       'agent:project',
       [{ value: YOURS, label: 'The same as yours (Settings)' }, ...offered],
@@ -438,6 +469,6 @@ export function projectAgentPage(ctx: Ctx, id: string): Node {
       (value) => setNext(!value || value === YOURS ? undefined : agentForChoice(value, ctx.state.runtimes)),
       { label: 'The next worktree only', value: next ? choiceForAgent(next) : YOURS },
     ),
-    ...choices.filter((c) => c.disabled).map((c) => dim(`${c.label}: ${c.why ?? 'not set up here'}`)),
+    ...choices.filter((c) => c.disabled).map((c) => line(span(c.label, { weight: 'semibold' }), span('  '), span(c.why ?? 'not set up here', { dim: true }))),
   );
 }

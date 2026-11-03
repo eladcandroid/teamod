@@ -1,12 +1,35 @@
 import { convTopic, needsYou } from '../../companion/needs-you.js';
-import type { Sentinel, SentinelPatch } from '../../core/sentinel/model.js';
+import { RUN_STATE_INFO, type RunState, type Sentinel, type SentinelPatch, type StepState } from '../../core/sentinel/model.js';
 import type { DomainState } from '../../core/store.js';
 import type { Ctx, Loaded, Route } from '../screens.js';
-import { type Node, col, dim, line, row, span, text } from '../tree.js';
-import { type Place, chrome, openWorkspace } from './common.js';
-import type { Choice } from './sentinel-model.js';
+import { type Node, type Span, col, dim, span, text } from '../tree.js';
+import { type Place, type Tone, actions, card, chrome, openWorkspace, pill } from './common.js';
+import { type Choice, STEP_STATE_WORDS } from './sentinel-model.js';
 
 /** What every Sentinel screen shares: its places, how a long list is windowed, its fields, where to go after. */
+
+// ---------------------------------------------------------------- the cards' small parts
+
+const RUN_TONE: Readonly<Record<RunState, Tone>> = { done: 'ok', failed: 'error', running: 'accent', queued: 'accent', 'needs-you': 'warn', skipped: 'quiet', stopped: 'quiet' };
+const RUN_ICON: Readonly<Record<RunState, string>> = { done: '✓', failed: '✗', running: '●', queued: '○', 'needs-you': '●', skipped: '–', stopped: '■' };
+
+/** How a run went, as a pill: `✓ Done`, `✗ Failed`. */
+export const runPill = (state: RunState): Span => pill(RUN_STATE_INFO[state].label, RUN_TONE[state], RUN_ICON[state]);
+
+/** A run's card border: only what needs a look (failed, or waiting for you) is coloured. */
+export const runTone = (state: RunState): Tone | undefined => (state === 'failed' ? 'error' : state === 'needs-you' ? 'warn' : undefined);
+
+const STEP_TONE: Readonly<Record<StepState, Tone>> = { done: 'ok', failed: 'error', running: 'accent', waiting: 'quiet', skipped: 'quiet' };
+const STEP_ICON: Readonly<Record<StepState, string>> = { done: '✓', failed: '✗', running: '●', waiting: '○', skipped: '–' };
+
+/** How a run's step went, as a pill. */
+export const stepPill = (state: StepState): Span => pill(STEP_STATE_WORDS[state], STEP_TONE[state], STEP_ICON[state]);
+
+/** A card's title with a count beside it: `Steps  3`. */
+export const counted = (title: string, count?: number): Span[] => [span(title, { weight: 'bold' }), ...(count !== undefined ? [span(`  ${count}`, { dim: true })] : [])];
+
+/** A row in a list that opens something: a dim marker before it. */
+export const marked = (words: string, mark = '›'): Span[] => [span(`${mark} `, { dim: true }), span(words)];
 
 export type Here = 'sentinels' | 'dashboards' | 'chat';
 
@@ -111,12 +134,16 @@ export function attention(ctx: Ctx, channel: string | undefined): Node | undefin
   if (!needs.length) return undefined;
   return col(
     needs.slice(0, 5).map((need) =>
-      col([
-        line(span('Needs you', { color: 'warning', weight: 'semibold' }), span(`  ${need.title}`)),
-        need.detail ? dim(need.detail.split('\n').slice(0, 2).join(' ').slice(0, 200)) : undefined,
-        need.answer ? dim('Answer it in the band above the prompt.') : undefined,
-        need.actions.length > 0 && row(need.actions.map((action, i) => ctx.draw.button(`attention:${need.id}:${i}`, action.label, () => ctx.call(action.method, ...action.args), { plain: true }))),
-      ]),
+      card(
+        [
+          text(need.title),
+          need.detail ? dim(need.detail.split('\n').slice(0, 2).join(' ').slice(0, 200)) : undefined,
+          need.answer ? dim('Answer it in the band above the prompt.') : undefined,
+          need.actions.length > 0 && actions(undefined, ...need.actions.map((action, i) => ctx.draw.button(`attention:${need.id}:${i}`, action.label, () => ctx.call(action.method, ...action.args), { plain: true }))),
+        ],
+        { title: [span('● Needs you', { color: 'warning', weight: 'bold' })], tone: 'warn' },
+      ),
     ),
+    { gap: 1 },
   );
 }

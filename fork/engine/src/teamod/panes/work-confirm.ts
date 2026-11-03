@@ -2,8 +2,8 @@ import { assistantChannel, assistantChatTitle } from '../../shared/assistant.js'
 import { worktreeOrigin } from '../../workspaces/origin.js';
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
-import { type Node, dim, title } from '../tree.js';
-import { back, chrome, empty, findWorkspace, homePath, page } from './common.js';
+import { type Node, col, dim, line, span } from '../tree.js';
+import { type Tone, actions, back, card, chrome, empty, findWorkspace, homePath, page } from './common.js';
 import { backTo, eachOf, placesOf, plural } from './work-common.js';
 
 /**
@@ -18,32 +18,33 @@ interface Ask {
   readonly run: () => Promise<unknown>;
   /** The route to come back to, when the page it was asked from may be gone. */
   readonly backTo?: string;
+  /** `error` for what can't be undone; a question that keeps everything is a warning. */
+  readonly tone?: Tone;
 }
 
 const gone = (ctx: Ctx, words: string): Node => page(chrome(ctx, placesOf(ctx)), back(ctx), empty(words));
 
-const asking = (ctx: Ctx, ask: Ask): Node =>
-  page(
-    chrome(ctx, placesOf(ctx)),
-    back(ctx, 'Cancel'),
-    title(ask.heading),
-    ...ask.words,
-    ctx.draw.button(
-      'confirm',
-      ask.label,
-      async () => {
-        // Asked and answered: the page goes at once, and the disk work goes on behind it, as each row says.
-        const running = ask.run();
-        if (ask.backTo) backTo(ctx, ask.backTo);
-        else ctx.nav.back(ctx.pane);
-        // The page it was asked from may be about what's going.
-        const under = ctx.nav.routeOf(ctx.pane);
-        if (under.name === 'worktree' && (ctx.route.params?.ids ?? ctx.route.params?.id ?? '').split(',').includes(under.params?.id ?? '')) ctx.nav.back(ctx.pane);
-        await running;
-      },
-      { primary: true, hotkey: 'c' },
-    ),
+function asking(ctx: Ctx, ask: Ask): Node {
+  const confirm = ctx.draw.button(
+    'confirm',
+    ask.label,
+    async () => {
+      // Asked and answered: the page goes at once, and the disk work goes on behind it, as each row says.
+      const running = ask.run();
+      if (ask.backTo) backTo(ctx, ask.backTo);
+      else ctx.nav.back(ctx.pane);
+      // The page it was asked from may be about what's going.
+      const under = ctx.nav.routeOf(ctx.pane);
+      if (under.name === 'worktree' && (ctx.route.params?.ids ?? ctx.route.params?.id ?? '').split(',').includes(under.params?.id ?? '')) ctx.nav.back(ctx.pane);
+      await running;
+    },
+    { primary: true, hotkey: 'c' },
   );
+  return page(chrome(ctx, placesOf(ctx)), back(ctx, 'Cancel'), card([col(ask.words, { gap: 1, top: 1 }), actions(confirm)], { title: ask.heading, tone: ask.tone ?? 'warn' }));
+}
+
+/** A sentence in parts, each its own piece of text, so each part is translated as written. */
+const said = (...parts: ReadonlyArray<string | false | undefined | 0>): Node => line(...parts.flatMap((p) => (p ? [span(p, { dim: true })] : [])));
 
 const workspacesOf = (ctx: Ctx, ids: readonly string[]): Workspace[] => ids.flatMap((id) => findWorkspace(ctx.state, id) ?? []);
 
@@ -90,7 +91,14 @@ function deleteAsk(ctx: Ctx, list: readonly Workspace[]): Node {
     const saved = list.filter((w) => w.archive).length;
     const branches = own.filter((w) => w.branch).length;
     words.push(
-      dim(`${saved ? `${saved === n ? (n === 1 ? 'Its archive' : 'Their archives') : plural(saved, 'archive')} (uncommitted work and files of yours kept when archived) ` : ''}${saved && branches ? 'and ' : ''}${branches ? `${branches === 1 ? 'the branch' : `${branches} branches`} teamod made (commits only there) ` : ''}${saved || branches ? `go, with ${n === 1 ? 'its conversation' : 'their conversations'}.` : `${n === 1 ? 'Its conversation goes' : 'Their conversations go'}.`} Branches other tools made are kept.`),
+      said(
+        saved && (saved === n ? (n === 1 ? 'Its archive' : 'Their archives') : plural(saved, 'archive')),
+        saved && ' (uncommitted work and files of yours kept when archived) ',
+        saved && branches && 'and ',
+        branches && `${branches === 1 ? 'the branch' : `${branches} branches`} teamod made (commits only there) `,
+        saved || branches ? `go, with ${n === 1 ? 'its conversation' : 'their conversations'}.` : `${n === 1 ? 'Its conversation goes' : 'Their conversations go'}.`,
+        ' Branches other tools made are kept.',
+      ),
     );
   } else {
     const files = own.reduce((k, w) => k + (w.status?.changed ?? 0), 0);
@@ -98,12 +106,18 @@ function deleteAsk(ctx: Ctx, list: readonly Workspace[]): Node {
     const branches = own.filter((w) => w.branch).length;
     const theirs = n - own.length;
     words.push(
-      dim(`${n === 1 ? 'Its folder goes, with its conversation' : 'Their folders go, with their conversations'}${branches ? ` and ${branches === 1 ? 'the branch' : `the ${branches} branches`} teamod made${commits ? ` (${plural(commits, 'commit')} not in main)` : ''}` : ''}.${files ? ` ${plural(files, 'uncommitted file')} ${files === 1 ? 'is' : 'are'} lost.` : ''}`),
-      theirs ? dim(`${n === 1 ? 'It was' : theirs === 1 ? 'One was' : `${theirs} were`} made outside or by a sub-agent: ${theirs === 1 ? 'its branch is' : 'their branches are'} kept, and git won’t delete one with uncommitted changes.`) : undefined,
+      said(
+        n === 1 ? 'Its folder goes, with its conversation' : 'Their folders go, with their conversations',
+        branches && ` and ${branches === 1 ? 'the branch' : `the ${branches} branches`} teamod made`,
+        branches && commits && ` (${plural(commits, 'commit')} not in main)`,
+        '.',
+        files && ` ${plural(files, 'uncommitted file')} ${files === 1 ? 'is' : 'are'} lost.`,
+      ),
+      theirs ? said(`${n === 1 ? 'It was' : theirs === 1 ? 'One was' : `${theirs} were`} made outside or by a sub-agent:`, ` ${theirs === 1 ? 'its branch is' : 'their branches are'} kept, and git won’t delete one with uncommitted changes.`) : undefined,
     );
   }
-  words.push(dim(`You can’t undo this.${archived ? '' : ` To keep the work, archive ${n === 1 ? 'it' : 'them'} instead.`}`));
-  return asking(ctx, { heading: `Delete ${plural(n, archived ? `archived ${noun}` : noun)} permanently?`, words, label: `Delete ${plural(n, noun === 'chat' ? 'Chat' : 'Worktree')}`, run: () => each(ctx, list, 'workspaces.remove') });
+  words.push(said('You can’t undo this.', !archived && ` To keep the work, archive ${n === 1 ? 'it' : 'them'} instead.`));
+  return asking(ctx, { tone: 'error', heading: `Delete ${plural(n, archived ? `archived ${noun}` : noun)} permanently?`, words, label: `Delete ${plural(n, noun === 'chat' ? 'Chat' : 'Worktree')}`, run: () => each(ctx, list, 'workspaces.remove') });
 }
 
 export function confirmPage(ctx: Ctx): Node {
@@ -124,7 +138,7 @@ export function confirmPage(ctx: Ctx): Node {
       return asking(ctx, {
         heading: `Remove “${ws.name}”?`,
         words: [
-          dim(`The engine deletes its folder and git’s record of it. ${ws.branch ? `The branch ${ws.branch} stays, so nothing committed is lost.` : 'It isn’t on a branch, so commits only it has may be hard to find later.'}`),
+          said('The engine deletes its folder and git’s record of it. ', ws.branch ? `The branch ${ws.branch} stays, so nothing committed is lost.` : 'It isn’t on a branch, so commits only it has may be hard to find later.'),
           changed ? dim(`It has ${plural(changed, 'uncommitted change')}. They’ll be lost.`) : undefined,
           dim('If you still use it in the app that made it, remove it there instead: that app would show it as missing.'),
         ],
@@ -163,7 +177,10 @@ export function confirmPage(ctx: Ctx): Node {
       return asking(ctx, {
         heading: `Delete “${project.name}” from teamod?`,
         words: [
-          dim(`It leaves teamod: this list, its group and Hidden Projects.${worktrees ? ` The ${plural(worktrees, 'worktree')} made for it ${worktrees === 1 ? 'goes' : 'go'} too: archived first, so everything of yours in ${worktrees === 1 ? 'it' : 'them'} is kept, then ${worktrees === 1 ? 'its folder is' : 'their folders are'} removed. Add the project again to restore ${worktrees === 1 ? 'it' : 'them'}.` : ''}`),
+          said(
+            'It leaves teamod: this list, its group and Hidden Projects.',
+            worktrees > 0 && ` The ${plural(worktrees, 'worktree')} made for it ${worktrees === 1 ? 'goes' : 'go'} too: archived first, so everything of yours in ${worktrees === 1 ? 'it' : 'them'} is kept, then ${worktrees === 1 ? 'its folder is' : 'their folders are'} removed. Add the project again to restore ${worktrees === 1 ? 'it' : 'them'}.`,
+          ),
           dim(`Your project folder ${homePath(ctx.state, project.root)} isn’t touched: nothing in it is deleted or moved to the Trash.`),
         ],
         label: 'Delete from teamod',
@@ -176,8 +193,9 @@ export function confirmPage(ctx: Ctx): Node {
       const channel = assistantChannel(chat);
       const last = ctx.state.assistant.chats.length <= 1;
       return asking(ctx, {
+        tone: 'error',
         heading: `Delete “${assistantChatTitle(channel, ctx.state.log)}”?`,
-        words: [dim(`Its messages go for good, and your agent forgets the conversation. Files it made stay in its folder.${last ? ' A fresh chat takes its place.' : ''}`)],
+        words: [said('Its messages go for good, and your agent forgets the conversation. Files it made stay in its folder.', last && ' A fresh chat takes its place.')],
         label: 'Delete Chat',
         run: () => ctx.call('assistant.deleteChat', chat),
       });

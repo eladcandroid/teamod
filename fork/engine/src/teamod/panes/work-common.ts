@@ -1,11 +1,11 @@
 import { ASSISTANT_TITLE } from '../../shared/assistant.js';
-import { activityOf } from '../../ui/workspace-models.js';
+import { type WorkspaceState, activityOf, stateOf } from '../../ui/workspace-models.js';
 import { worktreeOrigin } from '../../workspaces/origin.js';
 import type { Project, Workspace } from '../../workspaces/types.js';
 import type { AppState } from '../../core/store.js';
 import type { Ctx, Loaded, Route } from '../screens.js';
-import { type Node, col, dim, row, span, text } from '../tree.js';
-import { type Place, ago, openWorkspace, statusOf } from './common.js';
+import { type Node, type Span, col, dim, row, span, text } from '../tree.js';
+import { type Place, type Tone, ago, card, meta, openWorkspace, pill } from './common.js';
 
 /** What the Work screen's rows share. Settings uses the windows, the two-press buttons and the fields too. */
 
@@ -38,11 +38,46 @@ export const agoWords = (ts: number): string => {
   return words === 'now' ? 'just now' : `${words} ago`;
 };
 
+/** A page's own title, bold, with a line or two about it under it. */
+export const heading = (words: string, ...about: ReadonlyArray<string | undefined | false>): Node => col([text(words, { weight: 'bold' }), ...about.map((a) => (a ? dim(a) : undefined))]);
+
+/** How many things a list draws as cards; past that, the same things as compact rows. */
+export const CARD_LIMIT = 8;
+
+const STATE_TONE: Readonly<Record<WorkspaceState['tone'], Tone>> = { error: 'error', warn: 'warn', claude: 'accent', info: 'ok', ok: 'ok', muted: 'quiet' };
+
+/** A worktree's or chat's state as a colored pill: `● Ready to merge · 2 commits`. */
+export function wsPill(state: AppState, ws: Workspace): Span {
+  const st = stateOf(state, ws, 0);
+  return pill(st.label, STATE_TONE[st.tone], st.icon);
+}
+
+/** The border of a worktree's card: only for what needs you, failed, or is ready. */
+export function wsTone(state: AppState, ws: Workspace): Tone | undefined {
+  const tone = stateOf(state, ws, 0).tone;
+  return tone === 'error' ? 'error' : tone === 'warn' ? 'warn' : tone === 'info' ? 'ok' : undefined;
+}
+
 /** A worktree's row: its name and its state. It opens in this pane. */
 export function workspaceRow(ctx: Ctx, ws: Workspace): Node {
-  const status = statusOf(ctx.state, ws);
   const unread = ctx.state.unread[`ws:${ws.id}`];
-  return ctx.draw.button(`ws:${ws.id}`, ws.name, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(`${ws.name}  `), status, ...(unread ? [span(`  ${unread} new`, { color: 'claude' })] : [])] });
+  return ctx.draw.button(`ws:${ws.id}`, ws.name, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(`${ws.name}  `), wsPill(ctx.state, ws), ...(unread ? [span(`  ${unread} new`, { color: 'claude' })] : [])] });
+}
+
+/** A worktree or chat in progress, as a card: its name, its state and when, what was said last, and Open. */
+export function workspaceCard(ctx: Ctx, ws: Workspace): Node {
+  const act = activityOf(ctx.state.log, `ws:${ws.id}`);
+  const unread = ctx.state.unread[`ws:${ws.id}`];
+  const open = (): void => openWorkspace(ctx, ws.id);
+  const last = act.last ? act.last.slice(0, Math.max(30, ctx.columns - 12)) : undefined;
+  return card(
+    [
+      row([ctx.draw.button(`ws:${ws.id}`, ws.name, open, { plain: true, spans: [span(ws.name, { weight: 'bold' })] }), ctx.draw.button(`ws:${ws.id}:open`, 'Open', open, { plain: true, spans: [span('Open ›', { color: 'claude' })] })], { justify: 'space-between', gap: 2 }),
+      meta(wsPill(ctx.state, ws), ws.kind !== 'chat' && ago(act.lastTs ?? ws.createdAt), unread ? span(`${unread} new`, { color: 'claude' }) : undefined),
+      last ? dim(last) : undefined,
+    ],
+    { tone: wsTone(ctx.state, ws) },
+  );
 }
 
 /** Open a worktree the engine may have opened already: its intent arrives before the call's answer, and one Back should do. */

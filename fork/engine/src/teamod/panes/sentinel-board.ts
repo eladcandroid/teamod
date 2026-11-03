@@ -4,10 +4,10 @@ import type { MetricKind } from '../../core/sentinel/model.js';
 import { ASSISTANT_TITLE } from '../../shared/assistant.js';
 import { activityOf } from '../../ui/workspace-models.js';
 import type { Ctx, Route } from '../screens.js';
-import { type Node, col, dim, row, span, text, title } from '../tree.js';
-import { back, empty, page } from './common.js';
+import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
+import { actions, back, card, empty, meta, page, section } from './common.js';
 import { askRoute } from './sentinel-asks.js';
-import { attention, field, leave, openChannel, openRun, openSentinel, pick, top, windowed } from './sentinel-common.js';
+import { attention, field, leave, marked, openChannel, openRun, openSentinel, pick, top, windowed } from './sentinel-common.js';
 import { LOOK_WORDS, NEW_SOURCES, type NewSourceId, TILE_SIZES, type TileLook, type TileSizeId, askLine, draftsOf, looksFor, metricChoices, namedLine, nameIn, newSourceAsk, outputStepChoices, refreshLine, sizeFor, tileCaption, tileWords } from './sentinel-model.js';
 import { tileBody } from './sentinel-tile.js';
 
@@ -35,16 +35,26 @@ export function dashboardsPage(ctx: Ctx): Node {
           { label: 'Name', placeholder: 'Overview', submitLabel: 'make it', autoFocus: true },
         )
       : ctx.draw.button('board:new', 'New Board', () => setNaming(true), { primary: true, hotkey: 'n' }),
-    boards.length === 0 && empty('Put a number here: revenue, open pull requests, how fast your site answers, what your agent wrote this morning. It updates each time its sentinel runs.'),
-    shown.before,
-    ...shown.shown.map((d) => {
-      const refreshing = s.refreshing?.[d.id];
-      return ctx.draw.button(`board:${d.id}`, d.name, () => ctx.go(boardRoute(d.id)), {
-        plain: true,
-        spans: [span(d.name, { weight: 'semibold' }), span(`  ${d.tiles.length} ${d.tiles.length === 1 ? 'tile' : 'tiles'}`, { dim: true }), refreshing ? span(`  ${refreshLine(refreshing)}`, { color: 'claude' }) : span('')],
-      });
-    }),
-    shown.after,
+    boards.length === 0 && card([text('Put a number here: revenue, open pull requests, how fast your site answers, what your agent wrote this morning. It updates each time its sentinel runs.')], { title: 'Your dashboards', tone: 'accent' }),
+    boards.length > 0 &&
+      section(
+        'Boards',
+        [
+          shown.before,
+          col(
+            shown.shown.map((d) => {
+              const refreshing = s.refreshing?.[d.id];
+              return card([
+                ctx.draw.button(`board:${d.id}`, d.name, () => ctx.go(boardRoute(d.id)), { plain: true, spans: [span(d.name, { weight: 'bold' })] }),
+                meta(`${d.tiles.length} ${d.tiles.length === 1 ? 'tile' : 'tiles'}`, COMPARE_WORDS[d.compare], refreshing && span(refreshLine(refreshing), { color: 'claude' })),
+              ]);
+            }),
+            { gap: 1 },
+          ),
+          shown.after,
+        ],
+        boards.length,
+      ),
   );
 }
 
@@ -53,9 +63,9 @@ function tileRow(ctx: Ctx, d: Dashboard, tile: Tile): Node {
   const s = ctx.state.sentinel;
   const cap = tileCaption(s, tile);
   const open = (): void => ctx.go({ name: 'tile', params: { board: d.id, tile: tile.id } });
-  if (tile.kind === 'divider') return ctx.draw.button(`tile:${tile.id}`, cap.title || 'Divider', open, { plain: true, spans: [span(cap.title || 'Divider', { weight: 'semibold' })] });
-  return col([
-    ctx.draw.button(`tile:${tile.id}`, cap.title, open, { plain: true, spans: [span(cap.title), cap.from && cap.from !== cap.title ? span(`  ${cap.from}`, { dim: true }) : span('')] }),
+  if (tile.kind === 'divider') return col([ctx.draw.button(`tile:${tile.id}`, cap.title || 'Divider', open, { plain: true, spans: [span('━━ ', { dim: true }), span(cap.title || 'Divider', { weight: 'bold' })] })], { top: 1 });
+  return card([
+    ctx.draw.button(`tile:${tile.id}`, cap.title, open, { plain: true, spans: [span(cap.title, { weight: 'bold' }), cap.from && cap.from !== cap.title ? span(`  ${cap.from}`, { dim: true }) : span('')] }),
     tileBody(ctx, d, tile),
   ]);
 }
@@ -80,15 +90,18 @@ function askAndDrafts(ctx: Ctx, d: Dashboard): Node | undefined {
     ask && said && row([text(namedLine(said.text, nameIn(s)), said.who === 'failed' ? { color: 'error' } : said.who === 'agent' ? { color: 'claude' } : { dim: true }), ctx.draw.button('board:ask-chat', 'Open Chat', () => openChannel(ctx, ask.channel), { plain: true, dim: true })]),
     ask && attention(ctx, ask.channel),
     ...drafts.map((x) =>
-      col([
-        text(`Your agent set up ${x.name} to fetch it. It’s a draft: nothing runs until you turn it on.`),
-        row([
-          ctx.draw.button(`draft:${x.id}:review`, 'Review', () => openSentinel(ctx, x.id), { plain: true, dim: true }),
-          ctx.draw.button(`draft:${x.id}:on`, 'Turn On', () => ctx.call('sentinel.pause', x.id, false), { plain: true }),
-        ]),
-      ]),
+      card(
+        [
+          text(`Your agent set up ${x.name} to fetch it. It’s a draft: nothing runs until you turn it on.`),
+          actions(
+            ctx.draw.button(`draft:${x.id}:on`, 'Turn On', () => ctx.call('sentinel.pause', x.id, false), { plain: true, spans: [span('Turn On', { color: 'warning', weight: 'bold' })] }),
+            ctx.draw.button(`draft:${x.id}:review`, 'Review', () => openSentinel(ctx, x.id), { plain: true, dim: true }),
+          ),
+        ],
+        { title: [span('● Draft', { color: 'warning', weight: 'bold' })], tone: 'warn' },
+      ),
     ),
-  ]);
+  ], { gap: 1 });
 }
 
 export function boardPage(ctx: Ctx, d: Dashboard): Node {
@@ -104,23 +117,26 @@ export function boardPage(ctx: Ctx, d: Dashboard): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, 'Dashboards'),
-    col([title(d.name), dim(COMPARE_WORDS[d.compare])]),
-    row([
-      ctx.draw.button('board:add', 'Add to the Board', () => ctx.go({ name: 'add', params: { board: d.id } }), { primary: true, hotkey: 'a' }),
-      refreshing
-        ? text(refreshLine(refreshing), { color: 'claude' })
-        : runnable.length > 0
-          ? ctx.draw.button('board:refresh', 'Refresh', () => ctx.call('dashboard.refresh', d.id), { hotkey: 'r' })
-          : undefined,
-      ctx.draw.button('board:more', 'More', () => ctx.go({ name: 'board-more', params: { board: d.id } }), { plain: true, dim: true, hotkey: 'm' }),
-    ]),
+    col([title(d.name), meta(`${d.tiles.length} ${d.tiles.length === 1 ? 'tile' : 'tiles'}`, COMPARE_WORDS[d.compare])]),
+    row(
+      [
+        ctx.draw.button('board:add', 'Add to the Board', () => ctx.go({ name: 'add', params: { board: d.id } }), { primary: true, hotkey: 'a' }),
+        refreshing
+          ? text(refreshLine(refreshing), { color: 'claude' })
+          : runnable.length > 0
+            ? ctx.draw.button('board:refresh', 'Refresh', () => ctx.call('dashboard.refresh', d.id), { plain: true, hotkey: 'r' })
+            : undefined,
+        ctx.draw.button('board:more', 'More', () => ctx.go({ name: 'board-more', params: { board: d.id } }), { plain: true, dim: true, hotkey: 'm' }),
+      ],
+      { gap: 3 },
+    ),
     !refreshing && d.tiles.length > 0 && runnable.length === 0 && dim('Its sentinels are paused or gone: nothing to refresh.'),
     askAndDrafts(ctx, d),
     d.tiles.length === 0 && empty('Nothing on this board yet. Add a number, a chart or what your agent wrote.'),
     shown.before,
     col(
       shown.shown.flatMap(({ tile, group: name }) => {
-        const heading = grouped && name !== group ? title(name) : undefined;
+        const heading = grouped && name !== group ? line(span(name, { weight: 'bold' }), span(`  ${named.filter((x) => x.group === name && x.tile.kind !== 'divider').length}`, { dim: true })) : undefined;
         group = name;
         return [heading, tileRow(ctx, d, tile)];
       }),
@@ -138,11 +154,16 @@ export function boardMorePage(ctx: Ctx, d: Dashboard): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, d.name),
-    title(d.name),
-    field(ctx, 'board:name', 'Name', d.name, (value) => (value.trim() ? ctx.call('dashboard.update', d.id, { name: value.trim() }) : undefined)),
-    pick(ctx, 'board:compare', 'Compare every tile with', COMPARE.map((c) => ({ value: c, label: COMPARE_LABEL[c] })), d.compare, (compare) => ctx.call('dashboard.update', d.id, { compare: compare as Compare })),
-    pick(ctx, 'board:grouped', 'Group by project', [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }], grouped ? 'yes' : 'no', (value) => setGrouped(value === 'yes')),
-    ctx.draw.button('board:copy', 'Copy as Markdown', () => ctx.effect({ copy: dashboardMarkdown(d, (t) => tileWords(s, d, t)), toast: `Copied ${d.name} as Markdown` }), { plain: true, hotkey: 'e' }),
+    card(
+      [
+        field(ctx, 'board:name', 'Name', d.name, (value) => (value.trim() ? ctx.call('dashboard.update', d.id, { name: value.trim() }) : undefined)),
+        pick(ctx, 'board:compare', 'Compare every tile with', COMPARE.map((c) => ({ value: c, label: COMPARE_LABEL[c] })), d.compare, (compare) => ctx.call('dashboard.update', d.id, { compare: compare as Compare })),
+        pick(ctx, 'board:grouped', 'Group by project', [{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }], grouped ? 'yes' : 'no', (value) => setGrouped(value === 'yes')),
+      ],
+      { title: d.name },
+    ),
+    col([
+    ctx.draw.button('board:copy', 'Copy as Markdown', () => ctx.effect({ copy: dashboardMarkdown(d, (t) => tileWords(s, d, t)), toast: `Copied ${d.name} as Markdown` }), { plain: true, hotkey: 'e', spans: marked('Copy as Markdown') }),
     naming
       ? ctx.draw.input(
           'board:new-name',
@@ -158,8 +179,9 @@ export function boardMorePage(ctx: Ctx, d: Dashboard): Node {
           },
           { label: 'Name', placeholder: 'A new board', submitLabel: 'make it', autoFocus: true },
         )
-      : ctx.draw.button('board:new', 'New Board', () => setNaming(true), { plain: true, hotkey: 'n' }),
-    ctx.draw.button('board:delete', 'Delete Board...', () => ctx.go(askRoute('board', { board: d.id })), { plain: true, hotkey: 'x' }),
+      : ctx.draw.button('board:new', 'New Board', () => setNaming(true), { plain: true, hotkey: 'n', spans: marked('New Board', '+') }),
+    ctx.draw.button('board:delete', 'Delete Board...', () => ctx.go(askRoute('board', { board: d.id })), { plain: true, hotkey: 'x', spans: [span('› ', { dim: true }), span('Delete Board...', { color: 'error' })] }),
+    ]),
   );
 }
 
@@ -184,19 +206,27 @@ export function tilePage(ctx: Ctx, d: Dashboard, tile: Tile): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, d.name),
-    col([title(cap.title || 'Divider'), cap.from ? dim(cap.from) : undefined]),
-    draft ? ctx.draw.button('tile:turn-on', 'Turn On', () => ctx.call('sentinel.pause', sentinelId, false), { primary: true, hotkey: 'p' }) : undefined,
-    tileBody(ctx, d, tile, { full: true }),
+    card(
+      [
+        cap.from ? dim(cap.from) : undefined,
+        tileBody(ctx, d, tile, { full: true }),
+        draft ? actions(ctx.draw.button('tile:turn-on', 'Turn On', () => ctx.call('sentinel.pause', sentinelId, false), { primary: true, hotkey: 'p' })) : undefined,
+      ],
+      { title: cap.title || 'Divider', ...(draft ? { tone: 'warn' as const } : {}) },
+    ),
     at &&
-      col([
-        dim(spotWords(at)),
-        row([
-          at.row > 0 && ctx.draw.button('tile:up', 'Move Up', move(at.col, at.row - 1), { plain: true, hotkey: 'u' }),
-          at.row <= bottom && ctx.draw.button('tile:down', 'Move Down', move(at.col, at.row + 1), { plain: true, hotkey: 'j' }),
-          tile.kind !== 'divider' && at.col > 0 && ctx.draw.button('tile:left', 'Move Left', move(at.col - 1, at.row), { plain: true, hotkey: 'h' }),
-          tile.kind !== 'divider' && at.col + at.w < GRID_COLUMNS && ctx.draw.button('tile:right', 'Move Right', move(at.col + 1, at.row), { plain: true, hotkey: 'i' }),
-        ]),
-      ]),
+      card(
+        [
+          dim(spotWords(at)),
+          row([
+            at.row > 0 && ctx.draw.button('tile:up', 'Move Up', move(at.col, at.row - 1), { plain: true, hotkey: 'u', spans: [span('↑ ', { dim: true }), span('Move Up')] }),
+            at.row <= bottom && ctx.draw.button('tile:down', 'Move Down', move(at.col, at.row + 1), { plain: true, hotkey: 'j', spans: [span('↓ ', { dim: true }), span('Move Down')] }),
+            tile.kind !== 'divider' && at.col > 0 && ctx.draw.button('tile:left', 'Move Left', move(at.col - 1, at.row), { plain: true, hotkey: 'h', spans: [span('‹ ', { dim: true }), span('Move Left')] }),
+            tile.kind !== 'divider' && at.col + at.w < GRID_COLUMNS && ctx.draw.button('tile:right', 'Move Right', move(at.col + 1, at.row), { plain: true, hotkey: 'i', spans: [span('› ', { dim: true }), span('Move Right')] }),
+          ], { gap: 2 }),
+        ],
+        { title: 'Its place' },
+      ),
     row([
       m && metric && m.kind !== 'rows' && ctx.draw.button('tile:read', 'Over Time', () => ctx.go({ name: 'metric', params: { id: metric.sentinelId, name: metric.metric } }), { plain: true, hotkey: 'e' }),
       m && metric && m.kind === 'rows' && ctx.draw.button('tile:rows', 'Its Rows', () => ctx.go({ name: 'rows', params: { id: metric.sentinelId, name: metric.metric } }), { plain: true, hotkey: 'e' }),
@@ -217,7 +247,7 @@ export function tileMorePage(ctx: Ctx, d: Dashboard, tile: Tile): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, cap.title || 'Tile'),
-    title(cap.title || 'Divider'),
+    card([
     field(ctx, 'tile:title', 'Title', tile.title ?? '', (value) => update({ title: value.trim() }), { placeholder: cap.title }),
     tile.kind !== 'divider' && pick(ctx, 'tile:width', 'Width', TILE_WIDTHS.map((w) => ({ value: String(w), label: WIDTH_WORDS[w] })), String(tile.width), (w) => update({ width: Number(w) as TileWidth })),
     tile.kind !== 'divider' && pick(ctx, 'tile:height', 'Height', [{ value: '1', label: 'Normal' }, { value: '2', label: 'Tall' }], String(tile.height ?? 1), (h) => update({ height: Number(h) })),
@@ -225,8 +255,11 @@ export function tileMorePage(ctx: Ctx, d: Dashboard, tile: Tile): Node {
     tile.kind === 'series' && pick(ctx, 'tile:chart', 'Draw as', CHART_TILE_KINDS.map((k) => ({ value: k, label: k === 'line' ? 'Lines' : k === 'area' ? 'Areas' : 'Bars' })), tile.chart ?? 'line', (chart) => update({ chart })),
     tile.kind === 'output' && pick(ctx, 'tile:show', 'Show as', OUTPUT_SHOWS.map((k) => ({ value: k, label: SHOW_WORDS[k] })), tile.show ?? 'auto', (show) => update({ show })),
     tile.kind === 'text' && pick(ctx, 'tile:text', 'Shows', [{ value: 'headline', label: 'Its last headline' }, { value: 'report', label: 'Its last report' }], tile.text ?? 'headline', (value) => update({ text: value })),
-    sentinelId && cap.state !== 'gone' ? ctx.draw.button('tile:sentinel', 'Open Its Sentinel', () => openSentinel(ctx, sentinelId), { plain: true, hotkey: 'e' }) : undefined,
-    ctx.draw.button('tile:remove', 'Remove Tile...', () => ctx.go(askRoute('tile', { board: d.id, tile: tile.id })), { plain: true, hotkey: 'x' }),
+    ], { title: cap.title || 'Divider' }),
+    col([
+    sentinelId && cap.state !== 'gone' ? ctx.draw.button('tile:sentinel', 'Open Its Sentinel', () => openSentinel(ctx, sentinelId), { plain: true, hotkey: 'e', spans: marked('Open Its Sentinel') }) : undefined,
+    ctx.draw.button('tile:remove', 'Remove Tile...', () => ctx.go(askRoute('tile', { board: d.id, tile: tile.id })), { plain: true, hotkey: 'x', spans: [span('› ', { dim: true }), span('Remove Tile...', { color: 'error' })] }),
+    ]),
   );
 }
 
@@ -251,30 +284,40 @@ export function addPage(ctx: Ctx, d: Dashboard): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, d.name),
-    title(`Add to ${d.name}`),
-    ctx.draw.input(
-      'add:words',
-      async (value) => {
-        const words = value?.trim();
-        if (!words) return;
-        await ctx.call('dashboard.ask', d.id, words);
-        off(ctx);
-        ctx.effect({ toast: 'Your agent is putting it together' });
-      },
-      { placeholder: 'Say what you want to see, or pick it below: “revenue per day”, “open pull requests”', rows: 2, submitLabel: 'ask your agent', autoFocus: true },
+    card(
+      [
+        ctx.draw.input(
+          'add:words',
+          async (value) => {
+            const words = value?.trim();
+            if (!words) return;
+            await ctx.call('dashboard.ask', d.id, words);
+            off(ctx);
+            ctx.effect({ toast: 'Your agent is putting it together' });
+          },
+          { placeholder: 'Say what you want to see, or pick it below: “revenue per day”, “open pull requests”', rows: 2, submitLabel: 'ask your agent', autoFocus: true },
+        ),
+        dim('Your agent puts it together from what your sentinels keep. When nothing fetches it yet, it sets up a sentinel that does: a draft you look over and turn on first.'),
+      ],
+      { title: `Add to ${d.name}`, tone: 'accent' },
     ),
-    dim('Your agent puts it together from what your sentinels keep. When nothing fetches it yet, it sets up a sentinel that does: a draft you look over and turn on first.'),
-    title('Already kept'),
-    kept.length === 0 && empty('Nothing is kept yet. Pick somewhere new, or say what you want above.'),
-    shown.before,
-    ...shown.shown.map((c) =>
-      ctx.draw.button(`pick:${c.key}`, c.label, () => ctx.go({ name: 'add-pick', params: { board: d.id, ...c.go } }), { plain: true, spans: [span(c.label), span(`  ${c.hint}`, { dim: true })] }),
+    section(
+      'Already kept',
+      [
+        kept.length === 0 && dim('Nothing is kept yet. Pick somewhere new, or say what you want above.'),
+        shown.before,
+        ...shown.shown.map((c) =>
+          ctx.draw.button(`pick:${c.key}`, c.label, () => ctx.go({ name: 'add-pick', params: { board: d.id, ...c.go } }), { plain: true, spans: [span('› ', { dim: true }), span(c.label), span(`  ${c.hint}`, { dim: true })] }),
+        ),
+        shown.after,
+      ],
+      kept.length,
     ),
-    shown.after,
-    title('From somewhere new'),
-    ...NEW_SOURCES.map((src) => ctx.draw.button(`new:${src.id}`, src.label, () => ctx.go({ name: 'add-new', params: { board: d.id, source: src.id } }), { plain: true, spans: [span(src.label), span(`  ${src.hint}`, { dim: true })] })),
-    title('Other'),
-    ctx.draw.button('heading', 'A Heading Across the Board', () => ctx.go({ name: 'add-pick', params: { board: d.id, kind: 'heading' } }), { plain: true }),
+    section(
+      'From somewhere new',
+      NEW_SOURCES.map((src) => ctx.draw.button(`new:${src.id}`, src.label, () => ctx.go({ name: 'add-new', params: { board: d.id, source: src.id } }), { plain: true, spans: [span('+ ', { dim: true }), span(src.label), span(`  ${src.hint}`, { dim: true })] })),
+    ),
+    section('Other', [ctx.draw.button('heading', 'A Heading Across the Board', () => ctx.go({ name: 'add-pick', params: { board: d.id, kind: 'heading' } }), { plain: true, spans: [span('+ ', { dim: true }), span('A Heading Across the Board')] })]),
   );
 }
 
@@ -291,10 +334,14 @@ export function addNewPage(ctx: Ctx, d: Dashboard, sourceId: string): Node {
   return page(
     top(ctx, 'dashboards'),
     back(ctx, `Add to ${d.name}`),
-    title(`What from ${source.label}?`),
-    ctx.draw.input('add:what', (value) => send(value ?? ''), { placeholder: source.ideas[0], submitLabel: 'ask your agent', autoFocus: true }),
-    ...source.ideas.map((idea, i) => ctx.draw.button(`idea:${i}`, idea, () => send(idea), { plain: true })),
-    dim('Your agent sets up the sentinel that fetches it (paused, for you to turn on) with your project’s own keys, and adds its tile here.'),
+    card(
+      [
+        ctx.draw.input('add:what', (value) => send(value ?? ''), { placeholder: source.ideas[0], submitLabel: 'ask your agent', autoFocus: true }),
+        dim('Your agent sets up the sentinel that fetches it (paused, for you to turn on) with your project’s own keys, and adds its tile here.'),
+      ],
+      { title: `What from ${source.label}?` },
+    ),
+    section('Ideas', source.ideas.map((idea, i) => ctx.draw.button(`idea:${i}`, idea, () => send(idea), { plain: true, spans: marked(idea) }))),
   );
 }
 
@@ -334,11 +381,15 @@ export function addPickPage(ctx: Ctx, d: Dashboard, p: Readonly<Record<string, s
   return page(
     top(ctx, 'dashboards'),
     back(ctx, `Add to ${d.name}`),
-    title(kind === 'heading' ? 'A heading across the board' : (metric?.label ?? (stepRef ? s.items.find((i) => i.id === stepRef.sentinelId)?.steps.find((x) => x.id === stepRef.stepId)?.name : s.items.find((i) => i.id === p.sentinel)?.name) ?? 'A tile')),
-    looks.length > 1 && pick(ctx, 'add:look', 'Show it as', looks.map((l) => ({ value: l, label: LOOK_WORDS[l] })), look, (l) => setLook(l as TileLook)),
-    kind !== 'heading' && pick(ctx, 'add:size', 'Size', TILE_SIZES.map((t) => ({ value: t.id, label: t.label })), size.id, (id) => setSize(id as TileSizeId)),
-    ctx.draw.input('add:title', (value) => add(value ?? ''), { label: kind === 'heading' ? 'Heading' : 'Title', placeholder, submitLabel: 'add', autoFocus: true }),
-    kind !== 'heading' && ctx.draw.button('add:yes', `Add to ${d.name}`, () => add(''), { primary: true, hotkey: 'y' }),
+    card(
+      [
+        looks.length > 1 && pick(ctx, 'add:look', 'Show it as', looks.map((l) => ({ value: l, label: LOOK_WORDS[l] })), look, (l) => setLook(l as TileLook)),
+        kind !== 'heading' && pick(ctx, 'add:size', 'Size', TILE_SIZES.map((t) => ({ value: t.id, label: t.label })), size.id, (id) => setSize(id as TileSizeId)),
+        ctx.draw.input('add:title', (value) => add(value ?? ''), { label: kind === 'heading' ? 'Heading' : 'Title', placeholder, submitLabel: 'add', autoFocus: true }),
+        kind !== 'heading' && actions(ctx.draw.button('add:yes', `Add to ${d.name}`, () => add(''), { primary: true, hotkey: 'y' })),
+      ],
+      { title: kind === 'heading' ? 'A heading across the board' : (metric?.label ?? (stepRef ? s.items.find((i) => i.id === stepRef.sentinelId)?.steps.find((x) => x.id === stepRef.stepId)?.name : s.items.find((i) => i.id === p.sentinel)?.name) ?? 'A tile') },
+    ),
     dim(kind === 'heading' ? 'Press Enter to add it.' : 'Move it into place afterwards, from the tile.'),
   );
 }

@@ -4,9 +4,9 @@ import type { MetricSeries, Sentinel } from '../../core/sentinel/model.js';
 import type { SentinelData } from '../../core/sentinel/sentinels.js';
 import type { Row } from '../../shared/view-spec.js';
 import type { Ctx } from '../screens.js';
-import { type Node, code, col, dim, line, md, row, span, title } from '../tree.js';
-import { ago, back, empty, page, peerText } from './common.js';
-import { loadNote, openRun, top, webLink, windowed } from './sentinel-common.js';
+import { type Node, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, ago, back, card, empty, meta, page, peerText } from './common.js';
+import { counted, loadNote, openRun, top, webLink, windowed } from './sentinel-common.js';
 import { METRIC_KIND_WORDS, cellWords, prettyJson, shownColumns, sparkline, whenText } from './sentinel-model.js';
 
 /** What a sentinel keeps, to look at and take out: its numbers' histories, its tables' rows, its runs' files. */
@@ -30,27 +30,37 @@ export function dataPage(ctx: Ctx, s: Sentinel): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx, s.name),
-    col([title('Kept data'), data ? dim(`Files are kept ${data.keepsDays} days.`) : undefined]),
-    loadNote(loaded, 'Reading what it keeps...'),
+    card([dim(s.name), data ? dim(`Files are kept ${data.keepsDays} days.`) : undefined, loadNote(loaded, 'Reading what it keeps...')], { title: 'Kept data' }),
     nothing && empty('It keeps nothing yet.'),
+    data && data.metrics.length > 0 &&
+      card(
+        [
     metrics.before,
     ...metrics.shown.map((m) =>
       ctx.draw.button(`data:metric:${m.name}`, m.label, () => ctx.go(m.kind === 'rows' ? { name: 'rows', params: { id: s.id, name: m.name } } : { name: 'metric', params: { id: s.id, name: m.name } }), {
         plain: true,
-        spans: [span(m.label), span(`  ${METRIC_KIND_WORDS[m.kind]}  ${m.kind === 'rows' ? `${(m.rows ?? 0).toLocaleString()} rows over ${m.lines.toLocaleString()} ${m.lines === 1 ? 'run' : 'runs'}` : `${m.lines.toLocaleString()} ${m.lines === 1 ? 'run' : 'runs'}`}${m.first ? ` · since ${ago(m.first)}` : ''}`, { dim: true })],
+        spans: [span('› ', { dim: true }), span(m.label), span(`  ${METRIC_KIND_WORDS[m.kind]}`, { dim: true }), span(`  ${m.kind === 'rows' ? `${(m.rows ?? 0).toLocaleString()} rows over ${m.lines.toLocaleString()} ${m.lines === 1 ? 'run' : 'runs'}` : `${m.lines.toLocaleString()} ${m.lines === 1 ? 'run' : 'runs'}`}`, { dim: true }), span(m.first ? ` · since ${ago(m.first)}` : '', { dim: true })],
       }),
     ),
     metrics.after,
-    data && data.metrics.length > 0 && ctx.draw.button('data:reveal', 'Show Its Numbers in Finder', () => ctx.call('sentinel.dataReveal', s.id), { plain: true, dim: true, hotkey: 'f' }),
-    data && data.runs.length > 0 && title('Files from its runs'),
+    actions(undefined, ctx.draw.button('data:reveal', 'Show Its Numbers in Finder', () => ctx.call('sentinel.dataReveal', s.id), { plain: true, dim: true, hotkey: 'f' })),
+        ],
+        { title: counted('Numbers', data.metrics.length) },
+      ),
+    data && data.runs.length > 0 &&
+      card(
+        [
     runs.before,
     ...runs.shown.map((r) =>
       ctx.draw.button(`data:run:${r.runId}`, r.headline || 'A run', () => ctx.go({ name: 'files', params: { id: s.id, run: r.runId } }), {
         plain: true,
-        spans: [span(`${whenText(r.at, now)}  `, { dim: true }), span(`${r.files.length} ${r.files.length === 1 ? 'file' : 'files'}`), span(r.headline ? `  ${r.headline}` : '', { dim: true })],
+        spans: [span('› ', { dim: true }), span(`${r.files.length} ${r.files.length === 1 ? 'file' : 'files'}`), span(`  ${whenText(r.at, now)}`, { dim: true }), span(r.headline ? ` · ${r.headline}` : '', { dim: true })],
       }),
     ),
     runs.after,
+        ],
+        { title: counted('Files from its runs', data.runs.length) },
+      ),
   );
 }
 
@@ -62,26 +72,34 @@ export function filesPage(ctx: Ctx, s: Sentinel, runId: string): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx),
-    col([title('Its files'), run ? dim(`${whenText(run.at, Date.now())}${run.headline ? ` · ${run.headline}` : ''}`) : undefined]),
-    loadNote(loaded, 'Reading its files...'),
-    loaded.value && !run && empty('This run kept no files, or they’ve gone.'),
-    files.before,
-    ...files.shown.map((f) =>
-      ctx.draw.button(`file:${f.name}`, f.label, () => ctx.go({ name: 'document', params: { source: 'run', id: s.id, metric: runId, column: '', name: f.name } }), {
-        plain: true,
-        spans: [span(f.label), span(`  ${sizeWords(f.size)}`, { dim: true })],
-      }),
+    card(
+      [
+        run ? meta(whenText(run.at, Date.now()), run.headline) : undefined,
+        loadNote(loaded, 'Reading its files...'),
+        loaded.value && !run && dim('This run kept no files, or they’ve gone.'),
+        files.before,
+        col(
+          files.shown.map((f) =>
+            ctx.draw.button(`file:${f.name}`, f.label, () => ctx.go({ name: 'document', params: { source: 'run', id: s.id, metric: runId, column: '', name: f.name } }), {
+              plain: true,
+              spans: [span('› ', { dim: true }), span(f.label), span(`  ${sizeWords(f.size)}`, { dim: true })],
+            }),
+          ),
+          { top: files.shown.length ? 1 : 0 },
+        ),
+        files.after,
+        run &&
+          actions(
+            ctx.draw.button('files:save', 'Save to Downloads', async () => {
+              await ctx.call('sentinel.dataExport', s.id, { runId });
+              ctx.effect({ toast: 'Saved in Downloads › teamod' });
+            }, { plain: true, hotkey: 'e' }),
+            ctx.draw.button('files:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', s.id, runId), { plain: true, dim: true, hotkey: 'f' }),
+            ctx.draw.button('files:run', 'Open the Run', () => openRun(ctx, { id: runId, sentinelId: s.id }), { plain: true, dim: true, hotkey: 'i' }),
+          ),
+      ],
+      { title: counted('Its files', run?.files.length) },
     ),
-    files.after,
-    run &&
-      row([
-        ctx.draw.button('files:save', 'Save to Downloads', async () => {
-          await ctx.call('sentinel.dataExport', s.id, { runId });
-          ctx.effect({ toast: 'Saved in Downloads › teamod' });
-        }, { hotkey: 'e' }),
-        ctx.draw.button('files:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', s.id, runId), { plain: true, dim: true, hotkey: 'f' }),
-        ctx.draw.button('files:run', 'Open the Run', () => openRun(ctx, { id: runId, sentinelId: s.id }), { plain: true, dim: true, hotkey: 'i' }),
-      ]),
   );
 }
 
@@ -99,18 +117,22 @@ export function metricPage(ctx: Ctx, s: Sentinel, name: string): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx),
-    col([title(metric?.label ?? name), lines.length > 0 && dim(`${lines.length.toLocaleString()} ${lines.length === 1 ? 'run' : 'runs'}, since ${ago(lines.at(-1)!.at)}. Newest first.`)]),
-    loadNote(loaded, 'Reading it...'),
-    !loaded.loading && !loaded.error && lines.length === 0 && empty('Nothing kept yet.'),
-    spark ? dim(spark) : undefined,
-    row([
-      ctx.draw.button('metric:csv', 'Export CSV', exportMetric(ctx, s.id, name, 'csv'), { hotkey: 'e' }),
-      ctx.draw.button('metric:json', 'Export JSON', exportMetric(ctx, s.id, name, 'json'), { hotkey: 'j' }),
-      ctx.draw.button('metric:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', s.id), { plain: true, dim: true, hotkey: 'f' }),
-    ]),
-    shown.before,
-    ...shown.shown.map((l) => metricLine(ctx, s, name, metric, l, now)),
-    shown.after,
+    card(
+      [
+        lines.length > 0 && dim(`${lines.length.toLocaleString()} ${lines.length === 1 ? 'run' : 'runs'}, since ${ago(lines.at(-1)!.at)}. Newest first.`),
+        loadNote(loaded, 'Reading it...'),
+        !loaded.loading && !loaded.error && lines.length === 0 && dim('Nothing kept yet.'),
+        spark ? text(spark, { color: 'claude' }) : undefined,
+        actions(
+          undefined,
+          ctx.draw.button('metric:csv', 'Export CSV', exportMetric(ctx, s.id, name, 'csv'), { plain: true, hotkey: 'e' }),
+          ctx.draw.button('metric:json', 'Export JSON', exportMetric(ctx, s.id, name, 'json'), { plain: true, hotkey: 'j' }),
+          ctx.draw.button('metric:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', s.id), { plain: true, dim: true, hotkey: 'f' }),
+        ),
+      ],
+      { title: metric?.label ?? name },
+    ),
+    lines.length > 0 && card([shown.before, ...shown.shown.map((l) => metricLine(ctx, s, name, metric, l, now)), shown.after], { title: 'History' }),
   );
 }
 
@@ -119,7 +141,8 @@ function metricLine(ctx: Ctx, s: Sentinel, name: string, metric: MetricSeries | 
   const key = `metric:line:${l.runId}:${l.at}`;
   if (l.rows) return ctx.draw.button(key, `${l.rows.length} rows`, () => ctx.go({ name: 'rows', params: { id: s.id, name, run: l.runId } }), { plain: true, spans: [span(`${whenText(l.at, now)}  `, { dim: true }), span(`${l.rows.length} rows`)] });
   const words = l.series ? `${l.series.length} points  ${sparkline(l.series.map((p) => p.y), 16)}` : l.value !== undefined ? formatMetric(l.value, metric?.unit ?? 'count') : '';
-  return ctx.draw.button(key, words, () => openRun(ctx, { id: l.runId, sentinelId: s.id }), { plain: true, spans: [span(`${whenText(l.at, now)}  `, { dim: true }), span(words)] });
+  const shown = l.series ? [span(`${l.series.length} points`), span(`  ${sparkline(l.series.map((p) => p.y), 16)}`, { color: 'claude' })] : [span(words, { weight: 'semibold' })];
+  return ctx.draw.button(key, words, () => openRun(ctx, { id: l.runId, sentinelId: s.id }), { plain: true, spans: [span(`${whenText(l.at, now)}  `, { dim: true }), ...shown] });
 }
 
 /**
@@ -144,16 +167,21 @@ export function rowsPage(ctx: Ctx, s: Sentinel, name: string, runId: string | un
   return page(
     top(ctx, 'sentinels'),
     back(ctx),
-    col([title(metric?.label ?? name), dim(`${rows.length} ${rows.length === 1 ? 'row' : 'rows'}${metric?.rowsAt && latest ? ` · ${ago(metric.rowsAt)}` : ''}`)]),
-    loaded ? loadNote(loaded, 'Reading its rows...') : undefined,
-    !loaded?.loading && rows.length === 0 && empty('No rows kept here.'),
-    columns.length > 0 && rows.length > 0 && dim(columns.slice(0, most).map((c) => c.label).join(' · ')),
-    shown.before,
-    ...shown.shown.map(({ r, at }) => {
-      const words = columns.slice(0, most).map((c) => clip(cellWords((r as Record<string, unknown>)[c.key], c.type), 40)).join(' · ') || `Row ${at + 1}`;
-      return ctx.draw.button(`rows:${at}`, words, () => ctx.go({ name: 'row', params: { id: s.id, name, at: String(at), ...(runId ? { run: runId } : {}) } }), { plain: true });
-    }),
-    shown.after,
+    card(
+      [
+        meta(`${rows.length} ${rows.length === 1 ? 'row' : 'rows'}`, metric?.rowsAt && latest ? ago(metric.rowsAt) : undefined),
+        loaded ? loadNote(loaded, 'Reading its rows...') : undefined,
+        !loaded?.loading && rows.length === 0 && dim('No rows kept here.'),
+        columns.length > 0 && rows.length > 0 && col([line(span(columns.slice(0, most).map((c) => c.label).join(' · '), { weight: 'semibold' }))], { top: 1 }),
+        shown.before,
+        ...shown.shown.map(({ r, at }) => {
+          const words = columns.slice(0, most).map((c) => clip(cellWords((r as Record<string, unknown>)[c.key], c.type), 40)).join(' · ') || `Row ${at + 1}`;
+          return ctx.draw.button(`rows:${at}`, words, () => ctx.go({ name: 'row', params: { id: s.id, name, at: String(at), ...(runId ? { run: runId } : {}) } }), { plain: true });
+        }),
+        shown.after,
+      ],
+      { title: metric?.label ?? name },
+    ),
   );
 }
 
@@ -168,7 +196,7 @@ export function rowPage(ctx: Ctx, s: Sentinel, name: string, at: number, runId: 
   const r = rows[at];
   if (!r) return page(top(ctx, 'sentinels'), back(ctx), (loaded ? loadNote(loaded, 'Reading the row...') : undefined) ?? empty('That row is gone.'));
   const shown = windowed(ctx, `row:${s.id}:${name}`, columns);
-  return page(top(ctx, 'sentinels'), back(ctx, metric?.label ?? name), title(metric?.label ?? name), shown.before, ...shown.shown.map((c) => cellRow(ctx, s, name, c, r, latest)), shown.after);
+  return page(top(ctx, 'sentinels'), back(ctx, metric?.label ?? name), card([dim(`Row ${at + 1} of ${rows.length}`), col([shown.before, ...shown.shown.map((c) => cellRow(ctx, s, name, c, r, latest)), shown.after], { top: 1 })], { title: metric?.label ?? name }));
 }
 
 function cellRow(ctx: Ctx, s: Sentinel, metric: string, c: { readonly key: string; readonly label: string; readonly type?: MetricColumn }, r: Row, latest: boolean): Node {
@@ -218,19 +246,25 @@ export function documentPage(ctx: Ctx, p: Readonly<Record<string, string>>): Nod
   return page(
     top(ctx, 'sentinels'),
     back(ctx),
-    col([title(shownName), doc ? dim(`${kindWords(doc.name, doc.mime)} · ${sizeWords(doc.size)}${doc.at ? ` · ${doc.bucket ? 'listed' : 'kept'} ${ago(doc.at)}` : ''}`) : undefined, doc?.bucket ? dim(`In Storage: ${doc.bucket}/${doc.path}`) : undefined]),
-    loadNote(loaded, storage ? 'Fetching it from Storage...' : 'Loading...'),
-    row([
-      ctx.draw.button('doc:open', 'Open in Default App', open('open'), { hotkey: 'e' }),
-      ctx.draw.button('doc:reveal', 'Show in Finder', open('reveal'), { plain: true, dim: true, hotkey: 'f' }),
-      storage &&
-        ctx.draw.button('doc:sign', 'Link for the Browser', async () => {
-          const got = (await ctx.call('sentinel.signStorage', id, metric, column, name)) as { readonly url: string } | undefined;
-          if (got?.url) setSigned({ url: got.url, at: Date.now() });
-        }, { plain: true, dim: true, hotkey: 'i' }),
-    ]),
-    // Signed for about a minute, and never kept past it.
-    signed && Date.now() - signed.at < 55_000 ? webLink(signed.url, 'Open it in your browser (good for about a minute)') : undefined,
+    card(
+      [
+        doc ? meta(kindWords(doc.name, doc.mime), sizeWords(doc.size), doc.at ? `${doc.bucket ? 'listed' : 'kept'} ${ago(doc.at)}` : undefined) : undefined,
+        doc?.bucket ? dim(`In Storage: ${doc.bucket}/${doc.path}`) : undefined,
+        loadNote(loaded, storage ? 'Fetching it from Storage...' : 'Loading...'),
+        actions(
+          ctx.draw.button('doc:open', 'Open in Default App', open('open'), { plain: true, hotkey: 'e' }),
+          ctx.draw.button('doc:reveal', 'Show in Finder', open('reveal'), { plain: true, dim: true, hotkey: 'f' }),
+          storage &&
+            ctx.draw.button('doc:sign', 'Link for the Browser', async () => {
+              const got = (await ctx.call('sentinel.signStorage', id, metric, column, name)) as { readonly url: string } | undefined;
+              if (got?.url) setSigned({ url: got.url, at: Date.now() });
+            }, { plain: true, dim: true, hotkey: 'i' }),
+        ),
+        // Signed for about a minute, and never kept past it.
+        signed && Date.now() - signed.at < 55_000 ? webLink(signed.url, 'Open it in your browser (good for about a minute)') : undefined,
+      ],
+      { title: shownName },
+    ),
     doc?.tooBig ? dim('It’s too big to show here: open it in its app, or find it in Finder.') : undefined,
     look === 'markdown' && words !== undefined ? md(peerText(words)) : undefined,
     look === 'json' && words !== undefined ? code(prettyJson(words), { language: 'json' }) : undefined,

@@ -10,9 +10,9 @@ import { shareNameOf } from '../../shared/share-names.js';
 import { CAN_ORDER, type InviteChoice, inviteChoice } from '../../ui/invite-menus.js';
 import { type ShareAccess, type WorktreeShareRow, handoffPeople, shareRowDetail, worktreeShareRows } from '../../ui/worktree-share.js';
 import type { Ctx } from '../screens.js';
-import { type Node, code, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, findWorkspace, homePath, openWorkspace, page } from './common.js';
-import { MAX_ROWS, byName, choice, confirmPress, levelOf, listOf, nameOf, peerMd, top, uniqueBy, wholePath } from './team-common.js';
+import { type Node, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, ago, back, card, empty, field, findWorkspace, homePath, meta, openWorkspace, page, pill, section } from './common.js';
+import { MAX_ROWS, byName, choice, confirmPress, levelOf, listOf, nameButton, nameOf, peerMd, tick, top, uniqueBy, wholePath } from './team-common.js';
 import { trustChoices } from './team-people.js';
 
 /**
@@ -27,7 +27,13 @@ const ACCESS: ReadonlyArray<readonly [ShareAccess, string]> = [
   ['none', 'No access'],
 ];
 
-const accessChoices = (ctx: Ctx, key: string, now: ShareAccess, set: (access: ShareAccess) => unknown): Node => row(ACCESS.map(([value, label]) => choice(ctx, `${key}:${value}`, label, now === value, () => set(value))));
+const accessChoices = (ctx: Ctx, key: string, now: ShareAccess, set: (access: ShareAccess) => unknown): Node => row(ACCESS.map(([value, label]) => choice(ctx, `${key}:${value}`, label, now === value, () => set(value))), { gap: 2 });
+
+/** What someone may do in a project or worktree of yours, as a pill. */
+const accessPill = (access: ShareAccess) => (access === 'contribute' ? pill('Can work here', 'ok') : access === 'view' ? pill('Can follow', 'accent') : pill('No access'));
+
+/** Your role in what a teammate shared, as a pill. */
+const rolePill = (role: string) => (role === 'contribute' ? pill('You can work here', 'ok') : pill('You can follow along', 'accent'));
 
 const shareWords = (ctx: Ctx, x: MyShare): string => (x.private ? `only ${(x.allowed ?? []).map((id) => nameOf(ctx.state, id)).join(', ') || 'nobody'}` : 'everyone');
 
@@ -48,28 +54,25 @@ export function sharingPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     ctx.draw.button('share:pick', 'Share a Project', () => ctx.go({ name: 'share-pick' }), { primary: true, hotkey: 'a' }),
-    ctx.draw.button('share:room', 'Your Room', () => ctx.go({ name: 'room' }), { plain: true, hotkey: 'i', spans: [span('Your Room  '), span(roomWords(ctx), { dim: true })] }),
+    card([nameButton(ctx, 'share:room', 'Your Room', () => ctx.go({ name: 'room' }), [span('  ›', { dim: true })], { hotkey: 'i' }), meta(roomWords(ctx))]),
     nothing && empty('Nothing shared yet, either way. Nobody sees anything until you share it.'),
     st.sharedProjects.length > 0 &&
-      col([
-        dim(`Shared with you (${st.sharedProjects.length})`),
+      section('Shared with you', [
         listOf(ctx, 'shared:projects', st.sharedProjects, (p) =>
-          ctx.draw.button(`shared:${p.owner}:${p.id}`, p.name, () => ctx.go({ name: 'shared-project', params: { owner: p.owner, id: p.id } }), {
-            plain: true,
-            spans: [span(`${p.name}  `), span(`${p.ownerName}’s · ${p.role === 'contribute' ? 'you can work here' : 'you can follow along'} · ${p.worktrees.length} worktree${p.worktrees.length === 1 ? '' : 's'}`, { dim: true })],
-          }),
+          card([
+            nameButton(ctx, `shared:${p.owner}:${p.id}`, p.name, () => ctx.go({ name: 'shared-project', params: { owner: p.owner, id: p.id } })),
+            meta(rolePill(p.role), `${p.ownerName}’s`, `${p.worktrees.length} worktree${p.worktrees.length === 1 ? '' : 's'}`),
+          ]),
         ),
-      ]),
+      ], st.sharedProjects.length),
     roomWorktrees.length > 0 &&
-      col([
-        dim(`Shared with you in your room (${roomWorktrees.length})`),
+      section('Shared with you in your room', [
         listOf(ctx, 'shared:room', roomWorktrees, (w) =>
-          ctx.draw.button(`shared-room:${w.owner}:${w.id}`, w.name, () => ctx.go({ name: 'shared-worktree', params: { owner: w.owner, id: w.id } }), { plain: true, spans: [span(`${w.name}  `), span(`${nameOf(st, w.owner)}’s ${w.project}`, { dim: true })] }),
+          ctx.draw.button(`shared-room:${w.owner}:${w.id}`, w.name, () => ctx.go({ name: 'shared-worktree', params: { owner: w.owner, id: w.id } }), { plain: true, spans: [span(w.name, { weight: 'bold' }), span('  '), span(w.project, { dim: true }), span(' · ', { dim: true }), span(`${nameOf(st, w.owner)}’s`, { dim: true })] }),
         ),
-      ]),
+      ], roomWorktrees.length),
     folders.length > 0 &&
-      col([
-        dim(`Folders shared with you (${folders.length})`),
+      section('Folders shared with you', [
         listOf(ctx, 'shared:folders', folders, (f) =>
           ctx.draw.button(
             `shared-folder:${f.owner}:${f.name}`,
@@ -78,18 +81,20 @@ export function sharingPage(ctx: Ctx): Node {
               await ctx.call('files.browseTo', { owner: f.owner, share: f.name, path: '' });
               ctx.go({ name: 'folder' });
             },
-            { plain: true, spans: [span(`${f.label}  `), span(`${f.ownerName}’s${f.writable ? ' · their agent may edit it' : ''}`, { dim: true })] },
+            { plain: true, spans: [span('▸ ', { dim: true }), span(f.label), span('  '), span(`${f.ownerName}’s${f.writable ? ' · their agent may edit it' : ''}`, { dim: true })] },
           ),
         ),
-      ]),
+      ], folders.length),
     yours.length > 0 &&
-      col([
-        dim(`Projects you share (${yours.length})`),
+      section('Projects you share', [
         listOf(ctx, 'share:yours', yours, (p) => {
           const people = Object.keys(st.projectShares[p.id] ?? {});
-          return ctx.draw.button(`share:project:${p.id}`, p.name, () => ctx.go({ name: 'share-project', params: { id: p.id } }), { plain: true, spans: [span(`${p.name}  `), span(`with ${people.map((id) => nameOf(st, id)).slice(0, 4).join(', ')}${people.length > 4 ? ` and ${people.length - 4} others` : ''}`, { dim: true })] });
+          return card([
+            nameButton(ctx, `share:project:${p.id}`, p.name, () => ctx.go({ name: 'share-project', params: { id: p.id } })),
+            meta(`with ${people.map((id) => nameOf(st, id)).slice(0, 4).join(', ')}${people.length > 4 ? ` and ${people.length - 4} others` : ''}`),
+          ]);
         }),
-      ]),
+      ], yours.length),
     ctx.draw.button('share:folder', st.myShares.length ? `Folders You Share (${st.myShares.length})` : 'Share a Folder', () => ctx.go({ name: 'share-folder' }), { plain: true, dim: true, hotkey: 'f' }),
   );
 }
@@ -100,10 +105,14 @@ export function sharePickPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Sharing'),
-    title('Share a Project'),
-    dim('Teammates you add see it with its worktrees, new ones too. Nobody needs to host, and it stays while either of you is offline.'),
-    projects.length === 0 && empty('No projects yet. Add one in Work.'),
-    listOf(ctx, 'share:pick-list', projects, (p) => ctx.draw.button(`share:pick:${p.id}`, p.name, () => ctx.go({ name: 'share-project', params: { id: p.id } }), { plain: true })),
+    card(
+      [
+        dim('Teammates you add see it with its worktrees, new ones too. Nobody needs to host, and it stays while either of you is offline.'),
+        projects.length === 0 && empty('No projects yet. Add one in Work.'),
+        col([listOf(ctx, 'share:pick-list', projects, (p) => ctx.draw.button(`share:pick:${p.id}`, p.name, () => ctx.go({ name: 'share-project', params: { id: p.id } }), { plain: true, spans: [span('◆ ', { dim: true }), span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] }))], { top: 1 }),
+      ],
+      { title: 'Share a Project' },
+    ),
   );
 }
 
@@ -118,23 +127,22 @@ export function shareProjectPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Sharing'),
-    title(`Share ${project.name}`),
+    card([dim('Your agent does the work, on this computer. Risky steps still ask you, unless you fully trust the person asking.')], { title: `Share ${project.name}` }),
     friends.length === 0 && empty(st.network.enabled ? 'No teammates yet. Add one in People, then share with them here.' : 'Sharing with teammates needs the network: it turns on from People.'),
     listOf(ctx, `share:${id}:friends`, friends, (f) => {
       const grant = grants?.[f.peerId];
       const access: ShareAccess = grant?.role ?? 'none';
       const why = access === 'none' ? cannotTake(f.name, f.teamod, 'share.project', f.online) : undefined;
-      return col([
-        line(f.name, span(`  ${why ?? (access === 'contribute' ? 'Talks to your agent in its worktrees' : access === 'view' ? 'Follows along, read-only' : 'Not shared with them')}`, { dim: true }), grant?.only ? span(`  ${grant.only.length === 1 ? 'one worktree' : `${grant.only.length} worktrees`}`, { dim: true }) : undefined),
+      return card([
+        line(span(f.name, { weight: 'bold' }), span('  '), accessPill(access)),
+        meta(why ?? (access === 'contribute' ? 'Talks to your agent in its worktrees' : access === 'view' ? 'Follows along, read-only' : 'Not shared with them'), grant?.only && (grant.only.length === 1 ? 'one worktree' : `${grant.only.length} worktrees`)),
         accessChoices(ctx, `share:${id}:${f.peerId}`, access, (next) => (next === 'none' ? ctx.call('sharing.unshareFriend', { peerId: f.peerId, projectId: id }) : ctx.call('sharing.shareWithFriend', { peerId: f.peerId, projectId: id, role: next as WsRole }))),
       ]);
     }),
     worktrees.length > 0 &&
-      col([
-        dim('One worktree only'),
-        listOf(ctx, `share:${id}:worktrees`, worktrees, (w) => ctx.draw.button(`share:worktree:${w.id}`, w.name, () => ctx.go({ name: 'share-worktree', params: { id: w.id } }), { plain: true, ...(w.branch ? { spans: [span(`${w.name}  `), span(w.branch, { dim: true })] } : {}) })),
-      ]),
-    dim('Your agent does the work, on this computer. Risky steps still ask you, unless you fully trust the person asking.'),
+      section('One worktree only', [
+        listOf(ctx, `share:${id}:worktrees`, worktrees, (w) => ctx.draw.button(`share:worktree:${w.id}`, w.name, () => ctx.go({ name: 'share-worktree', params: { id: w.id } }), { plain: true, spans: [span(w.name), ...(w.branch ? [span('  '), span(w.branch, { dim: true })] : []), span('  ›', { dim: true })] })),
+      ], worktrees.length),
   );
 }
 
@@ -153,13 +161,12 @@ export function shareWorktreePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(`Share ${ws.name}`),
-    dim('Only this worktree: people you add see its conversation, files and Scratch, and can ask your agent here.'),
+    card([dim('Only this worktree: people you add see its conversation, files and Scratch, and can ask your agent here.')], { title: `Share ${ws.name}` }),
     rows.length === 0 && empty(st.network.enabled ? 'No teammates yet. Add one in People, then share this worktree with them here.' : 'Turn on the network in People to share with teammates, or invite someone to your room.'),
     listOf(ctx, `share-ws:${id}:rows`, rows, (r) => {
       const friend = st.network.friends.find((f) => f.peerId === r.peerId);
       const why = r.via === 'network' && r.access === 'none' && friend ? cannotTake(friend.name, friend.teamod, 'share.project', friend.online) : undefined;
-      return col([line(r.name, span(`  ${why ?? shareRowDetail(r, st.peers.some((p) => p.peerId === r.peerId))}`, { dim: true })), accessChoices(ctx, `share-ws:${id}:${r.peerId}`, r.access, (next) => set(r, next))]);
+      return card([line(span(r.name, { weight: 'bold' }), span('  '), accessPill(r.access)), meta(why ?? shareRowDetail(r, st.peers.some((p) => p.peerId === r.peerId))), accessChoices(ctx, `share-ws:${id}:${r.peerId}`, r.access, (next) => set(r, next))]);
     }),
     ws.kind === 'worktree' && ctx.draw.button('share-ws:handoff', 'Hand Off', () => ctx.go({ name: 'handoff', params: { id } }), { plain: true, dim: true }),
   );
@@ -173,12 +180,11 @@ export function handoffPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(`Hand Off ${ws.name}`),
-    dim('A teammate takes over this work on their computer, with their own agent. They need the same repository. To work on it together instead, share it.'),
+    card([dim('A teammate takes over this work on their computer, with their own agent. They need the same repository. To work on it together instead, share it.')], { title: `Hand Off ${ws.name}` }),
     people.length === 0 && empty('Nobody to hand it to yet. Add a teammate in People.'),
     listOf(ctx, `handoff:${id}`, people, (p) =>
       p.why
-        ? line(p.name, span(`  ${p.why}`, { dim: true }))
+        ? line(span(p.name), span(`  ${p.why}`, { dim: true }))
         : confirmPress(ctx, `handoff:${id}:${p.peerId}`, `Hand Off to ${p.name}`, `${p.name}’s agent continues on ${p.name}’s computer${p.online ? '' : '. They’re offline: it waits for them'}.`, () => ctx.call('remote.handoff', id, p.peerId)),
     ),
   );
@@ -193,12 +199,20 @@ export function sharedProjectPage(ctx: Ctx, owner: string, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Sharing'),
-    col([title(p.name), dim(`${p.ownerName}’s · ${p.role === 'contribute' ? 'you can work here' : 'you can follow along'}`), p.members.length > 0 ? dim(`Also with ${p.members.slice(0, 8).map((m) => m.name).join(', ')}`) : undefined]),
-    copy?.state === 'copying' && dim('Copying it to this computer...'),
-    copy?.state === 'ready' && copy.path ? dim(`Your copy: ${homePath(ctx.state, copy.path)}`) : undefined,
-    copy?.state === 'failed' && col([text(copy.error ?? 'Couldn’t copy it here.', { color: 'error' }), ctx.draw.button('shared:copy', 'Copy to This Computer Again', () => ctx.call('sharing.copyProject', owner, id), { plain: true })]),
-    worktrees.length === 0 && empty('No worktrees in it yet.'),
-    listOf(ctx, `shared:${owner}:${id}:worktrees`, worktrees, (w) => ctx.draw.button(`shared:worktree:${w.id}`, w.name, () => ctx.go({ name: 'shared-worktree', params: { owner, id: w.id } }), { plain: true, ...(w.branch ? { spans: [span(`${w.name}  `), span(w.branch, { dim: true })] } : {}) })),
+    card(
+      [
+        meta(rolePill(p.role), `${p.ownerName}’s`),
+        p.members.length > 0 ? dim(`Also with ${p.members.slice(0, 8).map((m) => m.name).join(', ')}`) : undefined,
+        copy?.state === 'copying' && line(pill('Copying it to this computer...', 'accent')),
+        copy?.state === 'ready' && copy.path ? field('Your copy', span(homePath(ctx.state, copy.path), { dim: true })) : undefined,
+        copy?.state === 'failed' && col([text(copy.error ?? 'Couldn’t copy it here.', { color: 'error' }), actions(ctx.draw.button('shared:copy', 'Copy to This Computer Again', () => ctx.call('sharing.copyProject', owner, id), {}))]),
+      ],
+      { title: p.name, ...(copy?.state === 'failed' ? { tone: 'error' as const } : {}) },
+    ),
+    section('Worktrees', [
+      worktrees.length === 0 && empty('No worktrees in it yet.'),
+      listOf(ctx, `shared:${owner}:${id}:worktrees`, worktrees, (w) => ctx.draw.button(`shared:worktree:${w.id}`, w.name, () => ctx.go({ name: 'shared-worktree', params: { owner, id: w.id } }), { plain: true, spans: [span(w.name), ...(w.branch ? [span('  '), span(w.branch, { dim: true })] : []), span('  ›', { dim: true })] })),
+    ], worktrees.length),
     confirmPress(ctx, 'shared:leave', 'Leave Project', `It goes from this list. ${p.ownerName} can share it with you again.`, async () => {
       await ctx.call('sharing.leaveProject', owner, id);
       ctx.nav.back(ctx.pane);
@@ -261,7 +275,14 @@ export function sharedWorktreePage(ctx: Ctx, owner: string, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    col([title(ws.name), dim(`${ownerName}’s ${ws.project}${ws.branch ? ` · ${ws.branch}` : ''}`), dim(ws.role === 'contribute' ? `You can work here: talk to ${ownerName}’s ${agent}. It runs on their computer.` : 'Read-only: you follow along.'), roster.length > 0 ? dim(`In it: ${roster.slice(0, 8).map((r) => `${nameOf(st, r.peerId)} (${r.role === 'contribute' ? 'works here' : 'follows'})`).join(', ')}`) : undefined]),
+    card(
+      [
+        meta(rolePill(ws.role), ws.project, `${ownerName}’s`, ws.branch),
+        dim(ws.role === 'contribute' ? `You can work here: talk to ${ownerName}’s ${agent}. It runs on their computer.` : 'Read-only: you follow along.'),
+        roster.length > 0 ? dim(`In it: ${roster.slice(0, 8).map((r) => `${nameOf(st, r.peerId)} (${r.role === 'contribute' ? 'works here' : 'follows'})`).join(', ')}`) : undefined,
+      ],
+      { title: ws.name },
+    ),
     ws.earlier && ctx.draw.button('shared:earlier', 'Earlier from Their Computer', () => ctx.call('sharing.earlier', owner, id), { plain: true, dim: true }),
     logRows(ctx, channel),
     ws.role === 'contribute' && (blocked ? dim(blocked) : undefined),
@@ -281,7 +302,7 @@ export function sharedWorktreePage(ctx: Ctx, owner: string, id: string): Node {
       copyReady ? choice(ctx, 'shared:runs-on', mine ? 'Runs on This Computer' : `Runs on ${ownerName}’s Computer`, true, () => setMine(!mine)) : undefined,
       ctx.draw.button('shared:scratch', 'Scratch', () => ctx.go({ name: 'shared-scratch', params: { owner, id } }), { plain: true, dim: true, hotkey: 'f' }),
       ctx.draw.button('shared:more', 'More', () => ctx.go({ name: 'shared-more', params: { owner, id } }), { plain: true, dim: true, hotkey: 'm' }),
-    ]),
+    ], { gap: 3 }),
   );
 }
 
@@ -297,7 +318,7 @@ export function sharedMorePage(ctx: Ctx, owner: string, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(ws.name),
+    card([meta(ws.project, `${ownerName}’s`)], { title: ws.name }),
     fork?.state === 'ready' && mineNow && !mineNow.archived ? ctx.draw.button('shared:fork-open', 'Open My Fork', () => openWorkspace(ctx, mineNow.id), { primary: true, hotkey: 'a' }) : undefined,
     fork?.state === 'asking' && dim(`Waiting for ${ownerName}’s computer to pack it...`),
     fork?.state === 'copying' && dim(fork.total ? `Copying: ${formatBytes(fork.received ?? 0)} of ${formatBytes(fork.total)}` : 'Copying...'),
@@ -306,7 +327,7 @@ export function sharedMorePage(ctx: Ctx, owner: string, id: string): Node {
       fork?.state !== 'asking' &&
       fork?.state !== 'copying' &&
       fork?.state !== 'ready' &&
-      col([
+      section('Fork', [
         dim(`Fork to this computer: a worktree of your own that starts where ${ownerName}’s is now, with your agent. Its commits, uncommitted changes, Scratch and conversation come with it. What git ignores stays behind, and never a .env file or a key.`),
         ctx.draw.input('shared:fork-name', (value) => (value?.trim() ? ctx.call('sharing.fork', owner, id, value.trim().slice(0, 120)) : undefined), { label: 'Name', value: ws.name, submitLabel: 'fork' }),
       ]),
@@ -328,7 +349,7 @@ export function sharedScratchPage(ctx: Ctx, owner: string, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title('Scratch'),
+    line(span('Scratch', { weight: 'bold' }), span(files.length ? `  ${files.length}` : '', { dim: true })),
     loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
     files.length === 0 && !loaded.error && dim(loaded.loading ? 'Loading...' : 'Nothing saved yet.'),
     listOf(ctx, `scratch:${id}`, files, (f) =>
@@ -345,12 +366,11 @@ export function sharedFilePage(ctx: Ctx, at: Location): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(at.path),
+    row([text(at.path, { weight: 'bold' }), ctx.draw.button('shared-file:download', 'Download', () => ctx.call('files.download', at), { plain: true, dim: true, hotkey: 'f' })], { justify: 'space-between', wrap: false }),
     loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
     !loaded.value && !loaded.error && dim('Loading...'),
     binary ? dim('It isn’t text. Download it to open it.') : content ? code(content.slice(0, 50_000)) : undefined,
     loaded.value?.truncated && dim('Cut to fit.'),
-    ctx.draw.button('shared-file:download', 'Download', () => ctx.call('files.download', at), { plain: true, dim: true, hotkey: 'f' }),
   );
 }
 
@@ -362,7 +382,7 @@ export function folderPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(b.at ? `${nameOf(ctx.state, b.at.owner)}’s ${b.at.share}${b.at.path ? `/${b.at.path}` : ''}` : 'Files'),
+    b.at ? line(span(`${b.at.share}${b.at.path ? `/${b.at.path}` : ''}`, { weight: 'bold' }), span('  '), span(`${nameOf(ctx.state, b.at.owner)}’s`, { dim: true })) : text('Files', { weight: 'bold' }),
     b.error ? text(b.error, { color: 'error' }) : undefined,
     b.rows.length === 0 && !b.error && dim(b.loading ? 'Loading...' : 'Nothing here.'),
     listOf(ctx, `folder:${b.at?.owner ?? ''}:${b.at?.share ?? ''}:${b.at?.path ?? ''}`, uniqueBy(b.rows, rowKey), (r) =>
@@ -374,7 +394,7 @@ export function folderPage(ctx: Ctx): Node {
           if (r.dir) return ctx.call('files.browseTo', r.target);
           return ctx.go({ name: 'shared-file', params: { owner: r.target.owner, share: r.target.share, path: r.target.path } });
         },
-        { plain: true, spans: [span(`${r.label}${r.dir ? '/' : ''}`), ...(r.size !== undefined && !r.dir ? [span(`  ${formatBytes(r.size)}`, { dim: true })] : [])] },
+        { plain: true, spans: [span(r.target === 'up' ? '‹ ' : r.dir ? '▸ ' : '  ', { dim: true }), span(`${r.label}${r.dir ? '/' : ''}`, r.dir ? { weight: 'bold' } : {}), ...(r.size !== undefined && !r.dir ? [span(`  ${formatBytes(r.size)}`, { dim: true })] : [])] },
       ),
     ),
   );
@@ -392,15 +412,18 @@ export function shareFolderPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Sharing'),
-    title('Share a Folder'),
-    dim('They can browse, open and download its files. Secrets like .env files and keys are never shared.'),
-    row([choice(ctx, 'share-folder:some', 'Only…', who === 'some', () => setWho('some')), choice(ctx, 'share-folder:all', 'Everyone in the room', who === 'all', () => setWho('all'))]),
-    who === 'some' &&
-      (people.length === 0
-        ? dim('No teammates or room yet. Add a teammate in People first.')
-        : listOf(ctx, 'share-folder:people', people, (p) => ctx.draw.button(`share-folder:person:${p.id}`, `${only.includes(p.id) ? '[x]' : '[ ]'} ${p.name}`, () => setOnly(only.includes(p.id) ? only.filter((x) => x !== p.id) : [...only, p.id]), { plain: true, ...(only.includes(p.id) ? {} : { dim: true }) }))),
-    row([choice(ctx, 'share-folder:read', 'Read-only', !writable, () => setWritable(false)), choice(ctx, 'share-folder:write', 'Your agent may edit here', writable, () => setWritable(true))]),
-    ctx.draw.input(
+    card(
+      [
+        dim('They can browse, open and download its files. Secrets like .env files and keys are never shared.'),
+        section('Who sees it', [
+          row([choice(ctx, 'share-folder:some', 'Only…', who === 'some', () => setWho('some')), choice(ctx, 'share-folder:all', 'Everyone in the room', who === 'all', () => setWho('all'))], { gap: 2 }),
+          who === 'some' &&
+            (people.length === 0
+              ? dim('No teammates or room yet. Add a teammate in People first.')
+              : listOf(ctx, 'share-folder:people', people, (p) => tick(ctx, `share-folder:person:${p.id}`, p.name, only.includes(p.id), () => setOnly(only.includes(p.id) ? only.filter((x) => x !== p.id) : [...only, p.id])))),
+        ]),
+        section('Your agent there', [row([choice(ctx, 'share-folder:read', 'Read-only', !writable, () => setWritable(false)), choice(ctx, 'share-folder:write', 'Your agent may edit here', writable, () => setWritable(true))], { gap: 2 })]),
+        col([ctx.draw.input(
       'share-folder:path',
       async (value) => {
         const dir = value?.trim() ? wholePath(st, value) : '';
@@ -409,17 +432,19 @@ export function shareFolderPage(ctx: Ctx): Node {
         await ctx.call('session.shareFolder', dir, writable, who === 'some' ? [...only] : undefined);
       },
       { label: 'Folder', placeholder: '~/path/to/folder', submitLabel: 'share' },
+    )], { top: 1 }),
+      ],
+      { title: 'Share a Folder' },
     ),
     st.myShares.length > 0 &&
-      col([
-        dim(`Shared now (${st.myShares.length})`),
+      section('Shared now', [
         listOf(ctx, 'share-folder:now', st.myShares, (x) =>
           row([
-            line(x.name, span(`  ${homePath(st, x.root)} · ${shareWords(ctx, x)}${x.writable ? ' · your agent may edit' : ''}`, { dim: true })),
+            col([text(x.name, { weight: 'bold' }), meta(homePath(st, x.root), shareWords(ctx, x), x.writable && 'your agent may edit')]),
             ctx.draw.button(`share-folder:stop:${x.name}`, 'Stop Sharing', () => ctx.call('session.unshareFolder', x.name), { plain: true, dim: true }),
-          ]),
+          ], { justify: 'space-between' }),
         ),
-      ]),
+      ], st.myShares.length),
   );
 }
 
@@ -436,36 +461,47 @@ export function roomPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Sharing'),
-    col([title(st.room), dim(roomWords(ctx)), st.connection ? text(st.connection.reason, { color: 'warning' }) : undefined]),
-    st.connection && ctx.draw.button('room:retry', 'Retry Now', () => ctx.call('session.retryConnection'), { plain: true, hotkey: 'x' }),
+    card(
+      [
+        line(st.connection ? pill(roomWords(ctx), 'warn') : pill(roomWords(ctx), st.status === 'connected' ? 'ok' : 'quiet')),
+        st.connection ? text(st.connection.reason, { color: 'warning' }) : undefined,
+        st.connection && actions(ctx.draw.button('room:retry', 'Retry Now', () => ctx.call('session.retryConnection'), { plain: true, hotkey: 'x' })),
+      ],
+      { title: st.room, ...(st.connection ? { tone: 'warn' as const } : {}) },
+    ),
     host ? ctx.draw.button('room:invite', 'Invite People', () => ctx.go({ name: 'room-invite' }), { primary: true, hotkey: 'a' }) : st.invite ? ctx.draw.button('room:copy-invite', 'Copy Room Invite', () => ctx.call('session.copyInvite'), { primary: true, hotkey: 'a' }) : undefined,
     st.knocks.length > 0 &&
-      col([
-        dim('Waiting to come in'),
+      section('Waiting to come in', [
         listOf(ctx, 'room:knocks', st.knocks, (k) => {
           const link = st.links.find((l) => l.id === k.linkId);
-          return row([
-            line(nameAtDoor(k.peerId), span(`  ${link ? `wants to join ${link.label} · ${CAN_INFO[link.can].short}` : 'is at the door'}`, { dim: true })),
-            ctx.draw.button(`room:let-in:${k.peerId}`, 'Let In', () => ctx.call('invites.letIn', k.peerId), { plain: true }),
-            ctx.draw.button(`room:turn-away:${k.peerId}`, 'Decline', () => ctx.call('invites.decline', k.peerId), { plain: true, dim: true }),
-          ]);
+          return card(
+            [
+              meta(link ? `wants to join ${link.label}` : 'is at the door', link && CAN_INFO[link.can].short),
+              actions(
+                ctx.draw.button(`room:let-in:${k.peerId}`, 'Let In', () => ctx.call('invites.letIn', k.peerId), {}),
+                ctx.draw.button(`room:turn-away:${k.peerId}`, 'Decline', () => ctx.call('invites.decline', k.peerId), { plain: true, dim: true }),
+              ),
+            ],
+            { title: nameAtDoor(k.peerId), tone: 'warn' },
+          );
         }),
-      ]),
+      ], st.knocks.length),
     st.trustPrompts.length > 0 &&
-      col([
-        dim('New here: how much do you trust them?'),
+      section('New here: how much do you trust them?', [
         listOf(ctx, 'room:prompts', st.trustPrompts, (peerId) =>
-          col([
-            text(nameOf(st, peerId)),
-            trustChoices(ctx, `room:trust:${peerId}`, peerId, undefined),
-            ctx.draw.button(`room:trust-later:${peerId}`, 'Later', () => ctx.call('people.dismissPrompt', peerId), { plain: true, dim: true }),
-          ]),
+          card(
+            [
+              trustChoices(ctx, `room:trust:${peerId}`, peerId, undefined),
+              ctx.draw.button(`room:trust-later:${peerId}`, 'Later', () => ctx.call('people.dismissPrompt', peerId), { plain: true, dim: true }),
+            ],
+            { title: nameOf(st, peerId), tone: 'warn' },
+          ),
         ),
-      ]),
-    others.length > 0 ? col([dim(`Here (${others.length})`), listOf(ctx, 'room:people', others, (p) => ctx.draw.button(`room:person:${p.peerId}`, p.name, () => ctx.go(st.guests[p.peerId] ? { name: 'guest', params: { id: p.peerId } } : { name: 'room-person', params: { id: p.peerId } }), { plain: true, spans: [span(`${p.name}  `), span([p.host ? 'host' : '', p.guest ? 'guest' : '', st.follow === p.peerId ? 'you follow them' : ''].filter(Boolean).join(' · '), { dim: true })] }))]) : empty('Nobody else is here yet.'),
-    guests.length > 0 && col([dim(`Guests (${guests.length})`), listOf(ctx, 'room:guests', guests, (g) => ctx.draw.button(`room:guest:${g.peerId}`, g.name, () => ctx.go({ name: 'guest', params: { id: g.peerId } }), { plain: true, spans: [span(`${g.name}  `), span(CAN_INFO[g.can].short, { dim: true })] }))]),
+      ], st.trustPrompts.length),
+    others.length > 0 ? section('Here', [listOf(ctx, 'room:people', others, (p) => ctx.draw.button(`room:person:${p.peerId}`, p.name, () => ctx.go(st.guests[p.peerId] ? { name: 'guest', params: { id: p.peerId } } : { name: 'room-person', params: { id: p.peerId } }), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  '), span([p.host ? 'host' : '', p.guest ? 'guest' : '', st.follow === p.peerId ? 'you follow them' : ''].filter(Boolean).join(' · '), { dim: true })] }))], others.length) : empty('Nobody else is here yet.'),
+    guests.length > 0 && section('Guests', [listOf(ctx, 'room:guests', guests, (g) => ctx.draw.button(`room:guest:${g.peerId}`, g.name, () => ctx.go({ name: 'guest', params: { id: g.peerId } }), { plain: true, spans: [span(g.name, { weight: 'bold' }), span('  '), span(CAN_INFO[g.can].short, { dim: true })] }))], guests.length),
     st.follow ? ctx.draw.button('room:unfollow', `Stop Following ${nameOf(st, st.follow)}`, () => ctx.call('session.follow'), { plain: true, dim: true }) : undefined,
-    row([ctx.draw.button('room:chat', 'Room Chat', () => ctx.go({ name: 'room-chat' }), { plain: true, hotkey: 'i' }), ctx.draw.button('room:more', 'More', () => ctx.go({ name: 'room-more' }), { plain: true, dim: true, hotkey: 'm' })]),
+    row([ctx.draw.button('room:chat', 'Room Chat', () => ctx.go({ name: 'room-chat' }), { plain: true, hotkey: 'i' }), ctx.draw.button('room:more', 'More', () => ctx.go({ name: 'room-more' }), { plain: true, dim: true, hotkey: 'm' })], { gap: 3 }),
   );
 }
 
@@ -476,16 +512,20 @@ export function roomMorePage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Room'),
-    title(st.room),
+    text(st.room, { weight: 'bold' }),
     host &&
-      col([
+      section('Who can come in', [
         dim(st.roomOpen ? 'Anyone with a link can come in, or knock.' : 'Closed: even with a link, nobody new gets in.'),
-        row([choice(ctx, 'room:open', 'New People Can Join', st.roomOpen, () => ctx.call('session.setRoomOpen', true)), choice(ctx, 'room:closed', 'Closed', !st.roomOpen, () => ctx.call('session.setRoomOpen', false))]),
+        row([choice(ctx, 'room:open', 'New People Can Join', st.roomOpen, () => ctx.call('session.setRoomOpen', true)), choice(ctx, 'room:closed', 'Closed', !st.roomOpen, () => ctx.call('session.setRoomOpen', false))], { gap: 2 }),
       ]),
+    section('Link', [
     st.invite ? ctx.draw.button('room:copy-link', 'Copy Room Link', () => ctx.call('session.copyInvite'), { plain: true }) : undefined,
     host && confirmPress(ctx, 'room:new-link', 'New Invite Link', 'The current link stops working. People already in the room stay.', () => ctx.call('session.newInviteLink')),
+    ]),
+    section('Chat', [
     confirmPress(ctx, 'room:clear', 'Clear the Chat Here', 'It’s cleared on this computer.', () => ctx.call('session.clearChat', 'room')),
     host && confirmPress(ctx, 'room:clear-all', 'Clear the Chat for Everyone', 'It’s cleared for everyone here, and for people who join later.', () => ctx.call('session.clearChat', 'room', { everyone: true })),
+    ]),
   );
 }
 
@@ -494,7 +534,7 @@ export function roomChatPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Room'),
-    title('Room Chat'),
+    text('Room Chat', { weight: 'bold' }),
     logRows(ctx, 'room'),
     ctx.draw.input(
       'room-chat:box',
@@ -522,32 +562,38 @@ export function roomInvitePage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Room'),
-    title('Invite People'),
-    dim('Send a link. They see only what you invite them to. Secrets like .env files and keys never leave this computer.'),
-    !st.invite && dim(hostingWords(st.hosting?.phase, st.hosting?.detail)),
-    col([
-      dim('Invite to'),
-      choice(ctx, 'invite:scope:room', 'Everything (the whole room)', c.scope === 'room', () => set({ scope: 'room' })),
-      listOf(ctx, 'invite:scopes', projects, (p) => choice(ctx, `invite:scope:${p.id}`, p.name, c.scope === p.id, () => set({ scope: p.id }))),
-    ]),
-    col([dim('They can'), row(CAN_ORDER.map((can) => choice(ctx, `invite:can:${can}`, CAN_INFO[can].label, c.can === can, () => set({ can })))), dim(CAN_INFO[c.can].detail)]),
-    row([
-      choice(ctx, 'invite:knock', `${c.knock ? '[x]' : '[ ]'} Knock first`, c.knock, () => set({ knock: !c.knock })),
-      choice(ctx, 'invite:single', `${c.singleUse ? '[x]' : '[ ]'} One person only`, c.singleUse, () => set({ singleUse: !c.singleUse })),
-      choice(ctx, 'invite:expires', `${c.expires ? '[x]' : '[ ]'} Expires in 24 hours`, c.expires, () => set({ expires: !c.expires })),
-    ]),
-    ctx.draw.button('invite:copy', 'Copy Invite Link', () => ctx.call('invites.create', { scope: c.scope, can: c.can, knock: c.knock, singleUse: c.singleUse, expiresInMs: c.expires ? DAY_MS : 0 }), { primary: true, hotkey: 'a' }),
+    card(
+      [
+        dim('Send a link. They see only what you invite them to. Secrets like .env files and keys never leave this computer.'),
+        !st.invite && dim(hostingWords(st.hosting?.phase, st.hosting?.detail)),
+        section('Invite to', [
+          choice(ctx, 'invite:scope:room', 'Everything (the whole room)', c.scope === 'room', () => set({ scope: 'room' })),
+          listOf(ctx, 'invite:scopes', projects, (p) => choice(ctx, `invite:scope:${p.id}`, p.name, c.scope === p.id, () => set({ scope: p.id }))),
+        ]),
+        section('They can', [row(CAN_ORDER.map((can) => choice(ctx, `invite:can:${can}`, CAN_INFO[can].label, c.can === can, () => set({ can }))), { gap: 2 }), dim(CAN_INFO[c.can].detail)]),
+        section('The link', [
+          col([
+            tick(ctx, 'invite:knock', 'Knock first', c.knock, () => set({ knock: !c.knock })),
+            tick(ctx, 'invite:single', 'One person only', c.singleUse, () => set({ singleUse: !c.singleUse })),
+            tick(ctx, 'invite:expires', 'Expires in 24 hours', c.expires, () => set({ expires: !c.expires })),
+          ]),
+        ]),
+        actions(ctx.draw.button('invite:copy', 'Copy Invite Link', () => ctx.call('invites.create', { scope: c.scope, can: c.can, knock: c.knock, singleUse: c.singleUse, expiresInMs: c.expires ? DAY_MS : 0 }), { primary: true, hotkey: 'a' })),
+      ],
+      { title: 'Invite People' },
+    ),
     links.length > 0 &&
-      col([
-        dim(`Active links (${links.length})`),
+      section('Active links', [
         listOf(ctx, 'invite:links', links, (l) =>
-          row([
-            line(l.label === 'everything' ? 'Everything' : l.label, span(`  ${CAN_INFO[l.can].short} · ${expiresIn(l.expiresAt, now)} · ${l.used ? `used by ${l.used}` : 'not used yet'} · ${l.singleUse ? 'one person' : 'anyone'} · ${l.knock ? 'knocks first' : 'no knock'}`, { dim: true })),
-            ctx.draw.button(`invite:copy:${l.id}`, 'Copy', () => ctx.call('invites.copyLink', l.id), { plain: true }),
-            ctx.draw.button(`invite:revoke:${l.id}`, 'Revoke', () => ctx.call('invites.revoke', l.id), { plain: true, dim: true }),
+          col([
+            row([
+              text(l.label === 'everything' ? 'Everything' : l.label, { weight: 'bold' }),
+              row([ctx.draw.button(`invite:copy:${l.id}`, 'Copy', () => ctx.call('invites.copyLink', l.id), { plain: true }), ctx.draw.button(`invite:revoke:${l.id}`, 'Revoke', () => ctx.call('invites.revoke', l.id), { plain: true, dim: true })], { gap: 2 }),
+            ], { justify: 'space-between' }),
+            meta(CAN_INFO[l.can].short, expiresIn(l.expiresAt, now), l.used ? `used by ${l.used}` : 'not used yet', l.singleUse ? 'one person' : 'anyone', l.knock ? 'knocks first' : 'no knock'),
           ]),
         ),
-      ]),
+      ], links.length),
   );
 }
 
@@ -562,9 +608,15 @@ export function guestPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Room'),
-    col([title(g.name), dim(g.room ? 'Invited to everything: the room chat and what you share.' : `Came in with a link: sees only ${g.projects.map((p) => projects.find((x) => x.id === p)?.name ?? 'a project').join(', ') || 'what you invited them to'}.`)]),
-    col([dim(`${g.name} can`), row(CAN_ORDER.map((c) => choice(ctx, `guest:can:${c}`, CAN_INFO[c].label, g.can === c, () => can(c)))), dim(CAN_INFO[g.can].detail)]),
-    !g.room && more.length > 0 && col([dim('Add to a project'), listOf(ctx, `guest:${id}:projects`, more, (p) => ctx.draw.button(`guest:add:${p.id}`, p.name, () => ctx.call('invites.change', id, { addProject: p.id }), { plain: true }))]),
+    card(
+      [
+        meta(pill('Guest', 'accent'), CAN_INFO[g.can].short),
+        dim(g.room ? 'Invited to everything: the room chat and what you share.' : `Came in with a link: sees only ${g.projects.map((p) => projects.find((x) => x.id === p)?.name ?? 'a project').join(', ') || 'what you invited them to'}.`),
+        section(`${g.name} can`, [row(CAN_ORDER.map((c) => choice(ctx, `guest:can:${c}`, CAN_INFO[c].label, g.can === c, () => can(c))), { gap: 2 }), dim(CAN_INFO[g.can].detail)]),
+      ],
+      { title: g.name },
+    ),
+    !g.room && more.length > 0 && section('Add to a project', [listOf(ctx, `guest:${id}:projects`, more, (p) => ctx.draw.button(`guest:add:${p.id}`, p.name, () => ctx.call('invites.change', id, { addProject: p.id }), { plain: true }))]),
     !g.room && ctx.draw.button('guest:everything', 'Invite to Everything', () => ctx.call('invites.change', id, { room: true }), { plain: true, dim: true }),
     confirmPress(ctx, 'guest:remove', `Remove ${g.name}`, 'They’re disconnected and lose access to everything you invited them to.', async () => {
       await ctx.call('invites.remove', id);
@@ -588,15 +640,28 @@ export function roomPersonPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx, 'Room'),
-    col([title(peer.name), dim([peer.host ? 'Host' : '', peer.agent ? `${agentName(defaultAgentOf(peer))} on` : 'No agent', peer.shares.length ? `Shares ${peer.shares.map((x) => x.name).join(', ')}` : ''].filter(Boolean).join(' · ')), dim(`Trust: ${TRUST_INFO[level].label}.`)]),
-    choice(ctx, 'person:follow', following ? 'Stop Following' : 'Follow', following, () => (following ? ctx.call('session.follow') : ctx.call('session.follow', peer.name))),
-    friend
-      ? ctx.draw.button('person:card', `${peer.name}’s Card`, () => ctx.go({ name: 'friend', params: { id } }), { plain: true })
-      : asked
-        ? dim('Teammate request sent. You set their trust on their card once they accept.')
-        : st.network.enabled
-          ? ctx.draw.button('person:befriend', `Add ${peer.name} as a Teammate`, () => ctx.call('network.friends.addFromRoom', id), { plain: true })
-          : undefined,
+    card(
+      [
+        meta(peer.host && 'Host', peer.agent ? `Agent: ${agentName(defaultAgentOf(peer))}` : 'No agent', peer.shares.length > 0 && `Shares ${peer.shares.map((x) => x.name).join(', ')}`),
+        meta(`Trust: ${TRUST_INFO[level].label}.`),
+        row(
+          [
+            choice(ctx, 'person:follow', following ? 'Stop Following' : 'Follow', following, () => (following ? ctx.call('session.follow') : ctx.call('session.follow', peer.name))),
+            friend
+              ? ctx.draw.button('person:card', `${peer.name}’s Card`, () => ctx.go({ name: 'friend', params: { id } }), { plain: true })
+              : asked
+                ? undefined
+                : st.network.enabled
+                  ? ctx.draw.button('person:befriend', `Add ${peer.name} as a Teammate`, () => ctx.call('network.friends.addFromRoom', id), { plain: true })
+                  : undefined,
+          ],
+          { gap: 3, top: 1 },
+        ),
+        !friend && asked ? dim('Teammate request sent. You set their trust on their card once they accept.') : undefined,
+      ],
+      { title: peer.name },
+    ),
+    section('Together', [
     ctx.draw.button('person:invite', 'Invite to a Worktree', () => ctx.go({ name: 'invite-person', params: { id } }), { plain: true }),
     canRunOn(grant?.level) && !running ? ctx.draw.button('person:run', 'Run a Command', () => setRunning(true), { plain: true }) : undefined,
     running &&
@@ -613,6 +678,7 @@ export function roomPersonPage(ctx: Ctx, id: string): Node {
       ),
     running && dim(grant?.level === 'full' ? 'It runs right away. The output shows in the chat.' : `${peer.name} approves it first. The output shows in the chat.`),
     (peer.projects?.length ?? 0) > 0 && ctx.draw.button('person:remote', `Start a Worktree on ${peer.name}’s Computer`, () => ctx.go({ name: 'remote-worktree', params: { id } }), { plain: true }),
+    ]),
     host && confirmPress(ctx, 'person:remove', 'Remove from Room', `${peer.name} is disconnected and the room’s invite link changes, so the old one stops working.`, async () => {
       await ctx.call('session.removePerson', id);
       ctx.nav.back(ctx.pane);
@@ -630,14 +696,20 @@ export function invitePersonPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(`Invite ${peer.name} to a Worktree`),
-    dim(`${peer.name} sees its conversation and files${role === 'contribute' ? ', and can ask your agent there' : ''}.`),
-    row([choice(ctx, 'invite-person:work', 'Work Here', role === 'contribute', () => setRole('contribute')), choice(ctx, 'invite-person:follow', 'Follow', role === 'view', () => setRole('view'))]),
-    list.length === 0 && empty('No worktrees yet.'),
-    listOf(ctx, `invite-person:${id}`, list, ({ w, label }) => {
-      const now = st.members[w.id]?.[id];
-      return now === role ? line(label, span(`  ${now === 'contribute' ? 'works here' : 'follows'}`, { dim: true })) : ctx.draw.button(`invite-person:ws:${w.id}`, label, () => ctx.call('sharing.invite', w.id, id, role), { plain: true });
-    }),
+    card(
+      [
+        row([choice(ctx, 'invite-person:work', 'Work Here', role === 'contribute', () => setRole('contribute')), choice(ctx, 'invite-person:follow', 'Follow', role === 'view', () => setRole('view'))], { gap: 2 }),
+        dim(`${peer.name} sees its conversation and files${role === 'contribute' ? ', and can ask your agent there' : ''}.`),
+      ],
+      { title: `Invite ${peer.name} to a Worktree` },
+    ),
+    section('Worktrees', [
+      list.length === 0 && empty('No worktrees yet.'),
+      listOf(ctx, `invite-person:${id}`, list, ({ w, label }) => {
+        const now = st.members[w.id]?.[id];
+        return now === role ? line(span(label), span('  '), pill(now === 'contribute' ? 'works here' : 'follows', 'ok', '✓')) : ctx.draw.button(`invite-person:ws:${w.id}`, label, () => ctx.call('sharing.invite', w.id, id, role), { plain: true, spans: [span('+ ', { dim: true }), span(label)] });
+      }),
+    ], list.length),
   );
 }
 
@@ -653,11 +725,12 @@ export function remoteWorktreePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'sharing'),
     back(ctx),
-    title(`New Worktree on ${peer.name}’s Computer`),
-    dim(`${peer.name} approves it, then ${peer.name}’s ${agent} does the work there.`),
-    projects.length > 1 && ctx.draw.select('remote:project', projects.map((p) => ({ value: p, label: p })), (value) => setPicked(value ?? ''), { label: 'Project', value: project }),
-    projects.length === 1 && dim(`In ${project}`),
-    choice(ctx, 'remote:plan', `${plan ? '[x]' : '[ ]'} Plan first`, plan, () => setPlan(!plan)),
+    card(
+      [
+        dim(`${peer.name} approves it, then ${peer.name}’s ${agent} does the work there.`),
+        projects.length > 1 && ctx.draw.select('remote:project', projects.map((p) => ({ value: p, label: p })), (value) => setPicked(value ?? ''), { label: 'Project', value: project }),
+    projects.length === 1 && field('Project', project),
+    tick(ctx, 'remote:plan', 'Plan first', plan, () => setPlan(!plan)),
     ctx.draw.input(
       'remote:task',
       async (value) => {
@@ -667,6 +740,9 @@ export function remoteWorktreePage(ctx: Ctx, id: string): Node {
         ctx.nav.back(ctx.pane);
       },
       { label: 'Task', placeholder: 'Add a health check endpoint and a test for it', rows: 3, submitLabel: `ask ${peer.name}`, autoFocus: true },
+    ),
+      ],
+      { title: `New Worktree on ${peer.name}’s Computer` },
     ),
   );
 }

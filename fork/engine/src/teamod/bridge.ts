@@ -14,6 +14,7 @@ import { brandWords } from './brand.js';
 import { mayCall } from './coverage.js';
 import { notifyNatively } from './notify.js';
 import { hasRich, richNodes } from './rich/rich.js';
+import { hasRtl, visualText } from './bidi.js';
 import { SessionTools } from './session-tools.js';
 import { TermHub, type TermKey } from './term-hub.js';
 import { bandActive, statusLine } from './panes/band.js';
@@ -280,7 +281,17 @@ export class Bridge {
   }
 
   /** `/teamod <words>`: a pane's name opens it; anything else is the engine's own command. */
-  private async command(words: string): Promise<{ readonly open?: string; readonly title?: string; readonly text?: string }> {
+  /**
+   * Words Claude Code draws itself (a pane's title, a command's answer), in the person's language:
+   * ordered for the terminal when it won't order right-to-left letters (a command has no surface;
+   * this session runs in a terminal).
+   */
+  private said(text: string, surface = 'terminal'): string {
+    const words = this.screens.words(text);
+    return this.screens.fixesRtl(surface) ? visualText(words) : words;
+  }
+
+  private async command(words: string): Promise<{ readonly open?: string; readonly title?: string; readonly said?: string; readonly text?: string }> {
     const first = words.split(/\s+/)[0] ?? '';
     // Asked for by name: an engine that was stopped starts again.
     if (!this.client) {
@@ -288,8 +299,8 @@ export class Bridge {
       await this.attach(true);
       this.opts.out({ t: 'connected', connected: true });
     }
-    if (!words) return { open: 'work', title: PANE_TITLES.work };
-    if (isPane(first)) return { open: first, title: PANE_TITLES[first] };
+    const pane = !words ? 'work' : isPane(first) ? first : undefined;
+    if (pane) return { open: pane, title: this.said(PANE_TITLES[pane]), said: this.said(`${PANE_TITLES[pane]} opened.`) };
     await this.callEngine('session.submit', [`/${words}`]);
     return { text: `/${words}` };
   }
@@ -323,11 +334,15 @@ export class Bridge {
       }
       if (req.method === 'POST' && url.pathname === '/rich') {
         const body = JSON.parse(await readBody(req)) as { text?: unknown; viewport?: Record<string, unknown> };
-        if (typeof body.text !== 'string' || !hasRich(body.text)) return send(200, { plain: true });
-        const site = `rich:${createHash('sha256').update(body.text).digest('hex').slice(0, 24)}` as const;
-        this.screens.remember(body.text, site);
         const params = new URLSearchParams(Object.entries(body.viewport ?? {}).map(([k, v]) => [k, String(v)]));
-        return send(200, { site, tree: this.draw(site, viewportOf(params)) });
+        const viewport = viewportOf(params);
+        // Drawn here: charts and live cards, and right-to-left words a terminal would send as written.
+        const ours = typeof body.text === 'string' && (hasRich(body.text) || (hasRtl(body.text) && this.screens.fixesRtl(viewport.surface)));
+        if (!ours) return send(200, { plain: true });
+        const text = body.text as string;
+        const site = `rich:${createHash('sha256').update(text).digest('hex').slice(0, 24)}` as const;
+        this.screens.remember(text, site);
+        return send(200, { site, tree: this.draw(site, viewport) });
       }
       if (req.method === 'POST' && url.pathname === '/term') {
         const body = JSON.parse(await readBody(req)) as { term?: unknown; rev?: unknown; seq?: unknown; keys?: unknown; cols?: unknown; rows?: unknown };
@@ -349,7 +364,8 @@ export class Bridge {
         const body = JSON.parse(await readBody(req)) as { site?: unknown; key?: unknown; value?: unknown; viewport?: Record<string, unknown> };
         if (typeof body.site !== 'string' || !isSite(body.site) || typeof body.key !== 'string') return send(400, { error: 'A site and a key, please' });
         const params = new URLSearchParams(Object.entries(body.viewport ?? {}).map(([k, v]) => [k, String(v)]));
-        return send(200, await this.screens.press(body.site, body.key, typeof body.value === 'string' ? body.value : undefined, viewportOf(params)));
+        const pressed = await this.screens.press(body.site, body.key, typeof body.value === 'string' ? body.value : undefined, viewportOf(params));
+        return send(200, pressed.open && isPane(pressed.open) ? { ...pressed, title: this.said(PANE_TITLES[pressed.open], viewportOf(params).surface) } : pressed);
       }
       if (req.method === 'POST' && url.pathname === '/command') {
         const body = JSON.parse(await readBody(req)) as { text?: unknown };

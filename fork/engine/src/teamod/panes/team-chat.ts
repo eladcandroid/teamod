@@ -7,9 +7,9 @@ import type { ChatFile, FriendView, GroupView, InvitationView, MemberView, Messa
 import { agentName } from '../../shared/agent-label.js';
 import { formatBytes } from '../../shared/format.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, homePath, page } from './common.js';
-import { MAX_ROWS, byName, choice, confirmPress, listOf, nameOf, needsYou, networkOff, openConversation, peerMd, picture, presenceSpan, presenceWords, shownState, top, uniqueBy, wholePath } from './team-common.js';
+import { type Node, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, ago, back, card, empty, homePath, meta, page, pill, rule, section } from './common.js';
+import { MAX_ROWS, byName, choice, confirmPress, listOf, nameOf, needsYou, networkOff, openConversation, peerMd, picture, presencePill, shownState, tick, top, uniqueBy, wholePath } from './team-common.js';
 import { taskRow } from './team-requests.js';
 
 /**
@@ -30,10 +30,14 @@ const groupName = (ctx: Ctx, g: Pick<GroupView, 'id' | 'name'>): string => (ctx.
 
 const snippet = (m: MessageView | undefined): string => (!m ? '' : m.text.trim() ? m.text.replace(/\s+/g, ' ').slice(0, 60) : m.files?.length ? `${m.files.length} file${m.files.length === 1 ? '' : 's'}` : '');
 
+/** Unread messages as a count beside the name, in Claude's color. */
+const unreadSpans = (n: number) => (n ? [pill(String(n), 'accent', '●'), span('  ')] : []);
+
 function dmRow(ctx: Ctx, f: FriendView): Node {
+  const last = snippet(f.last);
   return ctx.draw.button(`chat:dm:${f.peerId}`, f.name, () => openConversation(ctx, `dm:${f.peerId}`), {
     plain: true,
-    spans: [span(`${f.name}  `, f.unread ? { weight: 'semibold' } : {}), ...(f.unread ? [span(`${f.unread} new  `, { color: 'claude' })] : []), span(snippet(f.last), { dim: true })],
+    spans: [span(f.name, f.unread ? { weight: 'bold' } : {}), span('  '), ...unreadSpans(f.unread), ...(last ? [span(last, { dim: true })] : [])],
   });
 }
 
@@ -44,10 +48,11 @@ function channelRow(ctx: Ctx, g: GroupView): Node {
     plain: true,
     ...(g.active ? {} : { dim: true }),
     spans: [
-      span(`${groupName(ctx, g)}  `, unread ? { weight: 'semibold' } : {}),
-      ...(unread ? [span(`${unread} new  `, { color: 'claude' })] : []),
-      ...(asking ? [span(`${asking} asking to join  `, { color: 'warning' })] : []),
-      span(g.active ? snippet(g.last) : 'You’re no longer in this channel', { dim: true }),
+      span(`# ${groupName(ctx, g)}`, unread ? { weight: 'bold' } : {}),
+      span('  '),
+      ...unreadSpans(unread),
+      ...(asking ? [pill(`${asking} asking to join`, 'warn'), span('  ')] : []),
+      ...(g.active ? (g.last ? [span(snippet(g.last), { dim: true })] : []) : [span('You’re no longer in this channel', { dim: true })]),
     ],
   });
 }
@@ -72,10 +77,10 @@ export function chatsPage(ctx: Ctx): Node {
             const made = (await ctx.call('network.channels.main')) as string | undefined;
             if (made) openConversation(ctx, `group:${made}`);
           },
-          { plain: true, spans: [span('All Teammates  '), span('Your main channel: everyone you’ve added, in one conversation', { dim: true })] },
+          { plain: true, spans: [span('# All Teammates', { weight: 'bold' }), span('  '), span('Your main channel: everyone you’ve added, in one conversation', { dim: true })] },
         ),
-    friends.length > 0 ? col([dim('Direct messages'), listOf(ctx, 'chats:dms', friends, (f) => dmRow(ctx, f))]) : empty('No teammates yet. Add one in People.'),
-    channels.length > 0 && col([dim('Channels'), listOf(ctx, 'chats:channels', channels, (g) => channelRow(ctx, g))]),
+    friends.length > 0 ? section('Direct messages', [listOf(ctx, 'chats:dms', friends, (f) => dmRow(ctx, f))], friends.length) : empty('No teammates yet. Add one in People.'),
+    channels.length > 0 && section('Channels', [listOf(ctx, 'chats:channels', channels, (g) => channelRow(ctx, g))], channels.length),
     net.pendingJoins.length > 0 && listOf(ctx, 'chats:pending', net.pendingJoins, (p) => dim(`Asked to join ${p.name}: waiting for an admin to let you in.`)),
     joining
       ? ctx.draw.input(
@@ -120,22 +125,22 @@ function askedWords(ctx: Ctx, m: MessageView): string | undefined {
 
 function fileWords(ctx: Ctx, f: ChatFile, mine: boolean): string {
   const state = ctx.state.network.files?.[f.sha];
-  if (state?.state === 'coming') return `${formatBytes(state.received ?? 0)} of ${formatBytes(f.size)}`;
+  if (state?.state === 'coming') return `Coming: ${formatBytes(state.received ?? 0)} of ${formatBytes(f.size)}`;
   if (state?.state === 'failed') return state.error ?? 'Didn’t come';
   return state?.state === 'here' ? formatBytes(f.size) : `${formatBytes(f.size)} · ${mine ? 'sent' : 'not downloaded'}`;
 }
 
 function messageNode(ctx: Ctx, id: string, m: MessageView): Node {
   const task = m.task ? ctx.state.gateway.tasks.find((t) => t.id === m.task?.id) : undefined;
-  if (task) return taskRow(ctx, `msg-task:${m.id}`, task);
+  if (task) return taskRow(ctx, `msg-task:${m.id}`, task, false, true);
   const asked = askedWords(ctx, m);
   const request = m.claude?.request && !m.mine ? m.claude.request : undefined;
   const offered = request && ctx.state.gateway.tasks.some((t) => t.answer === m.id);
   return col([
     row([
-      line(span(authorWords(m), { weight: 'semibold', ...(m.claude ? { color: 'claude' } : {}) }), span(`  ${ago(m.ts)}`, { dim: true }), m.edited ? span('  edited', { dim: true }) : undefined),
-      ctx.draw.button(`msg:${m.id}`, 'More', () => ctx.go({ name: 'message', params: { id, msg: m.id } }), { plain: true, dim: true }),
-    ]),
+      line(span(authorWords(m), { weight: 'bold', ...(m.claude ? { color: 'claude' } : {}) }), span(`  ${ago(m.ts)}`, { dim: true }), m.edited ? span('  edited', { dim: true }) : undefined),
+      ctx.draw.button(`msg:${m.id}`, '•••', () => ctx.go({ name: 'message', params: { id, msg: m.id } }), { plain: true, dim: true }),
+    ], { justify: 'space-between', wrap: false }),
     m.status === 'locked' ? dim('Can’t be read on this computer.') : m.text.trim() ? md(peerMd(m.text)) : undefined,
     ...uniqueBy(m.files ?? [], (f) => f.sha).slice(0, 20).map((f) =>
       ctx.draw.button(`file:${m.id}:${f.sha}`, f.name, () => ctx.go({ name: 'file', params: { id, msg: m.id, sha: f.sha } }), { plain: true, spans: [span(`${f.name}  `), span(fileWords(ctx, f, m.mine), { dim: true })] }),
@@ -145,10 +150,14 @@ function messageNode(ctx: Ctx, id: string, m: MessageView): Node {
     m.mine && m.status === 'expired' && text('Not delivered. Send it again from More.', { color: 'warning' }),
     request &&
       !offered &&
-      col([
-        line(span('That takes a request to their computer: ', { dim: true }), request.ask),
-        ctx.draw.button(`msg:${m.id}:request`, `Ask on ${m.name}’s Computer`, () => ctx.call('gateway.ask', m.from, request.ask, { ...(request.needs?.length ? { needs: [...request.needs] } : {}), answer: { conversation: id, id: m.id } }), { plain: true }),
-      ]),
+      card(
+        [
+          dim('That takes a request to their computer:'),
+          md(peerMd(request.ask)),
+          actions(ctx.draw.button(`msg:${m.id}:request`, `Ask on ${m.name}’s Computer`, () => ctx.call('gateway.ask', m.from, request.ask, { ...(request.needs?.length ? { needs: [...request.needs] } : {}), answer: { conversation: id, id: m.id } }), {})),
+        ],
+        { tone: 'warn' },
+      ),
   ]);
 }
 
@@ -193,7 +202,7 @@ function composer(ctx: Ctx, id: string, target: Target, placeholder: string): No
       ctx.draw.button(`chat:${id}:ask`, askingWords(asking), () => ctx.go({ name: 'chat-ask', params: { id } }), { plain: true, hotkey: 'v', ...(asking.kind === 'none' ? { dim: true } : {}) }),
       ctx.draw.button(`chat:${id}:attach`, 'Attach', () => setAttaching(true), { plain: true, dim: true, hotkey: 'f' }),
       ctx.draw.button(`chat:${id}:more`, 'More', () => ctx.go({ name: 'chat-more', params: { id } }), { plain: true, dim: true, hotkey: 'm' }),
-    ]),
+    ], { gap: 3 }),
   ]);
 }
 
@@ -236,11 +245,18 @@ export function conversationPage(ctx: Ctx, id: string): Node {
     top(ctx, 'chats'),
     back(ctx, 'Chats'),
     col([
-      row([title(name), ctx.draw.button('chat:info', 'Info', () => ctx.go(friend ? { name: 'friend', params: { id: friend.peerId } } : { name: 'channel', params: { id: group?.id ?? '' } }), { plain: true, dim: true, hotkey: 'i' })]),
-      friend ? line(presenceSpan(friend)) : group?.active ? dim(`${group.members.length} member${group.members.length === 1 ? '' : 's'}`) : dim(`You’re no longer in ${group?.name}. Its messages stay here, read-only.`),
+      row(
+        [
+          line(span(group ? `# ${name}` : name, { weight: 'bold' }), span('  '), friend ? presencePill(friend) : group?.active ? span(`${group.members.length} member${group.members.length === 1 ? '' : 's'}`, { dim: true }) : undefined),
+          ctx.draw.button('chat:info', 'Info', () => ctx.go(friend ? { name: 'friend', params: { id: friend.peerId } } : { name: 'channel', params: { id: group?.id ?? '' } }), { plain: true, dim: true, hotkey: 'i' }),
+        ],
+        { justify: 'space-between', wrap: false },
+      ),
+      group && !group.active ? dim(`You’re no longer in ${group.name}. Its messages stay here, read-only.`) : undefined,
+      rule(ctx),
     ]),
-    waiting.length > 0 && col([dim('Waiting for you'), listOf(ctx, `chat:${id}:waiting`, waiting, (t) => taskRow(ctx, `chat-waiting:${t.id}`, t), 10)]),
-    dialogue && ctx.draw.button(`chat:${id}:dialogue`, 'Dialogue', () => ctx.go({ name: 'dialogue', params: { id: dialogue.id } }), { plain: true, spans: [span('Dialogue  ', { dim: true }), span(dialogue.topic.slice(0, 80)), span(`  ${header?.status ?? ''}`, { dim: true })] }),
+    waiting.length > 0 && section('Waiting for you', [listOf(ctx, `chat:${id}:waiting`, waiting, (t) => taskRow(ctx, `chat-waiting:${t.id}`, t, false, true), 10)], waiting.length),
+    dialogue && card([ctx.draw.button(`chat:${id}:dialogue`, 'Dialogue', () => ctx.go({ name: 'dialogue', params: { id: dialogue.id } }), { plain: true, spans: [span('Dialogue', { dim: true }), span('  '), span(dialogue.topic.slice(0, 80), { weight: 'bold' })] }), header?.status ? meta(header.status) : undefined]),
     from > 0 || canAskHistory
       ? ctx.draw.button(
           'earlier',
@@ -261,7 +277,7 @@ export function conversationPage(ctx: Ctx, id: string): Node {
     messages.length === 0 && empty(friend ? `This is the start of your conversation with ${friend.name}. End-to-end encrypted, straight to their computer.` : 'Nothing here yet. End-to-end encrypted, kept on each member’s computer.'),
     col(messages.slice(from, to).map((m) => messageNode(ctx, id, m)), { gap: 1 }),
     to < messages.length && ctx.draw.button('later', `Later (${messages.length - to})`, () => setLimit(Math.max(PAGE_MESSAGES, wanted - PAGE_MESSAGES)), { plain: true, dim: true }),
-    asking.length > 0 && listOf(ctx, `chat:${id}:asking-list`, asking, (t) => taskRow(ctx, `chat-asking:${t.id}`, t), 10),
+    asking.length > 0 && listOf(ctx, `chat:${id}:asking-list`, asking, (t) => taskRow(ctx, `chat-asking:${t.id}`, t, false, true), 10),
     live.length > 0 && text(`${[...new Set(live.map((l) => (l.peerId === me ? 'Your agent' : `${l.name}’s agent`)))].join(' and ')} ${new Set(live.map((l) => l.peerId)).size === 1 ? 'is' : 'are'} answering...`, { color: 'claude' }),
     friend && shownState(friend) === 'offline' ? dim(`${friend.name} is offline: this waits for them.`) : undefined,
     writable ? composer(ctx, id, target, `Message ${name}`) : group ? confirmPress(ctx, `group:${group.id}:delete`, 'Delete from This Computer', `Its messages are removed from this computer. The people still in ${group.name} keep their copies.`, () => ctx.call('network.groups.delete', group.id)) : undefined,
@@ -283,12 +299,21 @@ export function chatAskPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    title('Ask an agent with your next message'),
-    dim('It answers here, from its owner’s computer. Nobody’s agent reads a message unless you say.'),
-    choice(ctx, 'ask:none', 'Nobody’s Agent', asking.kind === 'none', pick({ kind: 'none' })),
-    choice(ctx, 'ask:me', 'Your Agent', asking.kind === 'me', pick({ kind: 'me' })),
-    people.length > 0 && choice(ctx, 'ask:all', people.length === 1 ? 'Both Agents' : 'Everyone’s Agent', asking.kind === 'all', pick({ kind: 'all' })),
-    listOf(ctx, 'ask:people', people, (p) => choice(ctx, `ask:person:${p.peerId}`, `${p.name}’s Agent`, asking.kind === 'person' && asking.peerId === p.peerId, pick({ kind: 'person', peerId: p.peerId, name: p.name }))),
+    card(
+      [
+        dim('It answers here, from its owner’s computer. Nobody’s agent reads a message unless you say.'),
+        col(
+          [
+            choice(ctx, 'ask:none', 'Nobody’s Agent', asking.kind === 'none', pick({ kind: 'none' })),
+            choice(ctx, 'ask:me', 'Your Agent', asking.kind === 'me', pick({ kind: 'me' })),
+            people.length > 0 && choice(ctx, 'ask:all', people.length === 1 ? 'Both Agents' : 'Everyone’s Agent', asking.kind === 'all', pick({ kind: 'all' })),
+            listOf(ctx, 'ask:people', people, (p) => choice(ctx, `ask:person:${p.peerId}`, `${p.name}’s Agent`, asking.kind === 'person' && asking.peerId === p.peerId, pick({ kind: 'person', peerId: p.peerId, name: p.name }))),
+          ],
+          { top: 1 },
+        ),
+      ],
+      { title: 'Ask an agent with your next message' },
+    ),
   );
 }
 
@@ -302,12 +327,16 @@ export function chatMorePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    title(group ? groupName(ctx, group) : (friend?.name ?? '')),
-    friend && ctx.draw.button('more:card', `${friend.name}’s Card`, () => ctx.go({ name: 'friend', params: { id: friend.peerId } }), { plain: true }),
+    card(
+      [
+        friend && ctx.draw.button('more:card', `${friend.name}’s Card`, () => ctx.go({ name: 'friend', params: { id: friend.peerId } }), { plain: true }),
     friend && ctx.draw.button('more:new-channel', `New Channel with ${friend.name}`, () => ctx.go({ name: 'new-channel', params: { with: friend.peerId } }), { plain: true }),
     friend && (net.messages[id]?.length ?? 0) > 0 ? confirmPress(ctx, 'more:clear', 'Clear Chat', `Every message is removed from this computer. ${friend.name} keeps their copy.`, () => ctx.call('network.clear', id)) : undefined,
     group && ctx.draw.button('more:info', 'Channel Info', () => ctx.go({ name: 'channel', params: { id: group.id } }), { plain: true }),
     group && group.unread > 0 ? ctx.draw.button('more:read', 'Mark as Read', () => ctx.call('network.read', id), { plain: true }) : undefined,
+      ],
+      { title: group ? groupName(ctx, group) : (friend?.name ?? '') },
+    ),
   );
 }
 
@@ -325,8 +354,14 @@ export function messagePage(ctx: Ctx, id: string, msg: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    line(span(authorWords(m), { weight: 'semibold' }), span(`  ${new Date(m.ts).toLocaleString()}`, { dim: true })),
-    locked ? dim('Can’t be read on this computer.') : m.text.trim() ? md(peerMd(m.text)) : undefined,
+    card(
+      [
+        meta(new Date(m.ts).toLocaleString()),
+        locked ? dim('Can’t be read on this computer.') : m.text.trim() ? md(peerMd(m.text)) : undefined,
+        m.mine && m.status === 'expired' ? text('Not delivered.', { color: 'warning' }) : undefined,
+      ],
+      { title: authorWords(m), ...(m.mine && m.status === 'expired' ? { tone: 'warn' as const } : {}) },
+    ),
     m.mine && m.status === 'expired'
       ? ctx.draw.button(
           `message:${msg}:again`,
@@ -335,8 +370,10 @@ export function messagePage(ctx: Ctx, id: string, msg: string): Node {
           { primary: true, hotkey: 'a' },
         )
       : undefined,
+    row([
     m.text.trim() && !locked ? ctx.draw.button(`message:${msg}:copy`, 'Copy', () => ctx.effect({ copy: m.text, toast: 'Copied the message' }), { plain: true }) : undefined,
     editable && !editing ? ctx.draw.button(`message:${msg}:edit`, 'Edit', () => setEditing(true), { plain: true }) : undefined,
+    ], { gap: 3 }),
     editable &&
       editing &&
       ctx.draw.input(
@@ -348,17 +385,17 @@ export function messagePage(ctx: Ctx, id: string, msg: string): Node {
         },
         { value: m.text, rows: 3, submitLabel: 'save', autoFocus: true },
       ),
-    dm &&
+    dm && section('Delete', [
       confirmPress(ctx, `message:${msg}:delete`, 'Delete Here', `It’s removed from this computer.${m.mine ? ' They still have it.' : ''}`, async () => {
         await ctx.call('network.messages.delete', id, msg);
         ctx.nav.back(ctx.pane);
       }),
-    dm &&
       m.mine &&
       confirmPress(ctx, `message:${msg}:delete-all`, 'Delete for Them Too', 'It’s removed from this computer and theirs. If they’re offline, it goes when they’re back.', async () => {
         await ctx.call('network.messages.delete', id, msg, { everyone: true });
         ctx.nav.back(ctx.pane);
       }),
+    ]),
   );
 }
 
@@ -374,21 +411,25 @@ export function filePage(ctx: Ctx, id: string, msg: string, sha: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    title(f.name),
-    dim(`${m.mine ? 'You sent it' : `From ${m.name}`} · ${formatBytes(f.size)}${f.mime ? ` · ${f.mime}` : ''}`),
-    coming && dim(`Coming: ${formatBytes(state.received ?? 0)} of ${formatBytes(f.size)}${state.error ? ` · ${state.error}` : ''}`),
-    state?.state === 'failed' && text(state.error ?? 'It didn’t come.', { color: 'error' }),
-    here && state.path ? dim(homePath(ctx.state, state.path)) : undefined,
-    !here && !coming && ctx.draw.button(`file:${sha}:download`, state?.state === 'failed' ? 'Try Again' : 'Download', () => ctx.call('network.files.download', sha, id), { primary: true, hotkey: 'a' }),
-    coming && ctx.draw.button(`file:${sha}:cancel`, 'Stop Downloading', () => ctx.call('network.files.cancel', sha), { plain: true, hotkey: 'x' }),
+    card(
+      [
+        meta(m.mine ? 'You sent it' : `Sent by ${m.name}`, formatBytes(f.size), f.mime),
+        line(here ? pill('Here', 'ok') : coming ? pill(`Coming: ${formatBytes(state.received ?? 0)} of ${formatBytes(f.size)}`, 'accent') : state?.state === 'failed' ? pill(state.error ?? 'It didn’t come.', 'error') : pill('Not downloaded')),
+        coming && state.error ? dim(state.error) : undefined,
+        here && state.path ? dim(homePath(ctx.state, state.path)) : undefined,
+        !here && !coming && actions(ctx.draw.button(`file:${sha}:download`, state?.state === 'failed' ? 'Try Again' : 'Download', () => ctx.call('network.files.download', sha, id), { primary: true, hotkey: 'a' })),
+        coming && actions(ctx.draw.button(`file:${sha}:cancel`, 'Stop Downloading', () => ctx.call('network.files.cancel', sha), { plain: true, hotkey: 'x' })),
+      ],
+      { title: f.name, ...(state?.state === 'failed' ? { tone: 'error' as const } : {}) },
+    ),
     here && f.image ? picture(ctx, `file:${sha}:picture`, f.name, async () => (await ctx.call('network.files.preview', sha)) as { mime: string; b64: string }) : undefined,
     here && !m.mine ? dim('Someone else made this file: opening it runs it with the app your computer picks.') : undefined,
     here &&
-      row([
+      actions(
         ctx.draw.button(`file:${sha}:open`, 'Open', () => ctx.call('network.files.open', sha), { primary: true, hotkey: 'a' }),
         ctx.draw.button(`file:${sha}:reveal`, 'Show in Folder', () => ctx.call('network.files.reveal', sha), { plain: true, hotkey: 'f' }),
         ctx.draw.button(`file:${sha}:save`, 'Save To', () => setSaving(true), { plain: true, dim: true, hotkey: 'v' }),
-      ]),
+      ),
     here &&
       saving &&
       ctx.draw.input(
@@ -420,16 +461,15 @@ function inviteLink(ctx: Ctx, g: GroupView): Node {
     const made = (await ctx.call('network.groups.invite', g.id, { auto })) as InvitationView | undefined;
     if (auto && made) setAutoLinks([...autoLinks, made.id]);
   };
-  if (!open) return col([dim('Invite with a link'), ctx.draw.button('channel:invite', 'Create Invite Link', () => make(false), { plain: true })]);
+  if (!open) return section('Invite with a link', [ctx.draw.button('channel:invite', 'Create Invite Link', () => make(false), { plain: true })]);
   const auto = autoLinks.includes(open.id);
-  return col([
-    dim('Invite with a link'),
-    line(open.link),
+  return section('Invite with a link', [
+    line(span(open.link, { dim: true })),
     row([
       ctx.draw.button('channel:copy-link', 'Copy Link', () => ctx.effect({ copy: open.link, toast: `Copied the invite link to ${g.name}` }), { plain: true, hotkey: 'q' }),
       choice(ctx, 'channel:invite:ask', 'Approve Each Request', !auto, () => (auto ? make(false) : undefined)),
       choice(ctx, 'channel:invite:auto', 'Anyone with the Link', auto, () => (auto ? undefined : make(true))),
-    ]),
+    ], { gap: 2 }),
     dim(auto ? 'Anyone with the link joins right away.' : 'You, or another admin, approve each person.'),
   ]);
 }
@@ -442,36 +482,43 @@ export function channelPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    col([title(groupName(ctx, g)), dim(g.active ? (g.admin ? 'You’re an admin. Kept on each member’s computer.' : 'Kept on each member’s computer.') : 'You’re no longer in this channel.')]),
-    g.active && ctx.state.network.main !== g.id
-      ? ctx.draw.input(
+    card(
+      [
+        meta(g.active ? (g.admin ? pill('Admin', 'accent') : pill('Member')) : pill('Left'), `${g.members.length} member${g.members.length === 1 ? '' : 's'}`),
+        dim(g.active ? (g.admin ? 'You’re an admin. Kept on each member’s computer.' : 'Kept on each member’s computer.') : 'You’re no longer in this channel.'),
+        g.active && ctx.state.network.main !== g.id
+      ? col([ctx.draw.input(
           `channel:${id}:name`,
           async (value) => {
             const next = value?.trim();
             if (next && next !== g.name) await ctx.call('network.groups.rename', g.id, next);
           },
           { label: 'Name', value: g.name, submitLabel: 'rename' },
-        )
+        )], { top: 1 })
       : undefined,
+      ],
+      { title: `# ${groupName(ctx, g)}` },
+    ),
     g.admin && g.requests.length > 0 &&
-      col([
-        dim('Asking to join'),
+      section('Asking to join', [
         listOf(ctx, `channel:${id}:requests`, g.requests, (r) =>
-          row([
-            text(r.name),
-            ctx.draw.button(`channel:approve:${r.peerId}`, 'Approve', () => ctx.call('network.groups.approve', g.id, r.peerId), { plain: true }),
-            ctx.draw.button(`channel:decline:${r.peerId}`, 'Decline', () => ctx.call('network.groups.decline', g.id, r.peerId), { plain: true, dim: true }),
-          ]),
+          card([
+            text(r.name, { weight: 'bold' }),
+            actions(
+              ctx.draw.button(`channel:approve:${r.peerId}`, 'Approve', () => ctx.call('network.groups.approve', g.id, r.peerId), {}),
+              ctx.draw.button(`channel:decline:${r.peerId}`, 'Decline', () => ctx.call('network.groups.decline', g.id, r.peerId), { plain: true, dim: true }),
+            ),
+          ], { tone: 'warn' }),
         ),
-      ]),
-    col([
-      row([dim(`Members (${g.members.length})`), g.admin && g.active ? ctx.draw.button('channel:add', 'Add People', () => ctx.go({ name: 'add-people', params: { id } }), { primary: true, hotkey: 'a' }) : undefined]),
+      ], g.requests.length),
+    g.admin && g.active ? ctx.draw.button('channel:add', 'Add People', () => ctx.go({ name: 'add-people', params: { id } }), { primary: true, hotkey: 'a' }) : undefined,
+    section('Members', [
       listOf(ctx, `channel:${id}:members`, sortMembers(g.members), (m) =>
         m.self
-          ? line(`${m.name} (you)`, m.admin ? span('  admin', { dim: true }) : undefined)
-          : ctx.draw.button(`channel:member:${m.peerId}`, m.name, () => ctx.go({ name: 'member', params: { id, peer: m.peerId } }), { plain: true, spans: [span(`${m.name}  `), presenceSpan(m), ...(m.admin ? [span('  admin', { dim: true })] : [])] }),
+          ? line(span(m.name), span('  you', { dim: true }), m.admin ? span('  · admin', { dim: true }) : undefined)
+          : ctx.draw.button(`channel:member:${m.peerId}`, m.name, () => ctx.go({ name: 'member', params: { id, peer: m.peerId } }), { plain: true, spans: [span(m.name), span('  '), presencePill(m), ...(m.admin ? [span('  · admin', { dim: true })] : [])] }),
       ),
-    ]),
+    ], g.members.length),
     g.admin && g.active && inviteLink(ctx, g),
     g.active
       ? confirmPress(ctx, `channel:${id}:leave`, 'Leave Channel', `You stop getting its messages. What was said stays on this computer, read-only.${lastAdmin ? ' You’re its only admin, so the person who’s been in it longest becomes admin.' : ''}`, () => ctx.call('network.groups.leave', g.id))
@@ -491,9 +538,13 @@ export function memberPage(ctx: Ctx, id: string, peer: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx, g.name),
-    col([title(m.name), dim(presenceWords(m)), m.admin ? dim('Admin') : undefined]),
-    friend && ctx.draw.button('member:card', `${m.name}’s Card`, () => ctx.go({ name: 'friend', params: { id: peer } }), { plain: true }),
-    friend && ctx.draw.button('member:message', 'Message', () => openConversation(ctx, `dm:${peer}`), { plain: true }),
+    card(
+      [
+        meta(presencePill(m), m.admin && 'Admin'),
+        friend && actions(ctx.draw.button('member:message', 'Message', () => openConversation(ctx, `dm:${peer}`), {}), ctx.draw.button('member:card', `${m.name}’s Card`, () => ctx.go({ name: 'friend', params: { id: peer } }), { plain: true })),
+      ],
+      { title: m.name },
+    ),
     g.admin && g.active && ctx.draw.button('member:admin', m.admin ? 'Remove as Admin' : 'Make Admin', () => ctx.call('network.groups.setAdmin', g.id, peer, !m.admin), { plain: true }),
     g.admin &&
       g.active &&
@@ -512,10 +563,14 @@ export function addPeoplePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx, g.name),
-    title(`Add People to ${g.name}`),
-    dim('They can read what’s said from now on.'),
-    friends.length === 0 && empty('Every teammate is here already. Invite others with the channel’s link.'),
-    listOf(ctx, `add-people:${id}`, friends, (f) => ctx.draw.button(`add-people:${f.peerId}`, f.name, () => ctx.call('network.groups.addMember', g.id, f.peerId), { plain: true, spans: [span(`${f.name}  `), presenceSpan(f)] })),
+    card(
+      [
+        dim('They can read what’s said from now on.'),
+        friends.length === 0 && empty('Every teammate is here already. Invite others with the channel’s link.'),
+        col([listOf(ctx, `add-people:${id}`, friends, (f) => ctx.draw.button(`add-people:${f.peerId}`, f.name, () => ctx.call('network.groups.addMember', g.id, f.peerId), { plain: true, spans: [span('+ ', { dim: true }), span(f.name), span('  '), presencePill(f)] }))], { top: 1 }),
+      ],
+      { title: `Add People to ${g.name}` },
+    ),
   );
 }
 
@@ -528,9 +583,10 @@ export function newChannelPage(ctx: Ctx, preset?: string): Node {
   return page(
     top(ctx, 'chats'),
     back(ctx),
-    title('New Channel'),
-    dim('A conversation with several teammates, kept on everyone’s computer. You can add people later too.'),
-    ctx.draw.input(
+    card(
+      [
+        dim('A conversation with several teammates, kept on everyone’s computer. You can add people later too.'),
+        ctx.draw.input(
       'new-channel:name',
       async (value) => {
         const name = value?.trim();
@@ -541,9 +597,14 @@ export function newChannelPage(ctx: Ctx, preset?: string): Node {
       },
       { label: 'Name', placeholder: 'Launch team', submitLabel: 'create', autoFocus: true },
     ),
+      ],
+      { title: 'New Channel' },
+    ),
     friends.length > 0 &&
-      listOf(ctx, 'new-channel:friends', friends, (f) =>
-        ctx.draw.button(`new-channel:${f.peerId}`, `${chosen.includes(f.peerId) ? '[x]' : '[ ]'} ${f.name}`, () => setChosen(chosen.includes(f.peerId) ? chosen.filter((p) => p !== f.peerId) : [...chosen, f.peerId]), { plain: true, ...(chosen.includes(f.peerId) ? {} : { dim: true }) }),
-      ),
+      section('Start with', [
+        listOf(ctx, 'new-channel:friends', friends, (f) =>
+          tick(ctx, `new-channel:${f.peerId}`, f.name, chosen.includes(f.peerId), () => setChosen(chosen.includes(f.peerId) ? chosen.filter((p) => p !== f.peerId) : [...chosen, f.peerId])),
+        ),
+      ], chosen.length || undefined),
   );
 }

@@ -1,9 +1,9 @@
 import { planTitle } from '../../core/plans/model.js';
 import { OFFER_DETAIL, type PlanReview, type SharedPlan, knockWords, myKnockOn, myKnockWords, offerWords } from '../../core/team/model.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, page } from './common.js';
-import { byName, confirmPress, listOf, nameOf, peerMd, top, uniqueBy } from './team-common.js';
+import { type Node, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, ago, back, card, empty, meta, page, pill, section } from './common.js';
+import { byName, confirmPress, listOf, nameButton, nameOf, peerMd, top, uniqueBy } from './team-common.js';
 
 /**
  * Team boards: teammates on the same GitHub repository who said yes keep one board. Here: the offers
@@ -11,7 +11,8 @@ import { byName, confirmPress, listOf, nameOf, peerMd, top, uniqueBy } from './t
  * Nothing is shared until both say yes.
  */
 
-const reviewWords = (r: PlanReview): string => (r.kind === 'approve' ? 'approved it' : r.kind === 'suggest' ? `suggests ${r.ops?.length === 1 ? 'a change' : `${r.ops?.length ?? 0} changes`}` : 'commented');
+/** What a review is, as a pill beside its author. */
+const reviewPill = (r: PlanReview) => (r.kind === 'approve' ? pill('Approved', 'ok', '✓') : r.kind === 'suggest' ? pill(r.ops?.length === 1 ? 'Suggests a change' : `Suggests ${r.ops?.length ?? 0} changes`, 'accent') : pill('Comment'));
 
 /** What a suggested change says, in words. */
 function opWords(op: unknown): string {
@@ -44,108 +45,115 @@ export function boardsPage(ctx: Ctx): Node {
   const myKnocks = (team.myKnocks ?? []).filter((k) => !working.some((w) => w.issueId === k.issueId));
   const shareable = st.plans.plans.filter((p) => (team.teams[p.projectId]?.mates.length ?? 0) > 0 || team.planShares[p.id]);
   const nothing = !team.offers.length && !teams.length && !assigned.length && !knocks.length && !team.plans.length && !shareable.length;
+  const planWords = (status: string): string => (status === 'draft' ? 'draft' : status === 'active' ? 'running' : 'done');
   return page(
     top(ctx, 'boards'),
     nothing && empty('No teams yet. When a teammate has the same GitHub repository as one of your projects, an offer to team up shows here.'),
     team.offers.length > 0 &&
-      col([
-        dim('Team up?'),
+      section('Team up?', [
         listOf(ctx, 'boards:offers', team.offers, (o) =>
-          col([
-            text(offerWords(o)),
-            dim(o.state === 'asked' ? 'The team forms when they say yes too.' : OFFER_DETAIL),
-            row([
-              o.state === 'asked' ? undefined : ctx.draw.button(`offer:${o.peerId}:${o.projectId}:yes`, 'Team Up', () => ctx.call('team.answer', o.peerId, o.projectId, true), {}),
-              ctx.draw.button(`offer:${o.peerId}:${o.projectId}:no`, o.state === 'asked' ? 'Take Back' : 'Not Now', () => ctx.call('team.answer', o.peerId, o.projectId, false), { plain: true, dim: true }),
-            ]),
-          ]),
+          card(
+            [
+              text(offerWords(o), { weight: 'bold' }),
+              dim(o.state === 'asked' ? 'The team forms when they say yes too.' : OFFER_DETAIL),
+              actions(
+                o.state === 'asked' ? undefined : ctx.draw.button(`offer:${o.peerId}:${o.projectId}:yes`, 'Team Up', () => ctx.call('team.answer', o.peerId, o.projectId, true), {}),
+                ctx.draw.button(`offer:${o.peerId}:${o.projectId}:no`, o.state === 'asked' ? 'Take Back' : 'Not Now', () => ctx.call('team.answer', o.peerId, o.projectId, false), { plain: true, dim: true }),
+              ),
+            ],
+            o.state === 'asked' ? {} : { tone: 'warn' },
+          ),
         ),
-      ]),
+      ], team.offers.length),
     knocks.length > 0 &&
-      col([
-        dim('Knocking on your worktrees'),
+      section('Knocking on your worktrees', [
         listOf(ctx, 'boards:knocks', knocks, (k) =>
-          col([
-            text(knockWords(k)),
-            dim(`${k.note ? `“${k.note}” · ` : ''}${k.key}: ${k.title}. An editor can talk to your agent there; a viewer follows along.`),
-            row([
-              ctx.draw.button(`knock:${k.id}:contribute`, 'Let In as Editor', () => ctx.call('team.answerKnock', k.id, 'contribute'), {}),
-              ctx.draw.button(`knock:${k.id}:view`, 'Let In as Viewer', () => ctx.call('team.answerKnock', k.id, 'view'), { plain: true }),
-              ctx.draw.button(`knock:${k.id}:decline`, 'Not Now', () => ctx.call('team.answerKnock', k.id, 'decline'), { plain: true, dim: true }),
-            ]),
-          ]),
+          card(
+            [
+              text(knockWords(k), { weight: 'bold' }),
+              dim(`${k.note ? `“${k.note}” · ` : ''}${k.key}: ${k.title}. An editor can talk to your agent there; a viewer follows along.`),
+              actions(
+                ctx.draw.button(`knock:${k.id}:contribute`, 'Let In as Editor', () => ctx.call('team.answerKnock', k.id, 'contribute'), {}),
+                ctx.draw.button(`knock:${k.id}:view`, 'Let In as Viewer', () => ctx.call('team.answerKnock', k.id, 'view'), { plain: true }),
+                ctx.draw.button(`knock:${k.id}:decline`, 'Not Now', () => ctx.call('team.answerKnock', k.id, 'decline'), { plain: true, dim: true }),
+              ),
+            ],
+            { tone: 'warn' },
+          ),
         ),
-      ]),
+      ], knocks.length),
     assigned.length > 0 &&
-      col([
-        dim('Given to you'),
+      section('Given to you', [
         listOf(ctx, 'boards:assigned', assigned, (a) =>
-          row([
-            line(`${a.by} gave ${a.claude ? 'your agent' : 'you'} ${a.key}: ${a.title}`, span(`  ${ago(a.at)}`, { dim: true })),
-            ctx.draw.button(`assigned:${a.issueId}`, 'Got It', () => ctx.call('team.ackAssignment', a.issueId), { plain: true }),
+          card([
+            text(`${a.key}: ${a.title}`, { weight: 'bold' }),
+            meta(`${a.by} gave ${a.claude ? 'your agent' : 'you'} this`, ago(a.at)),
+            actions(ctx.draw.button(`assigned:${a.issueId}`, 'Got It', () => ctx.call('team.ackAssignment', a.issueId), {})),
           ]),
         ),
-      ]),
+      ], assigned.length),
     teams.length > 0 &&
-      col([
-        dim(`Your teams (${teams.length})`),
+      section('Your teams', [
         listOf(ctx, 'boards:teams', teams, (t) =>
-          ctx.draw.button(`team:${t.projectId}`, t.repo, () => ctx.go({ name: 'team-project', params: { id: t.projectId } }), {
-            plain: true,
-            spans: [span(`${t.repo}  `), span(`with ${t.mates.slice(0, 4).map((m) => m.name).join(', ')}${t.mates.length > 4 ? ` and ${t.mates.length - 4} others` : ''}`, { dim: true })],
-          }),
+          card([
+            nameButton(ctx, `team:${t.projectId}`, t.repo, () => ctx.go({ name: 'team-project', params: { id: t.projectId } }), [span('  ›', { dim: true })]),
+            meta(`with ${t.mates.slice(0, 4).map((m) => m.name).join(', ')}${t.mates.length > 4 ? ` and ${t.mates.length - 4} others` : ''}`),
+          ]),
         ),
-      ]),
+      ], teams.length),
     working.length > 0 &&
-      col([
-        dim('Teammates at work'),
+      section('Teammates at work', [
         listOf(ctx, 'boards:working', working, ({ issueId, p, issue }) => {
           const mine = myKnockOn(team, issueId, p.peerId);
           const word = issue ? `${issue.key}: ${issue.title}` : 'A task';
           return row([
-            line(`${p.name}${p.running ? '’s agent' : ''}`, span(`  ${word}`, { dim: true }), mine ? span(`  ${myKnockWords(mine)}`, { dim: true }) : undefined),
+            col([line(span(`${p.name}${p.running ? '’s agent' : ''}`, { weight: 'bold' }), span('  '), p.running ? pill('working', 'accent') : undefined), meta(word, mine && myKnockWords(mine))]),
             mine?.state === 'waiting'
               ? ctx.draw.button(`knock:mine:${mine.id}:back`, 'Take Back', () => ctx.call('team.cancelKnock', mine.id), { plain: true, dim: true })
               : mine?.state === 'in' && mine.workspaceId && st.shared.some((w) => w.id === mine.workspaceId && w.owner === mine.peerId)
                 ? ctx.draw.button(`knock:mine:${mine.id}:open`, 'Open', () => ctx.go({ name: 'shared-worktree', params: { owner: mine.peerId, id: mine.workspaceId ?? '' } }), { plain: true })
                 : ctx.draw.button(`knock:${issueId}:${p.peerId}`, mine ? 'Knock Again' : 'Knock to Join', () => ctx.call('team.knock', issueId, p.peerId), { plain: true }),
-          ]);
+          ], { justify: 'space-between' });
         }),
-      ]),
+      ], working.length),
     myKnocks.length > 0 &&
-      col([
-        dim('Your knocks'),
+      section('Your knocks', [
         listOf(ctx, 'boards:my-knocks', myKnocks, (k) =>
           row([
             text(myKnockWords(k)),
-            k.state === 'in' && k.workspaceId && st.shared.some((w) => w.id === k.workspaceId && w.owner === k.peerId) ? ctx.draw.button(`knock:mine:${k.id}:open`, 'Open', () => ctx.go({ name: 'shared-worktree', params: { owner: k.peerId, id: k.workspaceId ?? '' } }), { plain: true }) : undefined,
-            ctx.draw.button(`knock:mine:${k.id}:clear`, k.state === 'waiting' ? 'Take Back' : 'Clear', () => ctx.call('team.cancelKnock', k.id), { plain: true, dim: true }),
+            row([
+              k.state === 'in' && k.workspaceId && st.shared.some((w) => w.id === k.workspaceId && w.owner === k.peerId) ? ctx.draw.button(`knock:mine:${k.id}:open`, 'Open', () => ctx.go({ name: 'shared-worktree', params: { owner: k.peerId, id: k.workspaceId ?? '' } }), { plain: true }) : undefined,
+              ctx.draw.button(`knock:mine:${k.id}:clear`, k.state === 'waiting' ? 'Take Back' : 'Clear', () => ctx.call('team.cancelKnock', k.id), { plain: true, dim: true }),
+            ], { gap: 2 }),
+          ], { justify: 'space-between' }),
+        ),
+      ], myKnocks.length),
+    team.plans.length > 0 &&
+      section('Plans shared by your team', [
+        listOf(ctx, 'boards:plans', team.plans, (p) =>
+          card([
+            nameButton(ctx, `team-plan:${p.owner}:${p.id}`, p.title, () => ctx.go({ name: 'team-plan', params: { owner: p.owner, id: p.id } })),
+            meta(pill(planWords(p.status), p.status === 'active' ? 'accent' : p.status === 'draft' ? 'quiet' : 'ok'), `${p.ownerName}’s`, ago(p.updatedAt)),
           ]),
         ),
-      ]),
-    team.plans.length > 0 &&
-      col([
-        dim(`Plans shared by your team (${team.plans.length})`),
-        listOf(ctx, 'boards:plans', team.plans, (p) =>
-          ctx.draw.button(`team-plan:${p.owner}:${p.id}`, p.title, () => ctx.go({ name: 'team-plan', params: { owner: p.owner, id: p.id } }), {
-            plain: true,
-            spans: [span(`${p.title}  `), span(`${p.ownerName}’s · ${p.status === 'draft' ? 'draft' : p.status === 'active' ? 'running' : 'done'} · ${ago(p.updatedAt)}`, { dim: true })],
-          }),
-        ),
-      ]),
+      ], team.plans.length),
     shareable.length > 0 &&
-      col([
-        dim('Your plans'),
+      section('Your plans', [
         listOf(ctx, 'boards:my-plans', shareable, (p) => {
           const share = team.planShares[p.id];
           const open = share?.reviews.filter((r) => r.kind === 'suggest' && !r.settled).length ?? 0;
-          return row([
-            text(planTitle(p)),
-            share ? ctx.draw.button(`plan:${p.id}:reviews`, open ? `Reviews (${open} to answer)` : `Reviews (${share.reviews.length})`, () => ctx.go({ name: 'plan-reviews', params: { id: p.id } }), { plain: true }) : undefined,
-            ctx.draw.button(`plan:${p.id}:share`, share ? 'Stop Sharing' : 'Share with Team', () => ctx.call('team.sharePlan', p.id, !share), { plain: true, dim: true }),
-          ]);
+          return card(
+            [
+              line(span(planTitle(p), { weight: 'bold' }), span('  '), share ? pill('Shared with your team', 'accent') : pill('Only you')),
+              row([
+                share ? ctx.draw.button(`plan:${p.id}:reviews`, open ? `Reviews (${open} to answer)` : `Reviews (${share.reviews.length})`, () => ctx.go({ name: 'plan-reviews', params: { id: p.id } }), { plain: true }) : undefined,
+                ctx.draw.button(`plan:${p.id}:share`, share ? 'Stop Sharing' : 'Share with Team', () => ctx.call('team.sharePlan', p.id, !share), { plain: true, dim: true }),
+              ], { gap: 3, top: 1 }),
+            ],
+            open ? { tone: 'warn' } : {},
+          );
         }),
-      ]),
+      ], shareable.length),
   );
 }
 
@@ -160,13 +168,13 @@ export function teamProjectPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'boards'),
     back(ctx, 'Boards'),
-    col([title(`Team on ${t.repo}`), dim('Tasks, who is on which issue and the plans you choose to share stay in step. Chats and worktrees stay on your own computer.')]),
-    listOf(ctx, `team:${id}:mates`, mates, (m) => {
+    card([dim('Tasks, who is on which issue and the plans you choose to share stay in step. Chats and worktrees stay on your own computer.')], { title: `Team on ${t.repo}` }),
+    section('On the team', [listOf(ctx, `team:${id}:mates`, mates, (m) => {
       const friend = friends.has(m.peerId);
       const theyAsked = offers.some((o) => o.dir === 'in' && o.peerId === m.peerId);
       const asked = offers.some((o) => o.dir === 'out' && o.peerId === m.peerId);
       return row([
-        line(m.name, span(`  ${friend ? 'teammate' : 'on the team, not your teammate yet'}`, { dim: true })),
+        line(span(m.name, { weight: 'bold' }), span('  '), friend ? pill('teammate', 'ok') : span('on the team, not your teammate yet', { dim: true })),
         friend
           ? undefined
           : theyAsked
@@ -175,13 +183,12 @@ export function teamProjectPage(ctx: Ctx, id: string): Node {
               ? dim('Asked')
               : ctx.draw.button(`team:befriend:${m.peerId}`, 'Add as Teammate', () => ctx.call('team.befriend', id, m.peerId), { plain: true }),
         mates.length > 1 && !m.indirect ? confirmPress(ctx, `team:leave:${m.peerId}`, `Leave Team with ${m.name}`, `You and ${m.name} stop staying in step on ${t.repo}. Your tasks stay on your board.`, () => ctx.call('team.leave', id, m.peerId)) : undefined,
-      ]);
-    }),
+      ], { gap: 2 });
+    })], mates.length),
     (t.invitable?.length ?? 0) > 0 &&
-      col([
-        dim('Invite to the team: they have this repository'),
-        listOf(ctx, `team:${id}:invitable`, t.invitable ?? [], (f) => (f.state === 'asked' ? line(f.name, span('  invited', { dim: true })) : ctx.draw.button(`team:invite:${f.peerId}`, f.name, () => ctx.call('team.answer', f.peerId, id, true), { plain: true }))),
-      ]),
+      section('Invite to the team: they have this repository', [
+        listOf(ctx, `team:${id}:invitable`, t.invitable ?? [], (f) => (f.state === 'asked' ? line(span(f.name), span('  '), pill('invited', 'accent')) : ctx.draw.button(`team:invite:${f.peerId}`, f.name, () => ctx.call('team.answer', f.peerId, id, true), { plain: true, spans: [span('+ ', { dim: true }), span(f.name)] }))),
+      ], t.invitable?.length),
     confirmPress(ctx, `team:${id}:leave`, mates.length === 1 ? `Leave Team with ${mates[0]?.name ?? 'them'}` : 'Leave Team', 'They stop staying in step. Your tasks stay on your board.', async () => {
       await ctx.call('team.leave', id);
       ctx.go({ name: 'boards' });
@@ -191,7 +198,7 @@ export function teamProjectPage(ctx: Ctx, id: string): Node {
 
 function reviewRow(r: PlanReview): Node {
   return col([
-    line(span(r.name, { weight: 'semibold' }), ` ${reviewWords(r)}`, span(`  ${ago(r.at)}`, { dim: true }), r.settled ? span(`  ${r.settled === 'applied' ? 'applied' : 'set aside'}`, { dim: true }) : undefined),
+    line(span(r.name, { weight: 'bold' }), span('  '), reviewPill(r), span(`  ${ago(r.at)}`, { dim: true }), r.settled ? span(`  ${r.settled === 'applied' ? 'applied' : 'set aside'}`, { dim: true }) : undefined),
     r.text ? md(peerMd(r.text)) : undefined,
     ...(r.ops ?? []).slice(0, 5).map((op) => dim(opWords(op))),
     (r.ops?.length ?? 0) > 5 && dim(`and ${(r.ops?.length ?? 0) - 5} more`),
@@ -206,17 +213,20 @@ export function planReviewsPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'boards'),
     back(ctx, 'Boards'),
-    title(plan ? planTitle(plan) : 'Your plan'),
-    dim(share.peers.length ? `Shared with ${share.peers.slice(0, 8).map((p) => nameOf(ctx.state, p)).join(', ')}` : 'Shared with your team: nobody can open it yet.'),
-    share.reviews.length === 0 && empty('No reviews yet.'),
-    listOf(ctx, `plan:${id}:reviews-list`, uniqueBy(share.reviews, (r) => r.id), (r) =>
-      col([
-        reviewRow(r),
-        r.kind === 'suggest' && !r.settled
-          ? row([ctx.draw.button(`suggestion:${r.id}:apply`, 'Apply', () => ctx.call('team.applySuggestion', id, r.id), {}), ctx.draw.button(`suggestion:${r.id}:dismiss`, 'Set Aside', () => ctx.call('team.dismissSuggestion', id, r.id), { plain: true, dim: true })])
-          : undefined,
-      ]),
-    ),
+    card([meta(share.peers.length ? `Shared with ${share.peers.slice(0, 8).map((p) => nameOf(ctx.state, p)).join(', ')}` : 'Shared with your team: nobody can open it yet.')], { title: plan ? planTitle(plan) : 'Your plan' }),
+    section('Reviews', [
+      share.reviews.length === 0 && empty('No reviews yet.'),
+      listOf(ctx, `plan:${id}:reviews-list`, uniqueBy(share.reviews, (r) => r.id), (r) => {
+        const open = r.kind === 'suggest' && !r.settled;
+        return card(
+          [
+            reviewRow(r),
+            open ? actions(ctx.draw.button(`suggestion:${r.id}:apply`, 'Apply', () => ctx.call('team.applySuggestion', id, r.id), {}), ctx.draw.button(`suggestion:${r.id}:dismiss`, 'Set Aside', () => ctx.call('team.dismissSuggestion', id, r.id), { plain: true, dim: true })) : undefined,
+          ],
+          open ? { tone: 'warn' } : {},
+        );
+      }),
+    ], share.reviews.length),
   );
 }
 
@@ -264,20 +274,27 @@ export function teamPlanPage(ctx: Ctx, owner: string, id: string): Node {
       return [{ task: t }];
     }),
   ]);
-  if (editing) return page(top(ctx, 'boards'), back(ctx, 'Plan'), title(`Suggest a change to ${editing.title}`), suggestion(ctx, plan, editing.id, editing));
+  if (editing) return page(top(ctx, 'boards'), back(ctx, 'Plan'), card([suggestion(ctx, plan, editing.id, editing)], { title: `Suggest a change to ${editing.title}` }));
   return page(
     top(ctx, 'boards'),
     back(ctx, 'Boards'),
-    col([title(plan.title), dim(`${plan.ownerName}’s plan · ${plan.status === 'draft' ? 'a draft' : plan.status === 'active' ? 'approved and running' : 'done'} · read-only`)]),
-    approved ? dim('You approved this version.') : ctx.draw.button('team-plan:approve', 'Approve', () => ctx.call('team.reviewPlan', owner, id, { kind: 'approve' }), { primary: true, hotkey: 'a' }),
-    plan.body.goal ? md(peerMd(plan.body.goal)) : undefined,
-    listOf(ctx, `team-plan:${owner}:${id}:outline`, outline, (at) =>
-      'milestone' in at
-        ? col([title(at.milestone.title), at.milestone.goal ? dim(at.milestone.goal) : undefined, at.milestone.criteria.length > 0 && dim(`Passes when: ${at.milestone.criteria.slice(0, 6).join('; ')}`)])
-        : ctx.draw.button(`team-plan:task:${at.task.id}`, at.task.title, () => ctx.go({ name: 'team-plan', params: { owner, id, task: at.task.id } }), { plain: true, spans: [span(at.task.title), ...(at.task.goal ? [span(`  ${at.task.goal.replace(/\s+/g, ' ').slice(0, 80)}`, { dim: true })] : [])] }),
+    card(
+      [
+        meta(pill(plan.status === 'draft' ? 'a draft' : plan.status === 'active' ? 'approved and running' : 'done', plan.status === 'active' ? 'accent' : plan.status === 'draft' ? 'quiet' : 'ok'), `${plan.ownerName}’s plan`, 'read-only'),
+        plan.body.goal ? md(peerMd(plan.body.goal)) : undefined,
+        actions(approved ? line(pill('You approved this version.', 'ok', '✓')) : ctx.draw.button('team-plan:approve', 'Approve', () => ctx.call('team.reviewPlan', owner, id, { kind: 'approve' }), { primary: true, hotkey: 'a' })),
+      ],
+      { title: plan.title },
     ),
-    dim('Press a task to suggest a change to it.'),
-    col([dim('What the team said'), plan.reviews.length === 0 && empty('Nothing yet.'), listOf(ctx, `team-plan:${owner}:${id}:reviews`, plan.reviews, reviewRow)]),
+    section('Outline', [
+      dim('Press a task to suggest a change to it.'),
+      listOf(ctx, `team-plan:${owner}:${id}:outline`, outline, (at) =>
+        'milestone' in at
+          ? col([text(`◆ ${at.milestone.title}`, { weight: 'bold' }), at.milestone.goal ? dim(at.milestone.goal) : undefined, at.milestone.criteria.length > 0 && dim(`Passes when: ${at.milestone.criteria.slice(0, 6).join('; ')}`)], { top: 1 })
+          : ctx.draw.button(`team-plan:task:${at.task.id}`, at.task.title, () => ctx.go({ name: 'team-plan', params: { owner, id, task: at.task.id } }), { plain: true, spans: [span('  ▸ ', { dim: true }), span(at.task.title), ...(at.task.goal ? [span(`  ${at.task.goal.replace(/\s+/g, ' ').slice(0, 80)}`, { dim: true })] : [])] }),
+      ),
+    ]),
+    section('What the team said', [plan.reviews.length === 0 && empty('Nothing yet.'), listOf(ctx, `team-plan:${owner}:${id}:reviews`, plan.reviews, reviewRow)], plan.reviews.length),
     ctx.draw.input(
       'team-plan:comment',
       async (value) => {

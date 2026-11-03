@@ -8,9 +8,9 @@ import type { OriginInfo } from '../../workspaces/origin.js';
 import { worktreeOrigin } from '../../workspaces/origin.js';
 import type { Project, Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
-import { ago, back, chrome, empty, findWorkspace, homePath, openWorkspace, page } from './common.js';
-import { agoWords, askFirst, findField, loadingWords, openOnce, placesOf, plural, segments, steady, uniqueBy, windowed, worktreeRoute } from './work-common.js';
+import { type Node, type Span, col, dim, line, row, span, text } from '../tree.js';
+import { type Tone, actions, ago, back, card, chrome, empty, field, findWorkspace, homePath, meta, openWorkspace, page, pill, section } from './common.js';
+import { CARD_LIMIT, agoWords, askFirst, findField, heading, loadingWords, openOnce, placesOf, plural, segments, steady, uniqueBy, windowed, worktreeRoute } from './work-common.js';
 
 /**
  * Every worktree in your projects, made here, by sub-agents or outside: who made it, whether it's
@@ -136,23 +136,39 @@ function projectPicker(ctx: Ctx, projectId: string | undefined): Node | undefine
   );
 }
 
+/** Where a worktree stands, as a pill: being archived, whether it can come back, or whether its work is done. */
+function rowPill(r: WorktreeRow): Span {
+  if (r.archiving) return pill(ARCHIVING[r.archiving], 'accent', '◌');
+  if (r.archived) return r.archived.restorable ? pill(r.ws.archive ? 'Comes back as it was' : 'Comes back from its branch', 'quiet', '○') : pill('Can’t come back', 'warn', '!');
+  return pill(r.work.label, r.work.done ? 'ok' : 'quiet', r.work.done ? '✓' : '●');
+}
+
+function tickOf(ctx: Ctx, r: WorktreeRow, picked: boolean, tick: () => void): Node {
+  return r.archiving ? dim('   ') : ctx.draw.button(`wt:${r.ws.id}:tick`, picked ? '[x]' : '[ ]', tick, { plain: true, ...(picked ? { spans: [span('[x]', { color: 'claude' })] } : { dim: true }) });
+}
+
+const rowName = (r: WorktreeRow): string => (r.madeBy.kind === 'agent' ? (r.madeBy.task ?? r.ws.name) : r.ws.name);
+
+/** One worktree, as a card: few of them on the page. */
+function worktreeCard(ctx: Ctx, r: WorktreeRow, picked: boolean, tick: () => void): Node {
+  const name = rowName(r);
+  return card(
+    [
+      row([tickOf(ctx, r, picked, tick), ctx.draw.button(`wt:${r.ws.id}`, name, () => ctx.go(worktreeRoute(r.ws.id)), { plain: true, spans: [span(name, { weight: 'bold' }), span('  ›', { dim: true })] })]),
+      meta(rowPill(r), r.project.name, madeWords(r.madeBy), !r.archived && sizeWords(r.size)),
+    ],
+    picked ? { tone: 'accent' } : {},
+  );
+}
+
+/** One worktree, as a compact row: many of them on the page. */
 function worktreeLine(ctx: Ctx, r: WorktreeRow, picked: boolean, tick: () => void): Node {
-  const name = r.madeBy.kind === 'agent' ? (r.madeBy.task ?? r.ws.name) : r.ws.name;
-  const phase = r.archiving ? ARCHIVING[r.archiving] : undefined;
+  const name = rowName(r);
   return row([
-    r.archiving ? dim('   ') : ctx.draw.button(`wt:${r.ws.id}:tick`, picked ? '[x]' : '[ ]', tick, { plain: true, ...(picked ? {} : { dim: true }) }),
+    tickOf(ctx, r, picked, tick),
     ctx.draw.button(`wt:${r.ws.id}`, name, () => ctx.go(worktreeRoute(r.ws.id)), {
       plain: true,
-      spans: [
-        span(name),
-        span(`  ${r.project.name}  ${madeWords(r.madeBy)}  `, { dim: true }),
-        phase
-          ? span(phase, { color: 'claude' })
-          : r.archived
-            ? span(r.archived.restorable ? (r.ws.archive ? 'Comes back as it was' : 'Comes back from its branch') : 'Can’t come back', r.archived.restorable ? { dim: true } : { color: 'warning' })
-            : span(r.work.label, r.work.done ? { color: 'success' } : { dim: true }),
-        ...(r.archived ? [] : [span(`  ${sizeWords(r.size)}`, { dim: true })]),
-      ],
+      spans: [span(name), span('  '), rowPill(r), span(`  ${r.project.name} · ${madeWords(r.madeBy)}${r.archived ? '' : ` · ${sizeWords(r.size)}`}`, { dim: true })],
     }),
   ]);
 }
@@ -175,7 +191,7 @@ export function worktreesPage(ctx: Ctx, projectId: string | undefined): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'worktrees'),
     back(ctx),
-    dim(archivedView ? `${plural(shown.length, 'archived worktree')}: restore one as it was, or delete it for good` : `${plural(live.length, 'worktree')}, ${formatBytes(bytes)}${unmeasured ? `, measuring ${unmeasured} more` : ''}`),
+    archivedView ? meta(plural(shown.length, 'archived worktree'), 'Restore one as it was, or delete it for good') : meta(plural(live.length, 'worktree'), formatBytes(bytes), unmeasured ? `measuring ${unmeasured} more` : undefined),
     measuring,
     segments(
       ctx,
@@ -186,25 +202,23 @@ export function worktreesPage(ctx: Ctx, projectId: string | undefined): Node {
     ),
     projectPicker(ctx, projectId),
     shown.length === 0 && empty(rows.length ? `Nothing here. ${hint}.` : 'No worktrees yet. Those made here, by sub-agents or by other tools show up with the space they take.'),
-    col(window.shown.map((r) => worktreeLine(ctx, r, tickedIds.includes(r.ws.id), () => setTicked(tickedIds.includes(r.ws.id) ? tickedIds.filter((id) => id !== r.ws.id) : [...tickedIds, r.ws.id])))),
+    col(window.shown.map((r) => (shown.length <= CARD_LIMIT ? worktreeCard : worktreeLine)(ctx, r, tickedIds.includes(r.ws.id), () => setTicked(tickedIds.includes(r.ws.id) ? tickedIds.filter((id) => id !== r.ws.id) : [...tickedIds, r.ws.id])))),
     window.controls,
     picked.length > 0 &&
-      row([
-        dim(`${picked.length} selected`),
-        ...(archivedView
-          ? [
-              ctx.draw.button('batch:restore', 'Restore', async () => {
+      card([
+        text(`${picked.length} selected`, { weight: 'bold' }),
+        actions(
+          archivedView
+            ? ctx.draw.button('batch:restore', 'Restore', async () => {
                 for (const r of picked.filter((x) => x.archived?.restorable)) await ctx.call('workspaces.restore', r.ws.id);
                 setTicked([]);
-              }, { primary: true, hotkey: 'a' }),
-            ]
-          : [
-              ctx.draw.button('batch:archive', 'Archive', () => askFirst(ctx, 'archive', { ids }), { primary: true, hotkey: 'a' }),
-              ctx.draw.button('batch:free', 'Remove Build Files', () => askFirst(ctx, 'free', { ids }), { plain: true, hotkey: 'e' }),
-            ]),
-        ctx.draw.button('batch:delete', 'Delete', () => askFirst(ctx, 'delete', { ids }), { plain: true, dim: true }),
-        ctx.draw.button('batch:clear', 'Deselect', () => setTicked([]), { plain: true, dim: true }),
-      ]),
+              }, { primary: true, hotkey: 'a' })
+            : ctx.draw.button('batch:archive', 'Archive', () => askFirst(ctx, 'archive', { ids }), { primary: true, hotkey: 'a' }),
+          !archivedView && ctx.draw.button('batch:free', 'Remove Build Files', () => askFirst(ctx, 'free', { ids }), { plain: true, hotkey: 'e' }),
+          ctx.draw.button('batch:delete', 'Delete', () => askFirst(ctx, 'delete', { ids }), { plain: true, dim: true }),
+          ctx.draw.button('batch:clear', 'Deselect', () => setTicked([]), { plain: true, dim: true }),
+        ),
+      ], { tone: 'accent' }),
     !picked.length && (canClean || projectId)
       ? row([
           canClean ? ctx.draw.button('worktrees:clean', 'Clean Up', () => ctx.go({ name: 'clean', params: projectId ? { project: projectId } : {} }), { plain: true, dim: true, hotkey: 'c' }) : undefined,
@@ -223,33 +237,49 @@ function outsideFacts(ctx: Ctx, ws: Workspace): Node {
   const loaded = ctx.load<WorktreeInfo | undefined>(`wt-info:${ws.id}`, async () => (await ctx.call('workspaces.worktreeInfo', ws.id)) as WorktreeInfo | undefined, { ttlMs: 15_000 });
   const info = loaded.value;
   const talked = ctx.state.log.some((l) => l.channel === `ws:${ws.id}` && !/^(t-\d+|import-)/.test(l.id));
+  const conversations = info ? uniqueBy(info.conversations, (c) => c.sessionId).slice(0, 20) : [];
   return col([
     loadingWords(loaded, 'Looking...', 'Couldn’t look'),
-    info && col([
-      line(span(info.origin.label, { weight: 'semibold' })),
-      dim(info.origin.detail),
-      info.stale ? text(`Safe to remove: ${(info.staleText ?? '').toLowerCase()}.`, { color: 'success' }) : undefined,
-      info.missing ? text('Its folder is gone. Git still lists it; removing it tidies that up.', { color: 'warning' }) : undefined,
-      dim(`Branch: ${info.branch ?? 'None (detached)'}  Based on: ${info.base}`),
-      info.createdAt ? dim(`Made: ${dayWords(info.createdAt)}`) : undefined,
-      info.lastCommit ? dim(`Last commit: ${agoWords(info.lastCommit.at)}, ${info.lastCommit.subject}`) : undefined,
-      dim(`Compared with its base: ${plural(info.ahead, 'commit')} ahead, ${info.behind} behind${info.merged ? ', all merged' : ''}`),
-      dim(`Uncommitted: ${info.changed ? plural(info.changed, 'file') : 'nothing'}`),
-      info.creator ? dim(`Made by a session${info.creator.title ? `: “${info.creator.title}”` : ''}${info.creator.cwd ? ` (ran in ${info.creator.cwd})` : ''}`) : undefined,
-      info.conversations.length > 0 && dim(`Earlier conversations (${info.conversations.length})`),
-      ...uniqueBy(info.conversations, (c) => c.sessionId).slice(0, 20).map((c) =>
-        row([
-          line(c.title, span(`  ${ago(c.lastModified)}`, { dim: true })),
-          !talked && !ws.sessionId
-            ? ctx.draw.button(`convo:${c.sessionId}`, 'Show', async () => {
-                await ctx.call('workspaces.showConversation', ws.id, c.sessionId);
-                openOnce(ctx, ws.id);
-              }, { plain: true })
-            : undefined,
-        ]),
+    info &&
+      card(
+        [
+          dim(info.origin.detail),
+          info.stale ? text(`Safe to remove: ${(info.staleText ?? '').toLowerCase()}.`, { color: 'success' }) : undefined,
+          info.missing ? text('Its folder is gone. Git still lists it; removing it tidies that up.', { color: 'warning' }) : undefined,
+          col(
+            [
+              field('Branch', info.branch ?? 'None (detached)'),
+              field('Based on', info.base),
+              info.createdAt ? field('Made', dayWords(info.createdAt)) : undefined,
+              info.lastCommit ? field('Last commit', `${agoWords(info.lastCommit.at)}, ${info.lastCommit.subject}`) : undefined,
+              field('Against its base', `${plural(info.ahead, 'commit')} ahead, ${info.behind} behind${info.merged ? ', all merged' : ''}`),
+              field('Uncommitted', info.changed ? plural(info.changed, 'file') : 'nothing'),
+              info.creator ? dim(`Made by a session${info.creator.title ? `: “${info.creator.title}”` : ''}${info.creator.cwd ? ` (ran in ${info.creator.cwd})` : ''}`) : undefined,
+            ],
+            { top: 1 },
+          ),
+        ],
+        { title: info.origin.label, ...(info.stale ? { tone: 'ok' as const } : info.missing ? { tone: 'warn' as const } : {}) },
       ),
-      info.conversations.length === 0 && dim('No conversation ran in this folder, so there’s nothing to continue.'),
-    ]),
+    info &&
+      section(
+        'Earlier conversations',
+        [
+          ...conversations.map((c) =>
+            row([
+              line(c.title, span(`  ${ago(c.lastModified)}`, { dim: true })),
+              !talked && !ws.sessionId
+                ? ctx.draw.button(`convo:${c.sessionId}`, 'Show', async () => {
+                    await ctx.call('workspaces.showConversation', ws.id, c.sessionId);
+                    openOnce(ctx, ws.id);
+                  }, { plain: true, spans: [span('Show ›', { color: 'claude' })] })
+                : undefined,
+            ], { gap: 2 }),
+          ),
+          info.conversations.length === 0 && dim('No conversation ran in this folder, so there’s nothing to continue.'),
+        ],
+        info.conversations.length,
+      ),
   ]);
 }
 
@@ -261,33 +291,41 @@ export function worktreePage(ctx: Ctx, id: string): Node {
   const plan = ws.archived ? undefined : ctx.load<ArchivePreview | undefined>(`wt-plan:${id}`, async () => (await ctx.call('workspaces.archivePlan', id)) as ArchivePreview | undefined, { ttlMs: 30_000 });
   const parent = r?.madeBy.kind === 'agent' ? r.madeBy.parentId : undefined;
   const outside = ws.kind === 'worktree' && ws.external && !ws.archived;
+  const name = r?.madeBy.kind === 'agent' ? (r.madeBy.task ?? ws.name) : ws.name;
+  const tone: Tone | undefined = r?.archiving ? 'accent' : r && !r.archived && r.work.done ? 'ok' : undefined;
   return page(
     chrome(ctx, placesOf(ctx), 'worktrees'),
     back(ctx),
-    col([title(r?.madeBy.kind === 'agent' ? (r.madeBy.task ?? ws.name) : ws.name), dim([r?.project.name, ws.branch].filter(Boolean).join('  '))]),
-    r && line(span('Made by: ', { dim: true }), r.madeBy.label),
-    r && line(span('Its work: ', { dim: true }), span(r.work.label, r.work.done ? { color: 'success' } : {})),
-    measuring,
-    plan?.error ? dim(`Couldn’t look at its build files: ${plan.error}`) : undefined,
-    !ws.archived && line(span('Size: ', { dim: true }), sizeWords(r?.size), plan?.value && plan.value.dropBytes ? span(`, ${formatBytes(plan.value.dropBytes)} is build files`, { dim: true }) : undefined),
-    plan && plan.value && plan.value.drop.length > 0 ? dim(plan.value.drop.slice(0, 6).map((d) => `${d.path} (${d.what}): ${formatBytes(d.bytes)}`).join('\n')) : undefined,
-    dim(homePath(ctx.state, ws.path)),
-    r?.archiving ? text(ARCHIVING[r.archiving], { color: 'claude' }) : undefined,
-    ws.archived
-      ? row([
-          r?.archived?.restorable ? ctx.draw.button('wt:restore', 'Restore', () => ctx.call('workspaces.restore', id), { primary: true, hotkey: 'a' }) : dim('Can’t come back: there’s no archive and no branch to make it from.'),
-          ctx.draw.button('wt:read', 'Read Its Conversation', () => openWorkspace(ctx, id), { plain: true }),
-          ctx.draw.button('wt:delete', 'Delete', () => askFirst(ctx, 'delete', { ids: id }), { plain: true, dim: true }),
-        ])
-      : col([
-          ctx.draw.button('wt:open', 'Open', () => openWorkspace(ctx, id), { primary: true, hotkey: 'a' }),
-          row([
-            parent ? ctx.draw.button('wt:parent', 'Open the Conversation That Started It', () => openWorkspace(ctx, parent), { plain: true }) : undefined,
-            !r?.archiving && ctx.draw.button('wt:archive', 'Archive', () => askFirst(ctx, 'archive', { ids: id }), { plain: true, hotkey: 'e' }),
-            !r?.archiving && ctx.draw.button('wt:free', 'Remove Build Files', () => askFirst(ctx, 'free', { ids: id }), { plain: true, ...(plan?.value && !plan.value.dropBytes ? { dim: true } : {}) }),
-            !r?.archiving && (outside ? ctx.draw.button('wt:remove-other', 'Remove Worktree', () => askFirst(ctx, 'remove-other', { id }), { plain: true, dim: true }) : ctx.draw.button('wt:delete', 'Delete', () => askFirst(ctx, 'delete', { ids: id }), { plain: true, dim: true })),
-          ]),
-        ]),
+    card(
+      [
+        meta(r ? rowPill(r) : undefined, r?.project.name, ws.branch),
+        col(
+          [
+            r ? field('Made by', r.madeBy.label) : undefined,
+            !ws.archived ? line(span('Size  ', { dim: true }), sizeWords(r?.size), plan?.value && plan.value.dropBytes ? span(`, ${formatBytes(plan.value.dropBytes)} is build files`, { dim: true }) : undefined) : undefined,
+            ...(plan?.value ? plan.value.drop.slice(0, 6).map((d) => dim(`  ${d.path} (${d.what}): ${formatBytes(d.bytes)}`)) : []),
+            field('Folder', homePath(ctx.state, ws.path)),
+          ],
+          { top: 1 },
+        ),
+        measuring,
+        plan?.error ? dim(`Couldn’t look at its build files: ${plan.error}`) : undefined,
+        ws.archived
+          ? actions(
+              r?.archived?.restorable ? ctx.draw.button('wt:restore', 'Restore', () => ctx.call('workspaces.restore', id), { primary: true, hotkey: 'a' }) : dim('Can’t come back: there’s no archive and no branch to make it from.'),
+              ctx.draw.button('wt:read', 'Read Its Conversation', () => openWorkspace(ctx, id), { plain: true }),
+              ctx.draw.button('wt:delete', 'Delete', () => askFirst(ctx, 'delete', { ids: id }), { plain: true, dim: true }),
+            )
+          : actions(
+              ctx.draw.button('wt:open', 'Open', () => openWorkspace(ctx, id), { primary: true, hotkey: 'a' }),
+              !r?.archiving && ctx.draw.button('wt:archive', 'Archive', () => askFirst(ctx, 'archive', { ids: id }), { plain: true, hotkey: 'e' }),
+              !r?.archiving && ctx.draw.button('wt:free', 'Remove Build Files', () => askFirst(ctx, 'free', { ids: id }), { plain: true, ...(plan?.value && !plan.value.dropBytes ? { dim: true } : {}) }),
+              !r?.archiving && (outside ? ctx.draw.button('wt:remove-other', 'Remove Worktree', () => askFirst(ctx, 'remove-other', { id }), { plain: true, dim: true }) : ctx.draw.button('wt:delete', 'Delete', () => askFirst(ctx, 'delete', { ids: id }), { plain: true, dim: true })),
+            ),
+        parent ? ctx.draw.button('wt:parent', 'Open the Conversation That Started It', () => openWorkspace(ctx, parent), { plain: true, dim: true }) : undefined,
+      ],
+      { title: name, ...(tone ? { tone } : {}) },
+    ),
     outside ? outsideFacts(ctx, ws) : undefined,
   );
 }
@@ -305,15 +343,18 @@ export function cleanPage(ctx: Ctx, projectId: string | undefined): Node {
     return page(
       chrome(ctx, placesOf(ctx), 'worktrees'),
       back(ctx),
-      title('Clean Up Worktrees'),
-      dim('What sub-agents and other tools left in your projects.'),
+      heading('Clean Up Worktrees', 'What sub-agents and other tools left in your projects.'),
       projects.length === 0 && empty('Nothing to clean up.'),
-      ...window.shown.map((p) => {
-        const agents = agentsIn(p).length;
-        const others = outsideIn(p).length - agents;
-        const said = [agents ? plural(agents, 'from a sub-agent', 'from sub-agents') : '', others ? `${others} made outside` : ''].filter(Boolean).join(', ');
-        return ctx.draw.button(`clean:${p.id}`, p.name, () => ctx.go({ name: 'clean', params: { project: p.id } }), { plain: true, spans: [span(p.name), span(`  ${said}`, { dim: true })] });
-      }),
+      col(
+        window.shown.map((p) => {
+          const agents = agentsIn(p).length;
+          const others = outsideIn(p).length - agents;
+          return card([
+            ctx.draw.button(`clean:${p.id}`, p.name, () => ctx.go({ name: 'clean', params: { project: p.id } }), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] }),
+            meta(agents ? plural(agents, 'from a sub-agent', 'from sub-agents') : undefined, others ? `${others} made outside` : undefined),
+          ]);
+        }),
+      ),
       window.controls,
     );
   }
@@ -334,35 +375,46 @@ export function cleanPage(ctx: Ctx, projectId: string | undefined): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'worktrees'),
     back(ctx),
-    title(`Clean Up ${project.name}`),
+    heading(`Clean Up ${project.name}`),
     measuring,
     agents.length > 0 &&
-      col([
-        dim(`${plural(agents.length, 'worktree')} sub-agents made, ${finished} with no uncommitted changes. Removing them keeps their branches, so no commits are lost.`),
-        finished > 0 && ctx.draw.button('clean:agents', `Remove ${plural(finished, 'Finished Worktree')}`, () => askFirst(ctx, 'clean-agents', { project: project.id }), { plain: true }),
-      ]),
+      section('Sub-agents’ worktrees', [
+        card([
+          dim(`${plural(agents.length, 'worktree')} sub-agents made, ${finished} with no uncommitted changes. Removing them keeps their branches, so no commits are lost.`),
+          finished > 0 && actions(ctx.draw.button('clean:agents', `Remove ${plural(finished, 'Finished Worktree')}`, () => askFirst(ctx, 'clean-agents', { project: project.id }), { plain: true })),
+        ]),
+      ], agents.length),
     loadingWords(stale, 'Looking at the worktrees made outside...', 'Couldn’t look at them'),
     stale.value && safe.length === 0 && others.length > 0 ? dim('Every worktree made outside here still has work of its own, or is still in use.') : undefined,
     safe.length > 0 &&
-      col([
-        dim(`These can go without losing anything${frees ? `, about ${formatBytes(frees)}` : ''}. Branches stay.`),
-        ...safe.slice(0, 40).map((w) =>
-          ctx.draw.button(`stale:${w.id}`, w.name, () => setOff(off.includes(w.id) ? off.filter((id) => id !== w.id) : [...off, w.id]), {
-            plain: true,
-            spans: [span(off.includes(w.id) ? '[ ] ' : '[x] ', off.includes(w.id) ? { dim: true } : {}), span(w.name), span(`  ${w.reasonText}`, { dim: true })],
+      section('Safe to remove', [
+        card(
+          [
+            dim(`These can go without losing anything${frees ? `, about ${formatBytes(frees)}` : ''}. Branches stay.`),
+            col(
+              safe.slice(0, 40).map((w) =>
+                ctx.draw.button(`stale:${w.id}`, w.name, () => setOff(off.includes(w.id) ? off.filter((id) => id !== w.id) : [...off, w.id]), {
+                  plain: true,
+                  spans: [span(off.includes(w.id) ? '[ ] ' : '[x] ', off.includes(w.id) ? { dim: true } : { color: 'claude' }), span(w.name), span(`  ${w.reasonText}`, { dim: true })],
+                }),
+              ),
+              { top: 1 },
+            ),
+            chosen.length > 0 && actions(ctx.draw.button('clean:others', `Remove ${chosen.length}`, () => askFirst(ctx, 'clean-others', { project: project.id, ids: chosen.map((w) => w.id).join(',') }), { primary: true, hotkey: 'a' })),
+          ],
+          { tone: 'ok' },
+        ),
+      ], safe.length),
+    others.length > 0 &&
+      section('All made outside, the latest first', [
+        card(
+          window.shown.map((w) => {
+            const at = activity.value?.[w.id];
+            return ctx.draw.button(`other:${w.id}`, w.name, () => ctx.go(worktreeRoute(w.id)), { plain: true, spans: [span(w.name), span(`  ${origins.value?.[w.id]?.label ?? 'Made outside'}${at ? ` · ${agoWords(at)}` : ''} · ${sizeWords(ctx.state.disk[w.id])}`, { dim: true })] });
           }),
         ),
-        chosen.length > 0 && ctx.draw.button('clean:others', `Remove ${chosen.length}`, () => askFirst(ctx, 'clean-others', { project: project.id, ids: chosen.map((w) => w.id).join(',') }), { primary: true, hotkey: 'a' }),
-      ]),
-    others.length > 0 &&
-      col([
-        dim(`All made outside (${others.length}), the latest first`),
-        ...window.shown.map((w) => {
-          const at = activity.value?.[w.id];
-          return ctx.draw.button(`other:${w.id}`, w.name, () => ctx.go(worktreeRoute(w.id)), { plain: true, spans: [span(w.name), span(`  ${origins.value?.[w.id]?.label ?? 'Made outside'}${at ? `, ${agoWords(at)}` : ''}  ${sizeWords(ctx.state.disk[w.id])}`, { dim: true })] });
-        }),
         window.controls,
-      ]),
+      ], others.length),
     agents.length === 0 && others.length === 0 && empty('Nothing to clean up here.'),
   );
 }
@@ -391,9 +443,8 @@ export function importPage(ctx: Ctx, projectId: string, dir: string | undefined)
   return page(
     chrome(ctx, placesOf(ctx), 'worktrees'),
     back(ctx, project.name),
-    title('Import a Conversation'),
-    dim(`Your agent goes on with it in a new worktree of ${project.name}. The original stays as it was.`),
-    line(span('From: ', { dim: true }), homePath(ctx.state, looking), span('  and the folders inside it', { dim: true })),
+    heading('Import a Conversation', `Your agent goes on with it in a new worktree of ${project.name}. The original stays as it was.`),
+    line(span('From  ', { dim: true }), homePath(ctx.state, looking), span('  and the folders inside it', { dim: true })),
     choosing
       ? ctx.draw.input(
           'import:dir',
@@ -411,22 +462,29 @@ export function importPage(ctx: Ctx, projectId: string, dir: string | undefined)
     q && shown.length === 0 ? empty(`Nothing matches “${find.query}”.`) : undefined,
     chosen &&
       found &&
-      (chosen.wsId
-        ? ctx.draw.button('import:open', 'Open Its Worktree', () => openWorkspace(ctx, chosen.wsId!), { primary: true, hotkey: 'a' })
-        : ctx.draw.input(
-            `import:name:${chosen.sessionId}`,
-            async (value) => {
-              const id = await ctx.call('workspaces.importOutside', project.id, found.dir, chosen.sessionId, value?.trim() || chosen.title.slice(0, 120));
-              setPicked(undefined);
-              if (typeof id === 'string') openOnce(ctx, id);
-            },
-            { label: 'Name', value: chosen.title.slice(0, 120), submitLabel: 'continue in a worktree', autoFocus: true },
-          )),
-    ...window.shown.map((c) => {
-      const where = found ? whereIn(ctx.state, found.dir, c.cwd) : '';
-      const facts = [c.wsId ? 'Brought in already' : '', where, `${agoWords(c.lastModified)}`, formatBytes(c.bytes)].filter(Boolean).join('  ');
-      return ctx.draw.button(`convo:${c.sessionId}`, c.title, () => setPicked(c.sessionId), { plain: true, spans: [span(c.sessionId === picked ? '> ' : '  '), span(c.title), span(`  ${facts}`, { dim: true })] });
-    }),
-    window.controls,
+      card([
+        chosen.wsId
+          ? ctx.draw.button('import:open', 'Open Its Worktree', () => openWorkspace(ctx, chosen.wsId!), { primary: true, hotkey: 'a' })
+          : ctx.draw.input(
+              `import:name:${chosen.sessionId}`,
+              async (value) => {
+                const id = await ctx.call('workspaces.importOutside', project.id, found.dir, chosen.sessionId, value?.trim() || chosen.title.slice(0, 120));
+                setPicked(undefined);
+                if (typeof id === 'string') openOnce(ctx, id);
+              },
+              { label: 'Name', value: chosen.title.slice(0, 120), submitLabel: 'continue in a worktree', autoFocus: true },
+            ),
+      ], { title: chosen.title, tone: 'accent' }),
+    shown.length > 0 &&
+      section('Conversations', [
+        card(
+          window.shown.map((c) => {
+            const where = found ? whereIn(ctx.state, found.dir, c.cwd) : '';
+            const facts = [c.wsId ? 'Brought in already' : '', where, `${agoWords(c.lastModified)}`, formatBytes(c.bytes)].filter(Boolean).join(' · ');
+            return ctx.draw.button(`convo:${c.sessionId}`, c.title, () => setPicked(c.sessionId), { plain: true, spans: [span(c.sessionId === picked ? '▸ ' : '  ', { color: 'claude' }), span(c.title, c.sessionId === picked ? { weight: 'bold' } : {}), span(`  ${facts}`, { dim: true })] });
+          }),
+        ),
+        window.controls,
+      ], shown.length),
   );
 }

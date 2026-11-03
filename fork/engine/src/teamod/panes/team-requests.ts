@@ -5,9 +5,9 @@ import { TRUST_INFO } from '../../core/trust.js';
 import { agentLabel } from '../../shared/agent-label.js';
 import { formatBytes } from '../../shared/format.js';
 import type { Ctx } from '../screens.js';
-import { type Node, type Span, code, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, homePath, page } from './common.js';
-import { choice, confirmPress, levelOf, listOf, nameOf, needsYou, peerMd, picture, top, wholePath } from './team-common.js';
+import { type Node, type Span, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { type Tone, actions, ago, back, card, empty, field, homePath, meta, page, pill, section } from './common.js';
+import { choice, confirmPress, levelOf, listOf, nameOf, needsYou, peerLine, peerMd, picture, top, wholePath } from './team-common.js';
 
 /**
  * Tasks between agents: what you and your agent asked of others, what they asked of yours, and how
@@ -15,30 +15,43 @@ import { choice, confirmPress, levelOf, listOf, nameOf, needsYou, peerMd, pictur
  * what they wrote is only ever drawn.
  */
 
-const toneOf = (t: TaskView): Omit<Span, 't'> => {
-  switch (stateTone(t)) {
-    case 'ok':
-      return { color: 'success' };
-    case 'warn':
-      return { color: 'warning' };
-    case 'error':
-      return { color: 'error' };
-    case 'claude':
-      return { color: 'claude' };
-    default:
-      return { dim: true };
-  }
-};
+const PILL_TONE: Readonly<Record<ReturnType<typeof stateTone>, Tone>> = { ok: 'ok', warn: 'warn', error: 'error', claude: 'accent', muted: 'quiet' };
+
+/** Where a request stands, as a colored pill. */
+const statePill = (t: TaskView): Span => pill(stateLabel(t), PILL_TONE[stateTone(t)]);
 
 const whoOf = (t: TaskView): string => (t.direction === 'sent' ? targetLabel(t) : `${t.peerName}${t.by === 'agent' ? '’s agent' : ''}`);
 
-/** One request as a row: who, what, where it is. It opens in full. */
-export function taskRow(ctx: Ctx, key: string, t: TaskView): Node {
-  const who = whoOf(t);
-  return ctx.draw.button(key, who, () => ctx.go({ name: 'request', params: { id: t.id } }), {
-    plain: true,
-    spans: [span(`${t.direction === 'sent' ? 'To' : 'From'} ${who}  `, { weight: 'semibold' }), span(t.kind === 'run' && t.command ? `$ ${oneLine(t.command, 70)}` : requestGist(t, 70)), span(`  ${stateLabel(t)}`, toneOf(t)), span(`  ${ago(t.createdAt)}`, { dim: true })],
-  });
+/** "Asked by bob’s agent", "To bob’s Mac": the direction its own word, so the name stays as it is. */
+const whoSpans = (t: TaskView, style: Omit<Span, 't'>): Span[] => [span(`${t.direction === 'sent' ? 'To' : 'Asked by'} `, style), span(whoOf(t), style)];
+
+/** What it asks, in a line: the command, or the gist. */
+const askLine = (t: TaskView, max = 70): string => (t.kind === 'run' && t.command ? `$ ${oneLine(t.command, max)}` : requestGist(t, max));
+
+/**
+ * One request as a card: who (it opens in full), where it stands, what it asks, and its answer once
+ * there is one. One that waits for you says so in its border; on the Requests list, `decide` puts
+ * Allow and Decline on it. What they asked is drawn as their words; `inChat`, where a conversation's
+ * messages are its only markdown, as plain words.
+ */
+export function taskRow(ctx: Ctx, key: string, t: TaskView, decide = false, inChat = false): Node {
+  const waits = needsYou(t);
+  const quick = decide && waits && t.direction === 'received' && t.state === 'awaiting_approval' && !t.secret;
+  const answer = t.result?.summary?.trim() ? peerLine(t.result.summary, 120) : undefined;
+  return card(
+    [
+      ctx.draw.button(key, whoOf(t), () => ctx.go({ name: 'request', params: { id: t.id } }), { plain: true, spans: whoSpans(t, { weight: 'bold' }) }),
+      meta(statePill(t), ago(t.createdAt)),
+      inChat || (t.kind === 'run' && t.command) ? text(askLine(t)) : md(peerLine(t.summary?.trim() || t.ask, 70)),
+      answer ? (inChat ? line(span('Answer  ', { dim: true }), span(answer, { dim: true })) : col([dim('Answer'), md(answer)])) : undefined,
+      quick &&
+        actions(
+          ctx.draw.button(`decide:${t.id}:yes`, 'Allow', () => ctx.call('gateway.decide', t.id, { answer: 'yes', ...once }), {}),
+          ctx.draw.button(`decide:${t.id}:no`, 'Decline', () => ctx.call('gateway.decide', t.id, { answer: 'no', ...once }), { plain: true, dim: true }),
+        ),
+    ],
+    waits ? { tone: 'warn' } : {},
+  );
 }
 
 export function requestsPage(ctx: Ctx): Node {
@@ -56,15 +69,22 @@ export function requestsPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'requests'),
     ctx.draw.button('ask', 'Ask Someone’s Agent', () => ctx.go({ name: 'ask' }), { primary: true, hotkey: 'a' }),
-    waiting.length > 0 && col([dim(`Waiting for you (${waiting.length})`), listOf(ctx, 'waiting', waiting, (t) => taskRow(ctx, `waiting:${t.id}`, t))]),
-    row([choice(ctx, 'tab:received', `Received (${count('received')})`, tab === 'received', () => setTab('received')), choice(ctx, 'tab:sent', `Sent (${count('sent')})`, tab === 'sent', () => setTab('sent'))]),
-    shown.length > 0
-      ? listOf(ctx, `requests:${tab}`, shown, (t) => taskRow(ctx, `task:${t.id}`, t))
-      : waiting.some((t) => t.direction === tab)
-        ? undefined
-        : empty(done ? 'Nothing open. Everything here has been answered.' : tab === 'sent' ? 'Nothing sent yet. Ask your agent to get something from a teammate’s agent, or ask one yourself.' : 'Nothing received yet. When a teammate’s agent asks yours for something, it shows here.'),
-    done > 0 && ctx.draw.button('answered', answered ? 'Hide Answered' : `Show Answered (${done})`, () => setAnswered(!answered), { plain: true, dim: true }),
-    ctx.draw.button('requests:more', 'More', () => ctx.go({ name: 'access' }), { plain: true, dim: true, hotkey: 'm' }),
+    waiting.length > 0 && section('Waiting for you', [listOf(ctx, 'waiting', waiting, (t) => taskRow(ctx, `waiting:${t.id}`, t, true))], waiting.length),
+    col(
+      [
+        row([choice(ctx, 'tab:received', `Received (${count('received')})`, tab === 'received', () => setTab('received')), choice(ctx, 'tab:sent', `Sent (${count('sent')})`, tab === 'sent', () => setTab('sent'))], { gap: 3 }),
+        shown.length > 0
+          ? listOf(ctx, `requests:${tab}`, shown, (t) => taskRow(ctx, `task:${t.id}`, t))
+          : waiting.some((t) => t.direction === tab)
+            ? undefined
+            : empty(done ? 'Nothing open. Everything here has been answered.' : tab === 'sent' ? 'Nothing sent yet. Ask your agent to get something from a teammate’s agent, or ask one yourself.' : 'Nothing received yet. When a teammate’s agent asks yours for something, it shows here.'),
+      ],
+      { top: 1 },
+    ),
+    row([
+      done > 0 && ctx.draw.button('answered', answered ? 'Hide Answered' : `Show Answered (${done})`, () => setAnswered(!answered), { plain: true, dim: true }),
+      ctx.draw.button('requests:more', 'More', () => ctx.go({ name: 'access' }), { plain: true, dim: true, hotkey: 'm' }),
+    ], { gap: 3 }),
   );
 }
 
@@ -101,6 +121,7 @@ function answerCard(ctx: Ctx, t: TaskView): Node {
     const scopes = scopeChoices(facts);
     const rule = ruleFor(facts, t.peerName, { scope, command, expiry }, Date.now(), 'r_preview00');
     return col([
+      section('Always allow', []),
       scopes &&
         row([
           choice(ctx, `always:${t.id}:this`, scopes.this, scope === 'this', () => setScope('this')),
@@ -128,15 +149,15 @@ function answerCard(ctx: Ctx, t: TaskView): Node {
           { primary: true, hotkey: 'a' },
         ),
         ctx.draw.button(`always:${t.id}:cancel`, 'Back', () => setMode('choose'), { plain: true, dim: true, hotkey: 'x' }),
-      ]),
+      ], { gap: 2, top: 1 }),
     ]);
   }
-  return row([
+  return actions(
     ctx.draw.button(`decide:${t.id}:yes`, t.secret ? 'Allow Once' : 'Allow', () => decide({ answer: 'yes', ...once }), { primary: true, hotkey: 'a' }),
     ctx.draw.button(`decide:${t.id}:no`, 'Decline', () => decide({ answer: 'no', ...once }), { hotkey: 'n' }),
     t.secret ? undefined : ctx.draw.button(`decide:${t.id}:always`, 'Always', () => setMode('always'), { plain: true, hotkey: 'y' }),
     ctx.draw.button(`request:${t.id}:more`, 'More', () => ctx.go({ name: 'request-more', params: { id: t.id } }), { plain: true, dim: true, hotkey: 'm' }),
-  ]);
+  );
 }
 
 /** "Ask bob's agent?": your agent wants to send this, and waits for you. */
@@ -155,12 +176,12 @@ function confirmCard(ctx: Ctx, t: TaskView): Node {
         },
         { label: 'What to ask', value: t.ask, rows: 4, submitLabel: 'ask', autoFocus: true },
       ),
-    row([
-      ctx.draw.button(`confirm:${t.id}:yes`, `Ask ${t.peerName}`, () => ctx.call('gateway.confirm', t.id, true), { primary: true, hotkey: 'a' }),
+    actions(
+      ctx.draw.button(`confirm:${t.id}:yes`, 'Ask Their Agent', () => ctx.call('gateway.confirm', t.id, true), { primary: true, hotkey: 'a' }),
       ctx.draw.button(`confirm:${t.id}:always`, 'Always', () => ctx.call('gateway.confirm', t.id, true, '', true), { plain: true, hotkey: 'y' }),
       ctx.draw.button(`confirm:${t.id}:no`, 'Not Now', () => ctx.call('gateway.confirm', t.id, false), { plain: true, dim: true, hotkey: 'n' }),
       editing ? undefined : ctx.draw.button(`confirm:${t.id}:edit`, 'Edit', () => setEditing(true), { plain: true, dim: true }),
-    ]),
+    ),
   ]);
 }
 
@@ -176,7 +197,8 @@ function questionCard(ctx: Ctx, t: TaskView): Node | undefined {
   return col([
     ...q.questions.map((item, i) =>
       col([
-        line(span(`${t.peerName}’s agent asks: `, { weight: 'semibold' }), item.question),
+        line(span(`${t.peerName}’s agent asks:`, { weight: 'bold' })),
+        text(item.question),
         single && row(item.options.map((o, n) => ctx.draw.button(`question:${t.id}:${q.qid}:${i}:${n}`, o.label, () => send([o.label]), {}))),
         !single &&
           ctx.draw.input(
@@ -190,18 +212,18 @@ function questionCard(ctx: Ctx, t: TaskView): Node | undefined {
           ),
       ]),
     ),
-    row([
+    actions(
       !single && q.questions.length > 1 && texts.some((x) => x.trim()) ? ctx.draw.button(`question:${t.id}:send`, 'Send Answer', () => send(q.questions.map((_, i) => texts[i] ?? '')), { primary: true, hotkey: 'a' }) : undefined,
       ctx.draw.button(`question:${t.id}:skip`, 'Let Them Decide', () => send('skip'), { plain: true, dim: true, hotkey: 'n' }),
       draft ? dim('Your agent’s answer: you hadn’t seen this request, so it waits for you.') : undefined,
-    ]),
+    ),
   ]);
 }
 
 function resultCard(ctx: Ctx, t: TaskView): Node | undefined {
   const r = t.result;
   if (!r) return undefined;
-  return col(
+  return card(
     [
       r.summary ? md(peerMd(r.summary)) : undefined,
       r.data !== undefined && col([dim('Data'), code(JSON.stringify(r.data, null, 2).slice(0, 20_000))]),
@@ -221,11 +243,11 @@ function resultCard(ctx: Ctx, t: TaskView): Node | undefined {
             ]),
           ),
         ]),
-      r.secret && r.status === 'done' && dim(`A secret (${r.secret}): ${t.direction === 'sent' ? `${t.peerName} approved sending it to you` : 'you approved sending it'}, this once.`),
+      r.secret && r.status === 'done' ? dim(`A secret (${r.secret}): ${t.direction === 'sent' ? `${t.peerName} approved sending it to you` : 'you approved sending it'}, this once.`) : undefined,
       r.agent && t.direction === 'sent' ? dim(`Answered by ${agentLabel(r.agent, t.peerName, false, { model: true })}`) : undefined,
       r.problems?.length ? text(`${r.valid === false ? 'The data doesn’t match what was asked for: ' : ''}${r.problems.join(' · ')}`, { color: 'warning' }) : undefined,
     ],
-    { gap: 1 },
+    { title: 'Answer', ...(r.status === 'done' && r.valid !== false ? { tone: 'ok' as const } : {}) },
   );
 }
 
@@ -239,29 +261,43 @@ export function requestPage(ctx: Ctx, id: string): Node {
   const level = levelOf(ctx.state, t.peerId);
   const caps = ctx.state.gateway.capabilities;
   const needs = needsOf(t);
+  const asksYou = waiting || (sent && (t.state === 'confirm' || Boolean(t.question)));
   return page(
     top(ctx, 'requests'),
     back(ctx, 'Requests'),
-    col([title(t.secret ? `${whoOf(t)} wants ${t.secret.label}` : `${sent ? 'To' : 'From'} ${whoOf(t)}`), line(span(stateLabel(t), toneOf(t)), span(`  ${ago(t.createdAt)}`, { dim: true }), t.allowedBy ? span(`  ${t.allowedBy}`, { dim: true }) : undefined, sent && t.by === 'agent' ? span('  asked by your agent', { dim: true }) : undefined)]),
-    t.secret && live ? text(sent ? `A secret: only ${t.peerName} can allow it, each time.` : 'A secret: only you can allow it, each time. Trust, rules and Always never cover it.', { color: 'warning' }) : undefined,
-    t.kind === 'run' && t.command ? code(`$ ${t.command}`) : t.kind === 'file' ? text(`Send me ${t.path ?? 'a file'}`) : md(peerMd(t.ask)),
-    t.kind === 'run' && t.ask && t.ask !== t.command ? line(span('Why: ', { dim: true }), oneLine(t.ask, 300)) : undefined,
-    !sent &&
-      col([
-        line(span('From  ', { dim: true }), `${t.peerName} · you: ${TRUST_INFO[level].label.toLowerCase()}`),
-        line(span('Needs  ', { dim: true }), needs.length ? needs.map((n) => `${CAP_INFO[n].label}${capFor(caps, n, level) === 'ask' ? ' (asks you)' : ''}`).join(', ') : 'Nothing special'),
-        line(span('Where  ', { dim: true }), whereLine(t)),
-        line(span('Sends back  ', { dim: true }), backLine(t)),
-      ]),
-    waiting && answerCard(ctx, t),
-    sent && t.state === 'confirm' && confirmCard(ctx, t),
-    sent && questionCard(ctx, t),
-    live && t.steps.length > 0 && col(t.steps.slice(-6).map((step) => dim(step))),
+    card(
+      [
+        meta(statePill(t), ago(t.createdAt), t.allowedBy, sent && t.by === 'agent' && 'asked by your agent'),
+        t.secret && live ? text(sent ? `A secret: only ${t.peerName} can allow it, each time.` : 'A secret: only you can allow it, each time. Trust, rules and Always never cover it.', { color: 'warning' }) : undefined,
+        col([t.kind === 'run' && t.command ? code(`$ ${t.command}`) : t.kind === 'file' ? text(`Send me ${t.path ?? 'a file'}`) : md(peerMd(t.ask))], { top: 1 }),
+        t.kind === 'run' && t.ask && t.ask !== t.command ? col([dim('Why:'), md(peerLine(t.ask, 300))]) : undefined,
+        !sent &&
+          col(
+            [
+              field('Asked by', `${t.peerName} · you: ${TRUST_INFO[level].label.toLowerCase()}`),
+              field('Needs', needs.length ? needs.map((n) => `${CAP_INFO[n].label}${capFor(caps, n, level) === 'ask' ? ' (asks you)' : ''}`).join(', ') : 'Nothing special'),
+              field('Where', whereLine(t)),
+              field('Sends back', backLine(t)),
+            ],
+            { top: 1 },
+          ),
+        waiting && answerCard(ctx, t),
+        sent && t.state === 'confirm' && confirmCard(ctx, t),
+        sent && questionCard(ctx, t),
+      ],
+      { title: t.secret ? `${whoOf(t)} wants ${t.secret.label}` : whoSpans(t, { weight: 'bold' }), ...(asksYou ? { tone: 'warn' as const } : {}) },
+    ),
+    live && t.steps.length > 0 && section('Steps', t.steps.slice(-6).map((step) => dim(`· ${step}`))),
     t.incoming && dim(`Receiving files: ${formatBytes(t.incoming.received)} of ${formatBytes(t.incoming.total)}`),
     resultCard(ctx, t),
-    live && !waiting && t.state !== 'confirm' && ctx.draw.button(`request:${t.id}:stop`, sent ? 'Cancel' : 'Stop', () => ctx.call('gateway.cancel', t.id), { plain: true, hotkey: 'x' }),
-    sent && !live && confirmPress(ctx, `request:${t.id}:forget`, 'Remove', 'It goes from your lists.', () => ctx.call('gateway.forget', t.id)),
-    t.chat && /^(dm|group):/.test(t.chat) ? ctx.draw.button(`request:${t.id}:chat`, 'Open Its Chat', () => ctx.go({ name: 'conversation', params: { id: t.chat! } }), { plain: true, dim: true }) : undefined,
+    row(
+      [
+        live && !waiting && t.state !== 'confirm' && ctx.draw.button(`request:${t.id}:stop`, sent ? 'Cancel' : 'Stop', () => ctx.call('gateway.cancel', t.id), { plain: true, hotkey: 'x' }),
+        t.chat && /^(dm|group):/.test(t.chat) ? ctx.draw.button(`request:${t.id}:chat`, 'Open Its Chat', () => ctx.go({ name: 'conversation', params: { id: t.chat! } }), { plain: true, dim: true }) : undefined,
+        sent && !live && confirmPress(ctx, `request:${t.id}:forget`, 'Remove', 'It goes from your lists.', () => ctx.call('gateway.forget', t.id)),
+      ],
+      { gap: 3 },
+    ),
   );
 }
 
@@ -275,16 +311,21 @@ export function requestMorePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'requests'),
     back(ctx, 'Request'),
-    title(`${t.peerName}’s request`),
-    waiting &&
-      ctx.draw.input(
+    card(
+      [
+        t.kind === 'run' && t.command ? text(askLine(t, 120)) : md(peerLine(t.summary?.trim() || t.ask, 120)),
+        waiting &&
+      col([ctx.draw.input(
         `decide:${t.id}:reason`,
         async (value) => {
           await ctx.call('gateway.decide', t.id, { answer: 'no', ...once, ...(value?.trim() ? { reason: value.trim().slice(0, 300) } : {}) });
           ctx.nav.back(ctx.pane);
         },
         { label: 'Decline, saying why', placeholder: `${t.peerName} sees this`, submitLabel: 'decline' },
-      ),
+      )], { top: 1 }),
+      ],
+      { title: `${t.peerName}’s request` },
+    ),
     waiting && !t.secret && level !== 'trusted' && level !== 'full'
       ? ctx.draw.button(
           `decide:${t.id}:trust`,
@@ -313,8 +354,10 @@ export function askPage(ctx: Ctx, to?: string): Node {
   return page(
     top(ctx, 'requests'),
     back(ctx),
-    title(`Ask ${who.name}’s agent`),
-    people.length > 1 && ctx.draw.select('ask:who', people.map((p) => ({ value: p.id, label: `${p.name}’s agent` })), (value) => setPicked(value), { label: 'To', value: who.id }),
+    card(
+      [
+        dim('It goes straight to them, and you’re the one asking.'),
+        people.length > 1 && ctx.draw.select('ask:who', people.map((p) => ({ value: p.id, label: `${p.name}’s agent` })), (value) => setPicked(value), { label: 'To', value: who.id }),
     ctx.draw.input(
       `ask:${who.id}:words`,
       async (value) => {
@@ -324,6 +367,9 @@ export function askPage(ctx: Ctx, to?: string): Node {
         ctx.go(task?.id ? { name: 'request', params: { id: task.id } } : { name: 'requests' });
       },
       { placeholder: 'What should their agent do? They see only this.', rows: 3, submitLabel: 'ask', autoFocus: true },
+    ),
+      ],
+      { title: `Ask ${who.name}’s agent` },
     ),
   );
 }
@@ -344,16 +390,16 @@ export function accessPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'requests'),
     back(ctx, 'Requests'),
-    title('What teammates’ agents can do here'),
-    col(
+    card(
       CAP_ORDER.map((need) =>
-        ctx.draw.button(`capability:${need}`, CAP_INFO[need].label, () => ctx.go({ name: 'capability', params: { need } }), {
-          plain: true,
-          spans: [span(`${CAP_INFO[need].label}  `), span(CAP_TRUST.map((trust) => `${TRUST_INFO[trust].label}: ${CAP_LEVEL_INFO[caps.levels[need][trust]]}`).join(' · '), { dim: true })],
-        }),
+        col([
+          ctx.draw.button(`capability:${need}`, CAP_INFO[need].label, () => ctx.go({ name: 'capability', params: { need } }), { plain: true, spans: [span(CAP_INFO[need].label, { weight: 'bold' }), span('  ›', { dim: true })] }),
+          line(...CAP_TRUST.flatMap((trust, i) => [...(i ? [span(' · ', { dim: true })] : []), span(`${TRUST_INFO[trust].label}:`, { dim: true }), span(' '), span(CAP_LEVEL_INFO[caps.levels[need][trust]], { dim: true })])),
+        ]),
       ),
+      { title: 'What teammates’ agents can do here' },
     ),
-    col([
+    section('Your card', [
       dim('Ask me for: what teammates’ agents see when they look for who can help'),
       ctx.draw.input(
         'access:note',
@@ -364,7 +410,7 @@ export function accessPage(ctx: Ctx): Node {
         { value: gw.note, placeholder: 'the API, design reviews…', submitLabel: 'save' },
       ),
     ]),
-    col([
+    section('Shared folders', [
       dim('Folders for “Read and write files”, besides the one each request gets for itself. Secrets stay off-limits anyway.'),
       listOf(ctx, 'access:folders', folders, (f) => row([text(homePath(ctx.state, f)), ctx.draw.button(`access:folder:${f}`, 'Remove', () => setFolders(folders.filter((x) => x !== f)), { plain: true, dim: true })])),
       adding
@@ -378,17 +424,16 @@ export function accessPage(ctx: Ctx): Node {
             { label: 'Folder', placeholder: '/path/to/folder', submitLabel: 'add', autoFocus: true },
           )
         : ctx.draw.button('access:add-folder', 'Add Folder', () => setAdding(true), { plain: true, dim: true }),
-    ]),
+    ], folders.length),
     freely.length > 0 &&
-      col([
+      section('Asked without checking', [
         dim('Your agent asks them without checking: you said Always when it wanted to.'),
         listOf(ctx, 'access:freely', freely, (peerId) => row([text(nameOf(ctx.state, peerId)), ctx.draw.button(`access:freely:${peerId}`, 'Ask Me First', () => ctx.call('gateway.setAskFreely', peerId, false), { plain: true, dim: true })])),
-      ]),
-    col([
-      dim(`Rules for people’s requests (${gw.rules.length})`),
+      ], freely.length),
+    section('Rules for people’s requests', [
       gw.rules.length === 0 && empty('No rules yet. When you choose Always on a teammate’s request, the rule it makes shows up here.'),
       listOf(ctx, 'access:rules', [...gw.rules].reverse(), (r) => ruleRow(ctx, `rule:${r.id}`, r, true)),
-    ]),
+    ], gw.rules.length),
   );
 }
 
@@ -400,13 +445,16 @@ export function capabilityPage(ctx: Ctx, need: string): Node {
   return page(
     top(ctx, 'requests'),
     back(ctx),
-    title(CAP_INFO[known].label),
-    dim(CAP_INFO[known].detail),
-    ...CAP_TRUST.map((trust) =>
-      col([
-        text(TRUST_INFO[trust].label),
-        row(levelsFor(trust).map((level) => choice(ctx, `capability:${known}:${trust}:${level}`, CAP_LEVEL_INFO[level], row_[trust] === level, () => ctx.call('gateway.setCapabilities', { levels: { [known]: { ...row_, [trust]: level } } })))),
-      ]),
+    card(
+      [
+        dim(CAP_INFO[known].detail),
+        ...CAP_TRUST.map((trust) =>
+          section(TRUST_INFO[trust].label, [
+            row(levelsFor(trust).map((level) => choice(ctx, `capability:${known}:${trust}:${level}`, CAP_LEVEL_INFO[level], row_[trust] === level, () => ctx.call('gateway.setCapabilities', { levels: { [known]: { ...row_, [trust]: level } } }))), { gap: 2 }),
+          ]),
+        ),
+      ],
+      { title: CAP_INFO[known].label },
     ),
   );
 }
@@ -415,7 +463,7 @@ export function capabilityPage(ctx: Ctx, need: string): Node {
 export function ruleRow(ctx: Ctx, key: string, r: Rule, named: boolean): Node {
   return ctx.draw.button(key, ruleLabel(r), () => ctx.go({ name: 'rule', params: { id: r.id } }), {
     plain: true,
-    spans: [...(named ? [span(`${r.peerName}  `, { weight: 'semibold' })] : []), span(ruleLabel(r)), span(`  ${DECISION_INFO[r.decision]} · ${expiryLabel(r)}`, { dim: true })],
+    spans: [...(named ? [span(r.peerName, { weight: 'bold' }), span('  ')] : []), span(ruleLabel(r)), span('  '), pill(DECISION_INFO[r.decision], r.decision === 'allow' ? 'ok' : r.decision === 'decline' ? 'error' : 'quiet'), span(`  ${expiryLabel(r)}`, { dim: true })],
   });
 }
 
@@ -434,15 +482,19 @@ export function rulePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'requests'),
     back(ctx),
-    title(`${peerName}: a rule`),
-    text(ruleLabel(r)),
-    dim(`${expiryLabel(r)} · made ${ago(r.createdAt)} ago`),
-    row(RULE_DECISIONS.map((d) => choice(ctx, `rule:${id}:${d}`, DECISION_INFO[d], decision === d, () => save({ decision: d })))),
-    row([
+    card(
+      [
+        text(ruleLabel(r)),
+        meta(expiryLabel(r), `made ${ago(r.createdAt)} ago`),
+        section('Answer', [row(RULE_DECISIONS.map((d) => choice(ctx, `rule:${id}:${d}`, DECISION_INFO[d], decision === d, () => save({ decision: d }))), { gap: 2 })]),
+        section('For how long', [row([
       choice(ctx, `rule:${id}:never`, 'Until I change it', expiresAt === undefined, () => save({ expiresAt: undefined })),
       ctx.draw.button(`rule:${id}:day`, EXPIRY_INFO.day, () => save({ expiresAt: Date.now() + DAY }), { plain: true, dim: true }),
       ctx.draw.button(`rule:${id}:week`, EXPIRY_INFO.week, () => save({ expiresAt: Date.now() + 7 * DAY }), { plain: true, dim: true }),
-    ]),
+    ], { gap: 2 })]),
+      ],
+      { title: [span(peerName, { weight: 'bold' }), span(' · a rule', { dim: true })] },
+    ),
     confirmPress(ctx, `rule:${id}:delete`, 'Delete', 'Requests like it ask you again.', async () => {
       await ctx.call('gateway.removeRule', id);
       ctx.nav.back(ctx.pane);

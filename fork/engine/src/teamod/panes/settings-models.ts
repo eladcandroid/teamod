@@ -1,7 +1,7 @@
 import { type EndpointView, OLLAMA_URL, modelsOfEndpoint } from '../../shared/local-endpoints.js';
 import type { Ctx } from '../screens.js';
-import { type Node, type Span, col, dim, line, row, span, text, title } from '../tree.js';
-import { back, chrome, empty, page } from './common.js';
+import { type Node, col, dim, line, row, text } from '../tree.js';
+import { type Tone, actions, back, card, chrome, empty, meta, page, pill } from './common.js';
 import { SETTINGS_PLACES } from './settings-common.js';
 import { field, loadingWords, steady, twoPress } from './work-common.js';
 
@@ -26,11 +26,11 @@ function endpointsOf(ctx: Ctx): ReturnType<typeof steady<readonly EndpointView[]
   );
 }
 
-function statusOf(e: EndpointView): { readonly style: Omit<Span, 't'>; readonly words: string } {
-  if (e.reachable === undefined) return { style: { dim: true }, words: 'Not looked at yet' };
-  if (!e.reachable) return { style: { color: 'error' }, words: e.builtIn ? 'Not running on this computer' : 'Not answering' };
+function statusOf(e: EndpointView): { readonly tone: Tone; readonly words: string } {
+  if (e.reachable === undefined) return { tone: 'quiet', words: 'Not looked at yet' };
+  if (!e.reachable) return { tone: 'error', words: e.builtIn ? 'Not running on this computer' : 'Not answering' };
   const models = modelsOfEndpoint(e);
-  return models.length ? { style: { color: 'success' }, words: `${models.length} model${models.length === 1 ? '' : 's'}: ${models.slice(0, 3).join(', ')}${models.length > 3 ? '...' : ''}` } : { style: { color: 'warning' }, words: 'Answering, no models yet' };
+  return models.length ? { tone: 'ok', words: `${models.length} model${models.length === 1 ? '' : 's'}: ${models.slice(0, 3).join(', ')}${models.length > 3 ? '...' : ''}` } : { tone: 'warn', words: 'Answering, no models yet' };
 }
 
 export function modelsPane(ctx: Ctx): Node {
@@ -40,27 +40,35 @@ export function modelsPane(ctx: Ctx): Node {
     chrome(ctx, SETTINGS_PLACES, 'models'),
     back(ctx),
     dim('Ollama on this computer, or any Anthropic-compatible address (LiteLLM, a company proxy). Same tools and features; how good the answers are depends on the model. Pick one in the agent picker.'),
-    ctx.draw.button('endpoint:add', 'Add Endpoint', () => ctx.go({ name: 'endpoint' }), { primary: true, hotkey: 'c' }),
+    row([
+      ctx.draw.button('endpoint:add', 'Add Endpoint', () => ctx.go({ name: 'endpoint' }), { primary: true, hotkey: 'c' }),
+      ctx.draw.button('endpoint:check', 'Check Again', async () => {
+        await ctx.call('env.checkEndpoints');
+        ctx.refresh(LIST);
+      }, { plain: true, dim: true, hotkey: 'd' }),
+    ], { gap: 3 }),
     loadingWords(loaded, 'Looking...', 'Couldn’t look'),
     loaded.value && !list.length ? empty('No endpoints yet.') : undefined,
     ...list.map((e) => {
       const status = statusOf(e);
-      return col([
-        row([
-          line(span(e.builtIn ? 'Ollama on this computer' : e.label, { weight: 'semibold' }), span(`  ${status.words}`, status.style)),
-          ctx.draw.button(`endpoint:${e.id}:edit`, e.builtIn ? 'Set Up' : 'Edit', () => ctx.go({ name: 'endpoint', params: { id: e.id } }), { plain: true, dim: true }),
-          e.builtIn ? undefined : twoPress(ctx, `endpoint:${e.id}:remove`, 'Remove', async () => {
-            await ctx.call('env.removeEndpoint', e.id);
-            ctx.refresh(LIST);
-          }),
-        ]),
-        dim(e.builtIn && !e.reachable ? 'Install it from ollama.com, start it with OLLAMA_CONTEXT_LENGTH=32768 ollama serve, and pull a model (ollama pull qwen3-coder).' : `${e.baseUrl}${e.hasKey ? '  key saved' : ''}`),
-      ]);
+      return card(
+        [
+          line(pill(status.words, status.tone, status.tone === 'error' ? '✗' : status.tone === 'quiet' ? '○' : '●')),
+          e.builtIn && !e.reachable ? dim('Install it from ollama.com, start it with OLLAMA_CONTEXT_LENGTH=32768 ollama serve, and pull a model (ollama pull qwen3-coder).') : meta(e.baseUrl, e.hasKey && 'key saved'),
+          row(
+            [
+              ctx.draw.button(`endpoint:${e.id}:edit`, e.builtIn ? 'Set Up' : 'Edit', () => ctx.go({ name: 'endpoint', params: { id: e.id } }), { plain: true }),
+              e.builtIn ? undefined : twoPress(ctx, `endpoint:${e.id}:remove`, 'Remove', async () => {
+                await ctx.call('env.removeEndpoint', e.id);
+                ctx.refresh(LIST);
+              }),
+            ],
+            { gap: 3, top: 1 },
+          ),
+        ],
+        { title: e.builtIn ? 'Ollama on this computer' : e.label },
+      );
     }),
-    ctx.draw.button('endpoint:check', 'Check Again', async () => {
-      await ctx.call('env.checkEndpoints');
-      ctx.refresh(LIST);
-    }, { plain: true, dim: true, hotkey: 'd' }),
   );
 }
 
@@ -91,34 +99,47 @@ export function endpointPage(ctx: Ctx, id: string | undefined): Node {
   return page(
     chrome(ctx, SETTINGS_PLACES, 'models'),
     back(ctx, 'Local Models'),
-    title(endpoint ? (endpoint.builtIn ? 'Ollama on This Computer' : endpoint.label) : 'New Endpoint'),
-    field(ctx, 'endpoint:label', 'Name', draft.label, (label) => edit({ label }), { placeholder: 'Work proxy' }),
-    field(ctx, 'endpoint:url', 'Address', draft.baseUrl, (baseUrl) => edit({ baseUrl }), { placeholder: OLLAMA_URL }),
-    field(ctx, 'endpoint:key', 'Key', keyWords, (key) => edit({ key, clearKey: false }), { secret: true, placeholder: 'What you type isn’t shown again', none: 'None (Ollama needs none)' }),
-    hasKey && !draft.key ? ctx.draw.button('endpoint:clear-key', draft.clearKey ? 'Keep the Key' : 'Remove the Key', () => edit({ clearKey: !draft.clearKey }), { plain: true, dim: true }) : undefined,
-    field(ctx, 'endpoint:models', 'Models', draft.models, (models) => edit({ models }), { placeholder: 'Comma-separated', none: 'The ones it lists' }),
-    problem ? text(problem, { color: 'error' }) : undefined,
-    ctx.draw.button(
-      'endpoint:save',
-      'Save',
-      async () => {
-        if (!ready) {
-          setProblem('It needs a name and an address.');
-          return;
-        }
-        setProblem(undefined);
-        await ctx.call('env.saveEndpoint', {
-          ...(endpoint && !endpoint.builtIn ? { id: endpoint.id } : {}),
-          label: draft.label.trim(),
-          baseUrl: draft.baseUrl.trim(),
-          ...(draft.key ? { key: draft.key } : draft.clearKey ? { key: '' } : {}),
-          models: draft.models.split(/[,\n]/).map((m) => m.trim()).filter(Boolean),
-        });
-        setDraft(undefined);
-        ctx.refresh(LIST);
-        ctx.nav.back(ctx.pane);
-      },
-      { primary: true, hotkey: 'c' },
+    card(
+      [
+        col(
+          [
+            field(ctx, 'endpoint:label', 'Name', draft.label, (label) => edit({ label }), { placeholder: 'Work proxy' }),
+            field(ctx, 'endpoint:url', 'Address', draft.baseUrl, (baseUrl) => edit({ baseUrl }), { placeholder: OLLAMA_URL }),
+            col([
+              field(ctx, 'endpoint:key', 'Key', keyWords, (key) => edit({ key, clearKey: false }), { secret: true, placeholder: 'What you type isn’t shown again', none: 'None (Ollama needs none)' }),
+              hasKey && !draft.key ? ctx.draw.button('endpoint:clear-key', draft.clearKey ? 'Keep the Key' : 'Remove the Key', () => edit({ clearKey: !draft.clearKey }), { plain: true, dim: true }) : undefined,
+            ]),
+            field(ctx, 'endpoint:models', 'Models', draft.models, (models) => edit({ models }), { placeholder: 'Comma-separated', none: 'The ones it lists' }),
+          ],
+          { gap: 1 },
+        ),
+        problem ? text(problem, { color: 'error' }) : undefined,
+        actions(
+          ctx.draw.button(
+            'endpoint:save',
+            'Save',
+            async () => {
+              if (!ready) {
+                setProblem('It needs a name and an address.');
+                return;
+              }
+              setProblem(undefined);
+              await ctx.call('env.saveEndpoint', {
+                ...(endpoint && !endpoint.builtIn ? { id: endpoint.id } : {}),
+                label: draft.label.trim(),
+                baseUrl: draft.baseUrl.trim(),
+                ...(draft.key ? { key: draft.key } : draft.clearKey ? { key: '' } : {}),
+                models: draft.models.split(/[,\n]/).map((m) => m.trim()).filter(Boolean),
+              });
+              setDraft(undefined);
+              ctx.refresh(LIST);
+              ctx.nav.back(ctx.pane);
+            },
+            { primary: true, hotkey: 'c' },
+          ),
+        ),
+      ],
+      { title: endpoint ? (endpoint.builtIn ? 'Ollama on This Computer' : endpoint.label) : 'New Endpoint' },
     ),
   );
 }

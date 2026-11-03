@@ -1,10 +1,10 @@
-import { CLAUDE_CHANGED, MAX_RUN_AT_ONCE, type Recipe, type Sentinel, type SentinelDraft, activeSentinelChat, lastRunOf, pausedWords, scheduleSentence } from '../../core/sentinel/model.js';
+import { MAX_RUN_AT_ONCE, type Recipe, type Sentinel, type SentinelDraft, activeSentinelChat, lastRunOf, pausedWords, scheduleSentence } from '../../core/sentinel/model.js';
 import { ASSISTANT_TITLE } from '../../shared/assistant.js';
 import type { Ctx } from '../screens.js';
-import { type Node, type Span, col, dim, line, row, span, text, title } from '../tree.js';
-import { ago, back, empty, page } from './common.js';
-import { field, leave, loadNote, openRun, openSentinel, pick, top, windowed } from './sentinel-common.js';
-import { MAC_SCOPE, type Need, type Show, describedName, filterSentinels, footLine, groupSentinels, headlineOf, needsOf, nextText, recipeWhen, runStyle, runWord, scopesOf, troubleOf } from './sentinel-model.js';
+import { type Node, type Span, col, dim, row, span, text, title } from '../tree.js';
+import { actions, ago, back, card, empty, meta, page, pill, section } from './common.js';
+import { field, leave, loadNote, marked, openRun, openSentinel, pick, runPill, top, windowed } from './sentinel-common.js';
+import { MAC_SCOPE, type Need, type Show, describedName, filterSentinels, footLine, groupSentinels, headlineOf, needsOf, nextText, recipeWhen, scopesOf, troubleOf } from './sentinel-model.js';
 
 /** Sentinel's first page: what needs you and every sentinel as a row leading with what it found; and New Sentinel. */
 
@@ -29,43 +29,59 @@ const filtersOf = (ctx: Ctx): { readonly now: Filters; set(next: Partial<Filters
   return { now, set: (next) => setNow({ ...now, ...next }) };
 };
 
-/** A sentinel's row: its name and when it runs, then what it found last. */
-function sentinelRow(ctx: Ctx, s: Sentinel, now: number): Node {
+/** A sentinel's state as a pill: On, Paused (and why), or why it can't watch. */
+function statePill(ctx: Ctx, s: Sentinel): Span {
+  const trouble = troubleOf(ctx.state.sentinel, s);
+  if (s.paused) return pill(pausedWords(s) ?? 'Paused', s.pausedWhy ? 'warn' : 'quiet');
+  if (trouble) return pill(`Can’t watch: ${trouble}`, 'error');
+  return pill('On', 'ok');
+}
+
+/** A sentinel's card: its name, then whether it's on and when it runs, then what it found last. */
+function sentinelCard(ctx: Ctx, s: Sentinel, now: number): Node {
   const state = ctx.state.sentinel;
   const last = lastRunOf(state, s.id);
   const sentence = scheduleSentence(s.trigger, (id) => state.items.find((i) => i.id === id)?.name);
-  const trouble = troubleOf(state, s);
   const next = state.nextAt[s.id];
-  const broken = s.paused && s.pausedWhy && s.pausedWhy !== CLAUDE_CHANGED;
-  const status: Span = s.paused ? span(`  ${pausedWords(s) ?? 'Paused'}`, broken ? { color: 'warning' } : { dim: true }) : trouble ? span(`  Can’t watch: ${trouble}`, { color: 'error' }) : next !== undefined ? span(`  next ${nextText(next, now)}`, { dim: true }) : span('');
-  return col([
-    ctx.draw.button(`sn:${s.id}`, s.name, () => openSentinel(ctx, s.id), { plain: true, ...(s.paused ? { dim: true } : {}), spans: [span(s.name, { weight: 'semibold' }), span(`  ${sentence}`, { dim: true }), status] }),
-    last ? line(span(`${runWord(last.state)}  `, runStyle(last.state)), span(headlineOf(last)), span(`  ${ago(last.startedAt, now)}`, { dim: true })) : dim('Hasn’t run yet'),
-  ]);
+  const trouble = !s.paused && troubleOf(state, s);
+  return card(
+    [
+      ctx.draw.button(`sn:${s.id}`, s.name, () => openSentinel(ctx, s.id), { plain: true, spans: [span(s.name, { weight: 'bold' })] }),
+      meta(statePill(ctx, s), sentence, !s.paused && next !== undefined && `next ${nextText(next, now)}`),
+      last ? meta(runPill(last.state), span(headlineOf(last)), ago(last.startedAt, now)) : dim('Hasn’t run yet'),
+    ],
+    trouble ? { tone: 'error' } : {},
+  );
 }
 
-/** One thing waiting for you, with the one thing to do about it. */
-function needRow(ctx: Ctx, need: Need): Node {
+/** One thing waiting for you, as a card with the one thing to do about it. */
+function needCard(ctx: Ctx, need: Need): Node {
   const open = need.kind === 'merge' ? () => openRun(ctx, need.run) : () => openSentinel(ctx, need.sentinel.id);
-  return col([
-    ctx.draw.button(`need:${need.key}`, need.title, open, { plain: true, spans: [span(need.title, { weight: 'semibold' })] }),
-    dim(need.detail),
-    need.kind === 'merge'
-      ? row([
-          ctx.draw.button(`need:${need.key}:merge`, 'Merge', async () => {
-            await ctx.call('sentinel.decide', need.run.id, 'merge');
-            ctx.effect({ toast: need.run.pr ? `Merged #${need.run.pr.number}` : 'Merged' });
-          }, { plain: true }),
-          ctx.draw.button(`need:${need.key}:skip`, 'Not Now', async () => {
-            await ctx.call('sentinel.decide', need.run.id, 'skip');
-            ctx.effect({ toast: need.run.pr ? `#${need.run.pr.number} stays open` : 'Not now' });
-          }, { plain: true, dim: true }),
-        ])
-      : need.kind !== 'trouble' &&
-        row([
-          ctx.draw.button(`need:${need.key}:on`, need.kind === 'failing' ? 'Resume' : 'Turn On', () => ctx.call('sentinel.pause', need.sentinel.id, false), { plain: true }),
-        ]),
-  ]);
+  return card(
+    [
+      ctx.draw.button(`need:${need.key}`, need.title, open, { plain: true, spans: [span(need.title, { weight: 'bold' })] }),
+      dim(need.detail),
+      need.kind === 'merge'
+        ? actions(
+            ctx.draw.button(`need:${need.key}:merge`, 'Merge', async () => {
+              await ctx.call('sentinel.decide', need.run.id, 'merge');
+              ctx.effect({ toast: need.run.pr ? `Merged #${need.run.pr.number}` : 'Merged' });
+            }, { plain: true, spans: [span('Merge', { color: 'warning', weight: 'bold' })] }),
+            ctx.draw.button(`need:${need.key}:skip`, 'Not Now', async () => {
+              await ctx.call('sentinel.decide', need.run.id, 'skip');
+              ctx.effect({ toast: need.run.pr ? `#${need.run.pr.number} stays open` : 'Not now' });
+            }, { plain: true, dim: true }),
+          )
+        : need.kind !== 'trouble' &&
+          actions(
+            ctx.draw.button(`need:${need.key}:on`, need.kind === 'failing' ? 'Resume' : 'Turn On', () => ctx.call('sentinel.pause', need.sentinel.id, false), {
+              plain: true,
+              spans: [span(need.kind === 'failing' ? 'Resume' : 'Turn On', { color: 'warning', weight: 'bold' })],
+            }),
+          ),
+    ],
+    { tone: need.kind === 'trouble' ? 'error' : 'warn' },
+  );
 }
 
 /** Nothing set up yet: say what it is, and offer the ways in. */
@@ -77,19 +93,33 @@ function firstVisit(ctx: Ctx): Node {
     { id: 'site', label: 'Watch My Website', prompt: 'Check my website every 5 minutes and tell me the moment it stops answering, and when it’s back.' },
     { id: 'tests', label: 'Fix Failing Tests', prompt: 'When the tests fail on GitHub for one of my projects, have the agent fix it and open a pull request for me to merge.' },
   ];
-  return col(
-    [
-      title('Let your agent keep an eye on things'),
-      text('A sentinel runs the agent, a script or a service on a schedule or when something happens, and leaves a report. Say what you want to see; nothing runs until you turn it on.'),
-      ctx.draw.input('first:words', async (value) => askChat(ctx, value ?? ''), { placeholder: 'Every morning, tell me what changed and what needs me first', rows: 2, submitLabel: 'ask' }),
-      col(ideas.map((idea) => ctx.draw.button(`first:${idea.id}`, idea.label, () => askChat(ctx, idea.prompt), { plain: true }))),
-      row([
-        ctx.draw.button('first:recipes', 'Every recipe', () => ctx.go({ name: 'new', params: { way: 'recipe' } }), { plain: true, dim: true, hotkey: 'r' }),
-        ctx.draw.button('first:build', 'Build one step by step', () => ctx.go({ name: 'new', params: { way: 'build' } }), { plain: true, dim: true, hotkey: 'u' }),
-      ]),
-    ],
-    { gap: 1 },
-  );
+  return col([
+    card(
+      [
+        text('A sentinel runs the agent, a script or a service on a schedule or when something happens, and leaves a report. Say what you want to see; nothing runs until you turn it on.'),
+        col([ctx.draw.input('first:words', async (value) => askChat(ctx, value ?? ''), { placeholder: 'Every morning, tell me what changed and what needs me first', rows: 2, submitLabel: 'ask' })], { top: 1 }),
+      ],
+      { title: 'Let your agent keep an eye on things', tone: 'accent' },
+    ),
+    section('Ideas', ideas.map((idea) => ctx.draw.button(`first:${idea.id}`, idea.label, () => askChat(ctx, idea.prompt), { plain: true, spans: marked(idea.label) }))),
+    actions(
+      undefined,
+      ctx.draw.button('first:recipes', 'Every recipe', () => ctx.go({ name: 'new', params: { way: 'recipe' } }), { plain: true, dim: true, hotkey: 'r' }),
+      ctx.draw.button('first:build', 'Build one step by step', () => ctx.go({ name: 'new', params: { way: 'build' } }), { plain: true, dim: true, hotkey: 'u' }),
+    ),
+  ]);
+}
+
+/** The sentinels' cards, under a heading for each project when there's more than one. */
+function sentinelSections(ctx: Ctx, shown: ReadonlyArray<{ readonly item: Sentinel; readonly group: string }>, groups: ReadonlyArray<{ readonly name: string; readonly items: readonly Sentinel[] }>, total: number, now: number): Node[] {
+  const runs: Array<{ name: string; cards: Node[] }> = [];
+  for (const { item, group } of shown) {
+    const last = runs.at(-1);
+    if (last && last.name === group) last.cards.push(sentinelCard(ctx, item, now));
+    else runs.push({ name: group, cards: [sentinelCard(ctx, item, now)] });
+  }
+  if (groups.length <= 1) return [section('Sentinels', [col(runs.flatMap((r) => r.cards), { gap: 1 })], total)];
+  return runs.map((r) => section(r.name, [col(r.cards, { gap: 1 })], groups.find((g) => g.name === r.name)?.items.length));
 }
 
 export function listPage(ctx: Ctx): Node {
@@ -106,28 +136,18 @@ export function listPage(ctx: Ctx): Node {
   const rows = windowed(ctx, 'list', ordered);
   const needs = windowed(ctx, 'needs', needsOf(state, scope || undefined), { page: 10 });
   const filtered = scope !== '' || filters.now.show !== 'all' || filters.now.query !== '';
-  let group: string | undefined;
+  const waiting = needsOf(state, scope || undefined).length;
   return page(
     top(ctx, 'sentinels'),
-    row([ctx.draw.button('new', 'New Sentinel', () => ctx.go({ name: 'new' }), { primary: true, hotkey: 'n' }), state.items.length > 0 && ctx.draw.button('more', 'More', () => ctx.go({ name: 'list-more' }), { plain: true, dim: true, hotkey: 'm' })]),
+    row([ctx.draw.button('new', 'New Sentinel', () => ctx.go({ name: 'new' }), { primary: true, hotkey: 'n' }), state.items.length > 0 && ctx.draw.button('more', 'More', () => ctx.go({ name: 'list-more' }), { plain: true, dim: true, hotkey: 'm' })], { gap: 3 }),
     state.items.length === 0 && firstVisit(ctx),
-    needs.shown.length > 0 && col([line(span('Needs you', { color: 'warning', weight: 'semibold' })), needs.before, ...needs.shown.map((need) => needRow(ctx, need)), needs.after], { gap: 1 }),
-    state.items.length > 0 &&
-      col(
-        [
-          filtered && row([dim(`Showing ${shown.length} of ${state.items.length}`), ctx.draw.button('filters:clear', 'Show All', () => filters.set({ scope: '', show: 'all', query: '' }), { plain: true, dim: true })]),
-          ordered.length === 0 && empty('No sentinels match that.'),
-          rows.before,
-          ...rows.shown.flatMap(({ item, group: name }) => {
-            const heading = groups.length > 1 && name !== group ? title(name) : undefined;
-            group = name;
-            return [heading, sentinelRow(ctx, item, now)];
-          }),
-          rows.after,
-          dim(footLine(state.items, state.runs, now)),
-        ],
-        { gap: 1 },
-      ),
+    needs.shown.length > 0 && section('Needs you', [col([needs.before, ...needs.shown.map((need) => needCard(ctx, need)), needs.after], { gap: 1 })], waiting),
+    filtered && row([dim(`Showing ${shown.length} of ${state.items.length}`), ctx.draw.button('filters:clear', 'Show All', () => filters.set({ scope: '', show: 'all', query: '' }), { plain: true })], { gap: 2 }),
+    state.items.length > 0 && ordered.length === 0 && empty('No sentinels match that.'),
+    rows.before,
+    ...(ordered.length > 0 ? sentinelSections(ctx, rows.shown, groups, ordered.length, now) : []),
+    rows.after,
+    state.items.length > 0 && dim(footLine(state.items, state.runs, now)),
   );
 }
 
@@ -139,12 +159,21 @@ export function listMorePage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx, 'Sentinels'),
-    title('Sentinels'),
-    field(ctx, 'find', 'Find', filters.now.query, (value) => filters.set({ query: value.trim() }), { placeholder: 'A sentinel’s name, trigger or steps', submitLabel: 'find' }),
-    pick(ctx, 'scope', 'Project', scopes, filters.now.scope, (scope) => filters.set({ scope })),
-    pick(ctx, 'show', 'Show', [{ value: 'all', label: 'All' }, { value: 'watching', label: 'Watching' }, { value: 'paused', label: 'Paused' }], filters.now.show, (show) => filters.set({ show: show as Show })),
-    pick(ctx, 'run-at-once', 'Run at once', Array.from({ length: MAX_RUN_AT_ONCE }, (_, i) => ({ value: String(i + 1), label: i === 0 ? '1 at a time' : `${i + 1} at once` })), String(state.runAtOnce), (n) => ctx.call('sentinel.setRunAtOnce', Number(n))),
-    dim('How many agent steps run together, across all your sentinels.'),
+    card(
+      [
+        field(ctx, 'find', 'Find', filters.now.query, (value) => filters.set({ query: value.trim() }), { placeholder: 'A sentinel’s name, trigger or steps', submitLabel: 'find' }),
+        pick(ctx, 'scope', 'Project', scopes, filters.now.scope, (scope) => filters.set({ scope })),
+        pick(ctx, 'show', 'Show', [{ value: 'all', label: 'All' }, { value: 'watching', label: 'Watching' }, { value: 'paused', label: 'Paused' }], filters.now.show, (show) => filters.set({ show: show as Show })),
+      ],
+      { title: 'Which sentinels the list shows' },
+    ),
+    card(
+      [
+        pick(ctx, 'run-at-once', 'Run at once', Array.from({ length: MAX_RUN_AT_ONCE }, (_, i) => ({ value: String(i + 1), label: i === 0 ? '1 at a time' : `${i + 1} at once` })), String(state.runAtOnce), (n) => ctx.call('sentinel.setRunAtOnce', Number(n))),
+        dim('How many agent steps run together, across all your sentinels.'),
+      ],
+      { title: 'Agents at once' },
+    ),
   );
 }
 
@@ -180,37 +209,46 @@ export function newPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx, 'Sentinels'),
-    title('New Sentinel'),
-    dim('A sentinel runs on a schedule or when you press Run, does its steps in order, and leaves a report. It starts paused: you look it over, then turn it on.'),
-    row(WAYS.map((w) => ctx.draw.button(`way:${w.value}`, w.label, () => setWay(w.value), { plain: true, hotkey: w.hotkey, ...(w.value === way ? {} : { dim: true }) }))),
-    dim(WAYS.find((w) => w.value === way)?.line ?? ''),
-    pick(ctx, 'where', 'Where', [{ value: MAC_SCOPE, label: ASSISTANT_TITLE }, ...projects.map((p) => ({ value: p.id, label: p.name }))], projectId ?? MAC_SCOPE, setWhere),
-    way === 'describe' &&
-      ctx.draw.input(
-        'new:words',
-        async (value) => {
-          const words = value?.trim();
-          if (!words) return;
-          const made = await make({ name: describedName(words), trigger: { kind: 'manual' }, steps: [] });
-          open(made.id);
-          // An empty, paused sentinel, then your agent fills it in from the words.
-          await ctx.call('sentinel.ask', made.id, words);
-        },
-        { label: 'What should it do?', placeholder: 'Every weekday morning, read yesterday’s commits and open issues, write me a brief, and create tasks for anything that looks urgent', rows: 4, submitLabel: 'write it', autoFocus: true },
+    col([title('New Sentinel'), dim('A sentinel runs on a schedule or when you press Run, does its steps in order, and leaves a report. It starts paused: you look it over, then turn it on.')]),
+    row(
+      WAYS.map((w) =>
+        ctx.draw.button(`way:${w.value}`, w.label, () => setWay(w.value), { plain: true, hotkey: w.hotkey, spans: w.value === way ? [span(`● ${w.label}`, { color: 'claude', weight: 'bold' })] : [span(`○ ${w.label}`, { dim: true })] }),
       ),
-    way === 'describe' && dim(`Your agent sets it up in ${place}, looking at the project first when that helps.`),
-    way === 'build' &&
-      ctx.draw.input(
-        'new:name',
-        async (value) => {
-          const name = value?.trim();
-          if (!name) return;
-          const made = await make({ name, trigger: { kind: 'manual' }, steps: [] });
-          open(made.id);
-        },
-        { label: 'Name', placeholder: 'Morning brief', submitLabel: 'make it', autoFocus: true },
-      ),
-    way === 'build' && dim(`In ${place}; it runs when you press Run until you give it a schedule.`),
+      { gap: 3 },
+    ),
+    card(
+      [
+        dim(WAYS.find((w) => w.value === way)?.line ?? ''),
+        pick(ctx, 'where', 'Where', [{ value: MAC_SCOPE, label: ASSISTANT_TITLE }, ...projects.map((p) => ({ value: p.id, label: p.name }))], projectId ?? MAC_SCOPE, setWhere),
+        way === 'describe' &&
+          ctx.draw.input(
+            'new:words',
+            async (value) => {
+              const words = value?.trim();
+              if (!words) return;
+              const made = await make({ name: describedName(words), trigger: { kind: 'manual' }, steps: [] });
+              open(made.id);
+              // An empty, paused sentinel, then your agent fills it in from the words.
+              await ctx.call('sentinel.ask', made.id, words);
+            },
+            { label: 'What should it do?', placeholder: 'Every weekday morning, read yesterday’s commits and open issues, write me a brief, and create tasks for anything that looks urgent', rows: 4, submitLabel: 'write it', autoFocus: true },
+          ),
+        way === 'describe' && dim(`Your agent sets it up in ${place}, looking at the project first when that helps.`),
+        way === 'build' &&
+          ctx.draw.input(
+            'new:name',
+            async (value) => {
+              const name = value?.trim();
+              if (!name) return;
+              const made = await make({ name, trigger: { kind: 'manual' }, steps: [] });
+              open(made.id);
+            },
+            { label: 'Name', placeholder: 'Morning brief', submitLabel: 'make it', autoFocus: true },
+          ),
+        way === 'build' && dim(`In ${place}; it runs when you press Run until you give it a schedule.`),
+      ],
+      { title: WAYS.find((w) => w.value === way)?.label ?? '' },
+    ),
     way === 'recipe' && recipes(ctx, make, open),
   );
 }
@@ -229,20 +267,15 @@ function recipes(ctx: Ctx, make: (draft: SentinelDraft) => Promise<Sentinel>, op
           if (r.then) await make({ ...r.then.sentinel, trigger: { kind: 'after', sentinelId: made.id, on: r.then.on } });
           open(made.id);
         },
-        { plain: true, spans: [span(r.name, { weight: 'semibold' }), span(`  ${recipeWhen(r)}`, { dim: true })] },
+        { plain: true, spans: [span('› ', { dim: true }), span(r.name, { weight: 'bold' }), span(`  ${recipeWhen(r)}`, { dim: true })] },
       ),
-      dim(r.line),
+      dim(`  ${r.line}`),
     ]);
   const plain = all.filter((r) => r.group !== 'numbers');
   const numbers = all.filter((r) => r.group === 'numbers');
-  return col(
-    [
-      loadNote(loaded, 'Reading the recipes...'),
-      plain.length > 0 && col(plain.map(recipeRow), { gap: 1 }),
-      numbers.length > 0 && title('Keep the numbers'),
-      numbers.length > 0 && dim('They show on the sentinel’s page and your dashboards.'),
-      numbers.length > 0 && col(numbers.map(recipeRow), { gap: 1 }),
-    ],
-    { gap: 1 },
-  );
+  return col([
+    loadNote(loaded, 'Reading the recipes...'),
+    plain.length > 0 && section('Recipes', [col(plain.map(recipeRow), { gap: 1, top: 1 })], plain.length),
+    numbers.length > 0 && section('Keep the numbers', [dim('They show on the sentinel’s page and your dashboards.'), col(numbers.map(recipeRow), { gap: 1, top: 1 })], numbers.length),
+  ]);
 }

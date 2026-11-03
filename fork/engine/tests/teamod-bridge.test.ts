@@ -99,8 +99,8 @@ describe('the bridge', () => {
   it('opens a pane by its name, and an empty command opens Work', async () => {
     const { bridge } = await start();
     const command = (text: string): Promise<{ status: number; body: unknown }> => ask(bridge.socketPath, '/command', { key: bridge.key, method: 'POST', body: JSON.stringify({ text }) });
-    expect((await command('')).body).toEqual({ open: 'work', title: 'Work' });
-    expect((await command('team')).body).toEqual({ open: 'team', title: 'Team' });
+    expect((await command('')).body).toEqual({ open: 'work', title: 'Work', said: 'Work opened.' });
+    expect((await command('team')).body).toEqual({ open: 'team', title: 'Team', said: 'Team opened.' });
   });
 
   it('stays quiet about a change no shown view draws', async () => {

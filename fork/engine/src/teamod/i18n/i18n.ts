@@ -30,6 +30,8 @@ export const isRtlLang = (lang: Lang): boolean => lang === 'he';
 
 interface Pattern {
   readonly re: RegExp;
+  /** Its English joins parts with ` · ` itself; any other pattern leaves joined text to be split. */
+  readonly joins: boolean;
   readonly holes: readonly number[];
   readonly out: string;
 }
@@ -39,6 +41,7 @@ interface Compiled {
   readonly patterns: readonly Pattern[];
 }
 
+const SEPARATOR = ' · ';
 const HOLE = /\{(#?)(\d+)\}/g;
 const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -62,7 +65,7 @@ function compile(catalog: Catalog): Compiled {
       last = m.index + m[0].length;
     }
     source += `${escape(en.slice(last))}$`;
-    patterns.push({ re: new RegExp(source, 's'), holes, out });
+    patterns.push({ re: new RegExp(source, 's'), joins: en.includes(SEPARATOR), holes, out });
   }
   // The pattern with the most fixed text first: "{0} commits not in main" before "{0} commits".
   const fixed = (p: Pattern): number => p.re.source.replace(/\((?:\.\+\?|\\d\+\(\?:\[\.,\]\\d\+\)\?)\)/g, '').length;
@@ -80,7 +83,6 @@ const compiledFor = (lang: Exclude<Lang, 'en'>): Compiled => {
   return found;
 };
 
-const SEPARATOR = ' · ';
 
 /** One piece of English in `lang`, or itself when the catalog has nothing for it. */
 export function translate(text: string, lang: Lang): string {
@@ -89,22 +91,23 @@ export function translate(text: string, lang: Lang): string {
   const trail = /\s*$/.exec(text)![0];
   const core = text.slice(lead.length, text.length - trail.length);
   if (!core) return text;
-  const c = compiledFor(lang);
-  const found = lookup(core, c, 0);
-  if (found !== undefined) return `${lead}${found}${trail}`;
-  // An icon before it or a colon after it ("◆ Work", "Branch:"): the words are the same words.
-  const m = /^([^\p{L}\p{N}]*?)(\p{L}[\s\S]*?)([:.…?!]*)$/u.exec(core);
-  if (m && (m[1] || m[3])) {
-    const inner = lookup(m[2]!, c, 0);
-    if (inner !== undefined) return `${lead}${m[1]}${inner}${m[3]}${trail}`;
-  }
-  return text;
+  const found = lookup(core, compiledFor(lang), 0);
+  return found === undefined ? text : `${lead}${found}${trail}`;
 }
 
 function lookup(core: string, c: Compiled, depth: number): string | undefined {
   const exact = c.exact.get(core);
   if (exact !== undefined) return exact;
+  // A symbol in front ("● 1 commit not in main") is read past before any pattern can take it whole.
+  const icon = /^([^\p{L}\p{N}\s]+\s*)([\p{L}\p{N}][\s\S]*)$/u.exec(core);
+  if (icon) {
+    const inner = lookup(icon[2]!, c, depth);
+    if (inner !== undefined) return `${icon[1]}${inner}`;
+  }
+  const joined = core.includes(SEPARATOR);
   for (const p of c.patterns) {
+    // "{0} Board" must not take "Work · Board" whole: that's two parts, each translated.
+    if (joined && !p.joins) continue;
     const m = p.re.exec(core);
     if (!m) continue;
     const values = new Map<number, string>();
@@ -119,6 +122,12 @@ function lookup(core: string, c: Compiled, depth: number): string | undefined {
     const parts = core.split(SEPARATOR);
     const done = parts.map((part) => lookup(part, c, depth + 1));
     if (done.some((d) => d !== undefined)) return parts.map((part, i) => done[i] ?? part).join(SEPARATOR);
+  }
+  // An icon before it or a colon after it ("◆ Work", "Branch:", "● Ready to merge"): the same words.
+  const m = /^([^\p{L}\p{N}]*?)([\p{L}\p{N}][\s\S]*?)([:.…?!]*)$/u.exec(core);
+  if (m && (m[1] || m[3])) {
+    const inner = lookup(m[2]!, c, depth);
+    if (inner !== undefined) return `${m[1]}${inner}${m[3]}`;
   }
   return undefined;
 }
@@ -148,6 +157,8 @@ export function localize(node: Node, lang: Lang): Node {
       return { ...node, alt: translate(node.alt, lang) };
     case 'svg':
       return { ...node, alt: translate(node.alt, lang) };
+    case 'link':
+      return { ...node, text: translate(node.text, lang) };
     default:
       return node;
   }

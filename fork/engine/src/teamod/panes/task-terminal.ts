@@ -2,7 +2,8 @@ import { agentTermId, globalShellId, globalShellNumber, isGlobalShell, runId, se
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
 import { richNodes } from '../rich/rich.js';
-import { type Node, col, dim, row, text, title } from '../tree.js';
+import { type Node, col, dim, row, span, text } from '../tree.js';
+import { actions, card } from './common.js';
 
 /** How tall a terminal draws, given what the pane has. */
 const TERM_ROWS_SPARE = 9;
@@ -36,53 +37,80 @@ export function terminalPage(ctx: Ctx, ws: Workspace): Node {
   ctx.load(`term:${ws.id}:shell`, () => ctx.call('terminals.shell', ws.id, size));
   const hub = ctx.terminals;
   const exited = shown !== undefined && shown in ctx.state.termExits;
+  /** A quiet control: its label for the keys, a short sign on the screen. */
+  const quiet = (key: string, label: string, sign: string, press: () => unknown, extra: { readonly hotkey?: string } = {}): Node =>
+    ctx.draw.button(key, label, press, { plain: true, dim: true, ...extra, ...(sign !== label ? { spans: [span(sign, { dim: true })] } : {}) });
   return col([
-    row([
-      ...keys.map((key) =>
-        ctx.draw.button(`term-tab:${key}`, terminalLabel(key, ctx.state.termNames), () => setWanted(key), { plain: true, ...(key === shown ? {} : { dim: true }) }),
-      ),
-      ctx.draw.button(
-        'term-new',
-        'New',
-        async () => {
-          const key = nextShell(ctx);
-          await ctx.call('terminals.global', key, ws.path, size);
-          setExtras([...extras, key]);
-          setWanted(key);
-        },
-        { plain: true, hotkey: 'n', dim: true },
-      ),
-      ctx.draw.button('term-run', 'Run', () => ctx.call('workbench.run', ws.id), { plain: true, hotkey: 'u', dim: true }),
-      runId(ws.id) in ctx.state.terminals ? ctx.draw.button('term-stop-run', 'Stop Run', () => ctx.call('workbench.stopRun', ws.id), { plain: true, dim: true }) : undefined,
-      ctx.draw.button('term-setup', 'Setup', () => ctx.call('workbench.runSetup', ws.id), { plain: true, dim: true }),
-      ctx.draw.button('term-agent', 'Agent', () => ctx.call('agentTerm.open', ws.id, size), { plain: true, dim: true }),
-      ctx.state.agentTerms[ws.id] ? ctx.draw.button('term-take-over', 'Back to Chat', () => ctx.call('agentTerm.takeOver', ws.id), { plain: true, dim: true }) : undefined,
-      ctx.draw.button('term-scripts', 'Scripts', () => ctx.go({ name: 'scripts', params: { id: ws.id } }), { plain: true, dim: true }),
-    ]),
+    row(
+      [
+        row(
+          [
+            ...keys.map((key) => {
+              const label = terminalLabel(key, ctx.state.termNames);
+              return ctx.draw.button(`term-tab:${key}`, label, () => setWanted(key), {
+                plain: true,
+                ...(key === shown ? { spans: [span(label, { color: 'claude', weight: 'bold' })] } : { dim: true }),
+              });
+            }),
+            ctx.draw.button(
+              'term-new',
+              'New',
+              async () => {
+                const key = nextShell(ctx);
+                await ctx.call('terminals.global', key, ws.path, size);
+                setExtras([...extras, key]);
+                setWanted(key);
+              },
+              { plain: true, hotkey: 'n', dim: true, spans: [span('+ ', { dim: true }), span('New', { dim: true })] },
+            ),
+          ],
+          { gap: 2 },
+        ),
+        row(
+          [
+            ctx.draw.button('term-run', 'Run', () => ctx.call('workbench.run', ws.id), { plain: true, hotkey: 'u', dim: true }),
+            runId(ws.id) in ctx.state.terminals ? ctx.draw.button('term-stop-run', 'Stop Run', () => ctx.call('workbench.stopRun', ws.id), { plain: true, dim: true }) : undefined,
+            ctx.draw.button('term-setup', 'Setup', () => ctx.call('workbench.runSetup', ws.id), { plain: true, dim: true }),
+            ctx.draw.button('term-agent', 'Agent', () => ctx.call('agentTerm.open', ws.id, size), { plain: true, dim: true }),
+            ctx.state.agentTerms[ws.id] ? ctx.draw.button('term-take-over', 'Back to Chat', () => ctx.call('agentTerm.takeOver', ws.id), { plain: true, dim: true }) : undefined,
+            ctx.draw.button('term-scripts', 'Scripts', () => ctx.go({ name: 'scripts', params: { id: ws.id } }), { plain: true, dim: true }),
+          ],
+          { gap: 2 },
+        ),
+      ],
+      { justify: 'space-between' },
+    ),
     shown === undefined ? dim('Opening a shell...') : undefined,
     shown !== undefined && { k: 'term', key: `term:${shown}`, term: shown, height: size.rows },
+    exited
+      ? card(
+          [
+            text(`It ended${ctx.state.termExits[shown!] !== null ? ` with code ${ctx.state.termExits[shown!]}` : ''}.`, { dim: true }),
+            actions(ctx.draw.button('term-restart', 'Restart', () => ctx.call('terminals.restart', shown), { hotkey: 'r', primary: true })),
+          ],
+          { tone: 'warn' },
+        )
+      : undefined,
     shown !== undefined &&
-      row([
-        ctx.draw.button('term-ctrl-c', 'Ctrl-C', () => hub?.write(shown, '\x03'), { plain: true, dim: true }),
-        ctx.draw.button('term-ctrl-z', 'Ctrl-Z', () => hub?.write(shown, '\x1a'), { plain: true, dim: true }),
-        ctx.draw.button('term-ctrl-d', 'Ctrl-D', () => hub?.write(shown, '\x04'), { plain: true, dim: true }),
-        ctx.draw.button('term-esc', 'Esc', () => hub?.write(shown, '\x1b'), { plain: true, dim: true }),
-        ctx.draw.button('term-up', 'Scroll Up', () => hub?.scroll(shown, size.rows - 1), { plain: true, dim: true }),
-        ctx.draw.button('term-down', 'Scroll Down', () => hub?.scroll(shown, 1 - size.rows), { plain: true, dim: true }),
-        ctx.draw.button('term-copy', 'Copy Screen', () => ctx.call('session.copyText', hub?.text(shown) ?? ''), { plain: true, dim: true }),
-        ctx.draw.button('term-rename', 'Rename', () => setRenaming(true), { plain: true, dim: true }),
-        exited ? ctx.draw.button('term-restart', 'Restart', () => ctx.call('terminals.restart', shown), { hotkey: 'r', primary: true }) : undefined,
-        ctx.draw.button(
-          'term-close',
-          'Close',
-          async () => {
+      row(
+        [
+          quiet('term-ctrl-c', 'Ctrl-C', '^C', () => hub?.write(shown, '\x03')),
+          quiet('term-ctrl-z', 'Ctrl-Z', '^Z', () => hub?.write(shown, '\x1a')),
+          quiet('term-ctrl-d', 'Ctrl-D', '^D', () => hub?.write(shown, '\x04')),
+          quiet('term-esc', 'Esc', 'Esc', () => hub?.write(shown, '\x1b')),
+          quiet('term-up', 'Scroll Up', '↑', () => hub?.scroll(shown, size.rows - 1)),
+          quiet('term-down', 'Scroll Down', '↓', () => hub?.scroll(shown, 1 - size.rows)),
+          dim('│'),
+          quiet('term-copy', 'Copy Screen', 'Copy', () => ctx.call('session.copyText', hub?.text(shown) ?? '')),
+          quiet('term-rename', 'Rename', 'Rename', () => setRenaming(true)),
+          quiet('term-close', 'Close', 'Close', async () => {
             hub?.closeOne(shown);
             await ctx.call('terminals.close', shown);
             setWanted(undefined);
-          },
-          { plain: true, dim: true },
-        ),
-      ]),
+          }),
+        ],
+        { gap: 2 },
+      ),
     renaming && shown !== undefined
       ? ctx.draw.input(
           'term-name',
@@ -93,7 +121,6 @@ export function terminalPage(ctx: Ctx, ws: Workspace): Node {
           { label: 'Name', value: terminalLabel(shown, ctx.state.termNames), submitLabel: 'rename', autoFocus: true },
         )
       : undefined,
-    exited ? text(`It ended${ctx.state.termExits[shown!] !== null ? ` with code ${ctx.state.termExits[shown!]}` : ''}.`, { dim: true }) : undefined,
     ctx.state.agentTerms[ws.id]
       ? ctx.draw.input(
           'term-visual',
@@ -120,14 +147,13 @@ export function visualPage(ctx: Ctx, ws: Workspace, n: number): Node {
 export function scriptsPage(ctx: Ctx, ws: Workspace): Node {
   const project = ctx.state.projects.find((p) => p.id === ws.projectId);
   const scripts = project?.scripts;
-  return col(
+  return card(
     [
-      title('Scripts'),
       dim('Setup runs in each new worktree. Run is what the Run button starts.'),
       ...(['setup', 'run'] as const).map((kind) =>
-        ctx.draw.input(`script:${kind}`, (value) => ctx.call('workbench.setScript', ws.projectId, kind, value?.trim() ?? ''), { label: kind === 'setup' ? 'Setup' : 'Run', value: scripts?.[kind]?.command ?? '', placeholder: 'A shell command', submitLabel: 'save' }),
+        col([ctx.draw.input(`script:${kind}`, (value) => ctx.call('workbench.setScript', ws.projectId, kind, value?.trim() ?? ''), { label: kind === 'setup' ? 'Setup' : 'Run', value: scripts?.[kind]?.command ?? '', placeholder: 'A shell command', submitLabel: 'save' })], { top: 1 }),
       ),
     ],
-    { gap: 1 },
+    { title: 'Scripts' },
   );
 }

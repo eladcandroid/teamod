@@ -16,13 +16,18 @@ export interface Presentation {
   readonly keys: boolean;
   /** The columns the tree is drawn in. */
   readonly columns: number;
+  /**
+   * Lay the screen out from the right. Left out: as the language reads. An answer in the chat
+   * follows its own words instead (each paragraph by its first letter), whatever the language.
+   */
+  readonly layoutRtl?: boolean;
 }
 
 /** Controls whose hotkey always shows: the one that brings the others back. */
 export const ALWAYS_KEYED = new Set(['keys']);
 
 export function present(tree: Node, p: Presentation): Node {
-  const rtl = isRtlLang(p.lang);
+  const rtl = p.layoutRtl ?? isRtlLang(p.lang);
   let out = localize(tree, p.lang);
   if (!p.keys) out = hideKeys(out);
   return arrange(out, { rtl, fix: p.fixRtl, width: p.columns, inRow: false });
@@ -56,7 +61,9 @@ function arrange(node: Node, w: Where): Node {
       const widths = isRow ? rowWidths(node.children, inner, node.gap ?? 0) : undefined;
       const children = node.children.map((c, i) => arrange(c, { ...w, width: widths ? widths[i]! : inner, inRow: isRow || w.inRow }));
       if (!w.rtl) return { ...node, children };
-      return isRow ? { ...node, reverse: !node.reverse, children } : { ...node, ...(node.align ? {} : { align: 'flex-end' }), children };
+      if (isRow) return { ...node, reverse: !node.reverse, children };
+      // A column keeps its width (a card spans the pane); what sits in it goes against the right edge.
+      return { ...node, children: children.map(againstRight) };
     }
     case 'text': {
       const all = spanText(node.spans);
@@ -67,7 +74,8 @@ function arrange(node: Node, w: Where): Node {
       const direction = w.rtl ? 'rtl' : 'auto';
       const fits = w.width === 0 || stringWidth(all) <= w.width;
       const { lines, base } = visualLines(node.spans, fits ? 0 : w.width, direction);
-      if (lines.length === 1) return { k: 'text', spans: lines[0]! };
+      if (lines.length === 1 && (base === 'ltr' || w.inRow)) return { k: 'text', spans: lines[0]! };
+      // A right-to-left paragraph sits against the right edge, every line of it.
       return { k: 'box', dir: 'column', ...(base === 'rtl' ? { align: 'flex-end' } : {}), children: lines.map((spans) => ({ k: 'text', spans })) };
     }
     case 'button': {
@@ -91,8 +99,24 @@ function arrange(node: Node, w: Where): Node {
       }
       return { ...node, ...(node.label ? { label: visualText(node.label) } : {}), options };
     }
+    case 'link':
+      return w.fix ? { ...node, text: visualText(node.text, w.rtl ? 'rtl' : 'auto') } : node;
     case 'md':
       return w.fix && hasRtl(node.text) ? arrange({ k: 'box', dir: 'column', children: markdownLines(node.text) }, w) : node;
+    default:
+      return node;
+  }
+}
+
+/** A row's worth of content pushed to the right edge; boxes, code and terminals keep their width. */
+function againstRight(node: Node): Node {
+  switch (node.k) {
+    case 'text':
+    case 'button':
+    case 'input':
+    case 'select':
+    case 'link':
+      return { k: 'box', dir: 'row', reverse: true, children: [node] };
     default:
       return node;
   }

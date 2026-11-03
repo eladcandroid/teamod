@@ -10,6 +10,7 @@ import { TASKS_FENCE, readTaskKeys } from '../../shared/task-refs.js';
 import { type Column, parseView, type Row, type View, type ViewFetchResult, viewFenceType } from '../../shared/view-spec.js';
 import type { Ctx } from '../screens.js';
 import { type Node, code, col, dim, line, md, span, text, title } from '../tree.js';
+import { actions, card } from '../panes/common.js';
 import { graphSvg } from './graph-svg.js';
 import { calendarSvg, chartSvg, ganttSvg, heatmapSvg } from './svg.js';
 
@@ -100,7 +101,7 @@ function rowsOf(ctx: Ctx, view: View, key: string): { readonly rows: readonly Ro
   if ('needsApproval' in page) {
     return {
       rows: view.rows,
-      note: col([dim(`This view wants to run: ${page.what}`), ctx.draw.button(`view-run:${key}`, 'Run It', () => setConfirmed(true), {})]),
+      note: card([dim('This view wants to run:'), line(span(page.what)), actions(ctx.draw.button(`view-run:${key}`, 'Run It', () => setConfirmed(true), {}))], { tone: 'warn' }),
     };
   }
   if ('notKept' in page) return { rows: view.rows };
@@ -181,7 +182,7 @@ function tasksNode(ctx: Ctx, body: string): Node {
     keys.map((key) => {
       const issue = issues.find((t) => t.key.toUpperCase() === key);
       if (!issue) return dim(`${key}: not on this board.`);
-      return ctx.draw.button(`task-card:${key}`, key, () => ctx.show('board', { name: 'task', params: { id: issue.id } }), { plain: true, spans: [span(`${key} `, { dim: true }), span(issue.title), span(`  ${issue.status}`, { dim: true })] });
+      return ctx.draw.button(`task-card:${key}`, key, () => ctx.show('board', { name: 'task', params: { id: issue.id } }), { plain: true, spans: [span('▸ ', { color: 'claude' }), span(`${key}  `, { dim: true }), span(issue.title, { weight: 'semibold' }), span('  ', { dim: true }), span(issue.status, { dim: true })] });
     }),
   );
 }

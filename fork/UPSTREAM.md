@@ -27,5 +27,5 @@ New code goes in `engine/src/teamod/` and `engine/tests/teamod-*.test.ts`, which
 | `tests/invite.test.ts`, `tests/mesh/{friend-offers,groups,pairing,protocol}.test.ts`, `tests/rename-{teamod,compat}.test.ts` | Updated to the patches above | They pinned teamod's links and labels |
 | `src/agent/types.ts`, `src/agent/runtime/claude/{runner,terminal}.ts`, `src/core/agent-host.ts` | `sessionTools`: the same tools a run gets, behind the same gate, for a Claude Code session that isn't a run | The session plays the role of "Your Mac" |
 | `src/ipc/api.ts`, `src/ipc/handlers.ts`, `src/ipc/teamod-{api,handlers}.ts`, `src/companion/coverage.ts`, `docs/parity.md` | `teamod.sessionTools`, `teamod.closeSessionTools` | The bridge mounts those tools |
-| `package.json`, `package-lock.json` | Add `elkjs` | Lays out graphs in the bridge; the Mac app already used it |
+| `package.json`, `package-lock.json` | Add `elkjs`, `bidi-js` (1.0.3, MIT) | Lays out graphs in the bridge; the Mac app already used it. Orders Hebrew for terminals that draw rows left to right |
 | `src/agent/run-instructions.ts` | Lanes are told "teamod" when `TEAMOD_DAEMON` is set | An agent shouldn't say it runs in teamod |

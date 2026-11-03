@@ -5,9 +5,9 @@ import { agentLabel } from '../../shared/agent-label.js';
 import { queueIn } from '../../ui/compose.js';
 import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, page, peerText } from './common.js';
+import { ago, back, card, empty, meta, page, peerText, pill, section } from './common.js';
 import { askRoute } from './sentinel-asks.js';
-import { attention, openSentinel, top, windowed } from './sentinel-common.js';
+import { attention, marked, openSentinel, top, windowed } from './sentinel-common.js';
 
 /**
  * The Sentinel chat: conversations with your own agent about the whole of Sentinel. Each is a normal
@@ -26,20 +26,20 @@ function agentCard(ctx: Ctx, item: AgentItem): Node {
   // A sentinel your agent names opens from here, as a pill does on the Mac.
   const named = [...new Set([...item.text.matchAll(/sentinel:([\w-]+)/g)].map((m) => m[1]!))].flatMap((id) => ctx.state.sentinel.items.filter((s) => s.id === id));
   return col([
-    line(span(agentLabel(item.agent, undefined, true, { capital: true }), { weight: 'semibold', color: 'claude' }), span(`  ${ago(item.ts)}`, { dim: true }), running && span(item.status === 'queued' ? '  waiting its turn' : '  working', { color: 'claude' })),
+    line(span(`✦ ${agentLabel(item.agent, undefined, true, { capital: true })}`, { weight: 'bold', color: 'claude' }), span(`  ${ago(item.ts)}`, { dim: true }), running && span(item.status === 'queued' ? '  waiting its turn' : '  working', { color: 'claude' })),
     steps > 0 && dim(`${steps} step${steps === 1 ? '' : 's'}${running && latest ? `, now: ${latest}` : ''}`),
     item.text ? md(peerText(item.text)) : undefined,
     item.status === 'error' && text('This run failed.', { color: 'error' }),
     item.status === 'denied' && dim('Declined.'),
     item.status === 'interrupted' && dim('Stopped.'),
-    named.length > 0 && row(named.map((s) => ctx.draw.button(`named:${item.id}:${s.id}`, `Open ${s.name}`, () => openSentinel(ctx, s.id), { plain: true }))),
+    named.length > 0 && row(named.map((s) => ctx.draw.button(`named:${item.id}:${s.id}`, `Open ${s.name}`, () => openSentinel(ctx, s.id), { plain: true, spans: [span('› ', { dim: true }), span('Open'), span(` ${s.name}`)] })), { gap: 2 }),
   ]);
 }
 
 function logRow(ctx: Ctx, item: LogItem): Node | undefined {
   switch (item.type) {
     case 'chat':
-      return col([line(span(item.name, { weight: 'semibold' }), span(`  ${ago(item.ts)}`, { dim: true })), md(item.byAgent ? peerText(item.text) : item.text)]);
+      return col([line(span(item.name, { weight: 'bold' }), span(`  ${ago(item.ts)}`, { dim: true })), md(item.byAgent ? peerText(item.text) : item.text)]);
     case 'agent':
       return agentCard(ctx, item);
     case 'system':
@@ -63,7 +63,7 @@ function queued(ctx: Ctx, channel: string): Node | undefined {
   const list = queueIn(ctx.state, channel, ctx.state.selfId);
   if (!list.length) return undefined;
   const shown = windowed(ctx, `queue:${channel}`, list, { page: 20 });
-  return col([dim(`Waiting (${list.length})`), shown.before, ...shown.shown.map((q) => row([text(q.prompt.split('\n')[0]?.slice(0, 80) || 'A message'), q.yours ? ctx.draw.button(`queue:${q.requestId}:drop`, 'Remove', () => ctx.call('host.cancelQueued', q.requestId), { plain: true, dim: true }) : undefined])), shown.after]);
+  return card([shown.before, ...shown.shown.map((q) => row([text(q.prompt.split('\n')[0]?.slice(0, 80) || 'A message'), q.yours ? ctx.draw.button(`queue:${q.requestId}:drop`, 'Remove', () => ctx.call('host.cancelQueued', q.requestId), { plain: true, dim: true }) : undefined], { gap: 2 })), shown.after], { title: [span(`Waiting (${list.length})`, { weight: 'bold' })] });
 }
 
 /** What the empty chat offers: what your agent makes here, with a few first asks. */
@@ -94,22 +94,23 @@ export function chatPage(ctx: Ctx, named: string | undefined): Node {
   return page(
     top(ctx, 'chat'),
     back(ctx, named ? 'Chats' : 'Back'),
-    row([
-      title(sentinelChatTitle(channel, ctx.state.log)),
-      chats.length > 1 && ctx.draw.button('chats', `Chats (${chats.length})`, () => ctx.go({ name: 'chats' }), { plain: true, dim: true, hotkey: 'h' }),
-      ctx.draw.button('chat:more', 'More', () => ctx.go({ name: 'chat-more', params: { chat: id } }), { plain: true, dim: true, hotkey: 'm' }),
-    ]),
-    running && ctx.draw.button('chat:stop', 'Stop', () => ctx.call('host.stopRun', channel), { hotkey: 'x' }),
+    row(
+      [
+        title(sentinelChatTitle(channel, ctx.state.log)),
+        running && line(pill('working', 'accent')),
+        chats.length > 1 && ctx.draw.button('chats', `Chats (${chats.length})`, () => ctx.go({ name: 'chats' }), { plain: true, dim: true, hotkey: 'h' }),
+        ctx.draw.button('chat:more', 'More', () => ctx.go({ name: 'chat-more', params: { chat: id } }), { plain: true, dim: true, hotkey: 'm' }),
+      ],
+      { gap: 3 },
+    ),
+    running && ctx.draw.button('chat:stop', 'Stop', () => ctx.call('host.stopRun', channel), { plain: true, hotkey: 'x', spans: [span('■ ', { color: 'error' }), span('Stop')] }),
     conversation(
       ctx,
       channel,
-      col(
-        [
-          dim('Say what you want to see or keep an eye on, in your own words. Your agent sets it up; nothing runs until you turn it on.'),
-          col(FIRST_ASKS.map((ask) => ctx.draw.button(`first:${ask.id}`, ask.label, () => send(ask.prompt), { plain: true }))),
-        ],
-        { gap: 1 },
-      ),
+      col([
+        card([text('Say what you want to see or keep an eye on, in your own words. Your agent sets it up; nothing runs until you turn it on.')], { title: 'Your agent, for Sentinel', tone: 'accent' }),
+        section('Ideas', FIRST_ASKS.map((ask) => ctx.draw.button(`first:${ask.id}`, ask.label, () => send(ask.prompt), { plain: true, spans: marked(ask.label) }))),
+      ]),
     ),
     queued(ctx, channel),
     attention(ctx, channel),
@@ -133,23 +134,27 @@ export function chatsPage(ctx: Ctx): Node {
       const last = [...items].reverse().find((l) => (l.type === 'chat' || l.type === 'agent') && l.text.trim());
       const words = last && 'text' in last ? last.text.split('\n').map((x) => x.trim()).find(Boolean)?.slice(0, 80) : undefined;
       const name = sentinelChatTitle(c.channel, ctx.state.log);
-      return col([
-        ctx.draw.button(`open-chat:${c.id}`, name, async () => {
-          await ctx.call('sentinel.chatOpen', c.id);
-          ctx.go({ name: 'chat', params: { chat: c.id } });
-        }, { plain: true, ...(c.id === active ? {} : { dim: true }), spans: [span(name, { weight: 'semibold' }), span(c.id === active ? '  open' : '', { dim: true }), running ? span('  working', { color: 'claude' }) : span('')] }),
-        words ? dim(words) : undefined,
-      ]);
+      return card(
+        [
+          ctx.draw.button(`open-chat:${c.id}`, name, async () => {
+            await ctx.call('sentinel.chatOpen', c.id);
+            ctx.go({ name: 'chat', params: { chat: c.id } });
+          }, { plain: true, spans: [span(name, { weight: 'bold' })] }),
+          (c.id === active || running) && meta(c.id === active && pill('open', 'ok'), running && pill('working', 'accent')),
+          words ? dim(words) : undefined,
+        ],
+        c.id === active ? { tone: 'accent' } : {},
+      );
     }),
     shown.after,
   );
 }
 
-const newChat = (ctx: Ctx, style: { readonly primary?: true } = {}): Node =>
+const newChat = (ctx: Ctx, style: { readonly primary?: true; readonly plain?: true } = {}): Node =>
   ctx.draw.button('chat:new', 'New Chat', async () => {
     const made = (await ctx.call('sentinel.chatNew')) as { readonly id: string } | undefined;
     if (made?.id) ctx.go({ name: 'chat', params: { chat: made.id } });
-  }, { hotkey: 'n', ...style });
+  }, { hotkey: 'n', ...style, ...(style.plain ? { spans: marked('New Chat', '+') } : {}) });
 
 /** What's advanced about a chat. */
 export function chatMorePage(ctx: Ctx, id: string): Node {
@@ -158,11 +163,15 @@ export function chatMorePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'chat'),
     back(ctx, 'Chat'),
-    title(sentinelChatTitle(channel, ctx.state.log)),
-    newChat(ctx),
-    ctx.draw.button('chats', 'All Chats', () => ctx.go({ name: 'chats' }), { plain: true, hotkey: 'h' }),
-    has && ctx.draw.button('chat:clear', 'Clear...', () => ctx.go(askRoute('chat-clear', { chat: id })), { plain: true, hotkey: 'e' }),
-    ctx.draw.button('chat:delete', 'Delete Chat...', () => ctx.go(askRoute('chat', { chat: id })), { plain: true, hotkey: 'x' }),
+    card(
+      [
+        newChat(ctx, { plain: true }),
+        ctx.draw.button('chats', 'All Chats', () => ctx.go({ name: 'chats' }), { plain: true, hotkey: 'h', spans: marked('All Chats') }),
+        has && ctx.draw.button('chat:clear', 'Clear...', () => ctx.go(askRoute('chat-clear', { chat: id })), { plain: true, hotkey: 'e', spans: marked('Clear...') }),
+        ctx.draw.button('chat:delete', 'Delete Chat...', () => ctx.go(askRoute('chat', { chat: id })), { plain: true, hotkey: 'x', spans: [span('› ', { dim: true }), span('Delete Chat...', { color: 'error' })] }),
+      ],
+      { title: sentinelChatTitle(channel, ctx.state.log) },
+    ),
   );
 }
 

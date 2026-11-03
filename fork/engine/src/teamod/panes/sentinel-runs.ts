@@ -1,11 +1,11 @@
 import { DEFAULT_KEEP_CHATS, KEEP_CHATS_INFO, STEP_INFO, type MetricSeries, type RunDetail, type RunSummary, type Sentinel, type StepRun, firstLine, isLive } from '../../core/sentinel/model.js';
 import { formatMetric } from '../../core/sentinel/metrics.js';
 import type { Ctx } from '../screens.js';
-import { type Node, code, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { back, empty, openWorkspace, page, peerText } from './common.js';
+import { type Node, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, back, card, empty, meta, openWorkspace, page, peerText } from './common.js';
 import { askRoute } from './sentinel-asks.js';
-import { attention, loadNote, openChannel, openSentinel, top, webLink, windowed } from './sentinel-common.js';
-import { STEP_STATE_WORDS, durationText, hasOwnChat, headlineOf, isRunning, runLine, runStyle, runWord, stepStyle } from './sentinel-model.js';
+import { attention, counted, loadNote, marked, openChannel, openSentinel, runPill, runTone, stepPill, top, webLink, windowed } from './sentinel-common.js';
+import { durationText, hasOwnChat, headlineOf, isRunning, runLine } from './sentinel-model.js';
 
 /** One run: its line, each step with how it went (its output a press away), its report, what it kept and left; a merge waiting has its decision on top. */
 
@@ -32,13 +32,19 @@ function stepRow(ctx: Ctx, run: RunSummary, st: StepRun, index: number, item: Se
   const took = st.startedAt !== undefined ? `  ${durationText((st.endedAt ?? now) - st.startedAt)}${st.state === 'running' ? ' so far' : ''}` : '';
   const [shown, setShown] = ctx.local(`sn:run:${run.id}:output:${st.id}`, false);
   const own = st.channel !== undefined && st.channel !== (run.worktreeId ? `ws:${run.worktreeId}` : undefined);
+  const session = st.channel && !(own && gone) ? ctx.draw.button(`run:session:${st.id}`, st.state === 'running' ? 'Watch the Agent Work' : 'The Agent’s Session', () => openChannel(ctx, st.channel!), { plain: true, ...(st.state === 'running' ? {} : { dim: true }) }) : undefined;
+  const output = st.output ? ctx.draw.button(`run:output:${st.id}`, shown ? 'Hide Output' : 'Show Output', () => setShown(!shown), { plain: true, dim: true }) : undefined;
   return col([
-    line(span(`${STEP_STATE_WORDS[st.state]}  `, stepStyle(st.state)), span(step?.name ?? `Step ${index + 1}`), span(`${step ? `  ${STEP_INFO[step.kind].label}` : ''}${took}`, { dim: true })),
-    st.why ? text(st.why, st.state === 'failed' ? { color: 'error' } : { dim: true }) : undefined,
-    st.state === 'waiting' && dim('Waiting for the steps before it'),
-    st.channel && own && gone ? dim(gone) : undefined,
-    st.channel && !(own && gone) ? ctx.draw.button(`run:session:${st.id}`, st.state === 'running' ? 'Watch the Agent Work' : 'The Agent’s Session', () => openChannel(ctx, st.channel!), { plain: true, dim: true }) : undefined,
-    st.output ? ctx.draw.button(`run:output:${st.id}`, shown ? 'Hide Output' : 'Show Output', () => setShown(!shown), { plain: true, dim: true }) : undefined,
+    line(stepPill(st.state), span(`  ${step?.name ?? `Step ${index + 1}`}`, { weight: 'semibold' }), step && span(`  ${STEP_INFO[step.kind].label}`, { dim: true }), took && span(took, { dim: true })),
+    col(
+      [
+        st.why ? text(st.why, st.state === 'failed' ? { color: 'error' } : { dim: true }) : undefined,
+        st.state === 'waiting' && dim('Waiting for the steps before it'),
+        st.channel && own && gone ? dim(gone) : undefined,
+        (session || output) && row([session, output], { gap: 2 }),
+      ],
+      { padX: 2 },
+    ),
     shown && st.output ? code(st.output) : undefined,
   ]);
 }
@@ -53,17 +59,19 @@ function keptBy(ctx: Ctx, run: RunSummary): Node | undefined {
   if (!kept.length) return undefined;
   const open = (m: MetricSeries): void => ctx.go(m.kind === 'rows' ? { name: 'rows', params: { id: run.sentinelId, name: m.name, run: run.id } } : { name: 'metric', params: { id: run.sentinelId, name: m.name } });
   const shown = windowed(ctx, `run:kept:${run.id}`, kept, { page: 20 });
-  return col([
-    title('What it kept'),
-    shown.before,
-    ...shown.shown.map(({ m, value }) =>
-      ctx.draw.button(`run:kept:${m.name}`, m.label, () => open(m), {
-        plain: true,
-        spans: [span(m.label), span(m.kind === 'rows' ? `  ${value ?? m.rows?.length ?? 0} rows` : m.kind === 'series' ? `  ${value ?? m.series?.length ?? 0} points` : m.kind === 'output' ? '  its output' : value !== undefined ? `  ${formatMetric(value, m.unit)}` : '', { dim: true })],
-      }),
-    ),
-    shown.after,
-  ]);
+  return card(
+    [
+      shown.before,
+      ...shown.shown.map(({ m, value }) =>
+        ctx.draw.button(`run:kept:${m.name}`, m.label, () => open(m), {
+          plain: true,
+          spans: [span(m.label), span(m.kind === 'rows' ? `  ${value ?? m.rows?.length ?? 0} rows` : m.kind === 'series' ? `  ${value ?? m.series?.length ?? 0} points` : m.kind === 'output' ? '  its output' : value !== undefined ? `  ${formatMetric(value, m.unit)}` : '', { dim: true })],
+        }),
+      ),
+      shown.after,
+    ],
+    { title: counted('What it kept', kept.length) },
+  );
 }
 
 /** What it left: a pull request, a worktree, tasks. */
@@ -71,17 +79,19 @@ function leftBy(ctx: Ctx, run: RunSummary): Node | undefined {
   if (!run.pr && !run.worktreeId && !run.tasks.length) return undefined;
   const issues = ctx.state.board.issues;
   const tasks = windowed(ctx, `run:tasks:${run.id}`, [...new Set(run.tasks)], { page: 20 });
-  return col([
-    title('What it left'),
-    run.pr ? webLink(run.pr.url, `Pull request #${run.pr.number}`) : undefined,
-    run.worktreeId ? ctx.draw.button('run:worktree', 'Its Worktree', () => openWorkspace(ctx, run.worktreeId!), { plain: true }) : undefined,
-    tasks.before,
-    ...tasks.shown.map((key) => {
-      const issue = issues.find((i) => i.key === key);
-      return issue ? ctx.draw.button(`run:task:${key}`, `${key} ${issue.title}`, () => ctx.show('board', { name: 'task', params: { id: issue.id } }), { plain: true }) : dim(key);
-    }),
-    tasks.after,
-  ]);
+  return card(
+    [
+      run.pr ? webLink(run.pr.url, `Pull request #${run.pr.number}`) : undefined,
+      run.worktreeId ? ctx.draw.button('run:worktree', 'Its Worktree', () => openWorkspace(ctx, run.worktreeId!), { plain: true, spans: marked('Its Worktree') }) : undefined,
+      tasks.before,
+      ...tasks.shown.map((key) => {
+        const issue = issues.find((i) => i.key === key);
+        return issue ? ctx.draw.button(`run:task:${key}`, `${key} ${issue.title}`, () => ctx.show('board', { name: 'task', params: { id: issue.id } }), { plain: true, spans: [span('› ', { dim: true }), span(`${key} `, { dim: true }), span(issue.title)] }) : dim(key);
+      }),
+      tasks.after,
+    ],
+    { title: 'What it left' },
+  );
 }
 
 export function runPage(ctx: Ctx, runId: string): Node {
@@ -97,38 +107,42 @@ export function runPage(ctx: Ctx, runId: string): Node {
   const gone = run.chatDeleted ? 'You deleted its chat. The report and outputs stay here.' : run.putAway ? `Its chat was put away: ${item ? `${item.name} ${KEEP_CHATS_INFO[item.keepChats ?? DEFAULT_KEEP_CHATS].keeps}` : 'its sentinel keeps fewer chats'}. The report and outputs stay here.` : undefined;
   const report = loaded.value?.report;
   const working = run.steps.find((st) => st.channel && st.state === 'running')?.channel;
+  const tone = runTone(run.state);
   return page(
     top(ctx, 'sentinels'),
     back(ctx),
-    col([title(headlineOf(run)), dim(runLine(run, name, s, now)), line(span(runWord(run.state), runStyle(run.state)))]),
-    waiting &&
-      col([
-        line(span(run.pr ? `Pull request #${run.pr.number} waits for you. ` : 'This run waits for you. ', { weight: 'semibold' }), span(why ?? 'Merge it, or leave it open for now.')),
-        row([
-          ctx.draw.button('run:merge', 'Merge', async () => {
-            await ctx.call('sentinel.decide', run.id, 'merge');
-            ctx.effect({ toast: run.pr ? `Merged #${run.pr.number}` : 'Merged' });
-          }, { primary: true, hotkey: 'e' }),
-          ctx.draw.button('run:skip', 'Not Now', async () => {
-            await ctx.call('sentinel.decide', run.id, 'skip');
-            ctx.effect({ toast: run.pr ? `#${run.pr.number} stays open` : 'Not now' });
-          }, { hotkey: 'n' }),
-        ]),
-      ]),
-    run.state === 'failed' && run.why ? text(firstLine(run.why, 400), { color: 'error' }) : undefined,
-    (run.state === 'stopped' || run.state === 'skipped') && run.why ? dim(firstLine(run.why, 400)) : undefined,
+    card(
+      [
+        meta(runPill(run.state), runLine(run, name, s, now)),
+        waiting && text(run.pr ? `Pull request #${run.pr.number} waits for you. ` : 'This run waits for you. ', { weight: 'semibold', color: 'warning' }),
+        waiting && dim(why ?? 'Merge it, or leave it open for now.'),
+        run.state === 'failed' && run.why ? text(firstLine(run.why, 400), { color: 'error' }) : undefined,
+        (run.state === 'stopped' || run.state === 'skipped') && run.why ? dim(firstLine(run.why, 400)) : undefined,
+        actions(
+          waiting &&
+            ctx.draw.button('run:merge', 'Merge', async () => {
+              await ctx.call('sentinel.decide', run.id, 'merge');
+              ctx.effect({ toast: run.pr ? `Merged #${run.pr.number}` : 'Merged' });
+            }, { primary: true, hotkey: 'e' }),
+          waiting &&
+            ctx.draw.button('run:skip', 'Not Now', async () => {
+              await ctx.call('sentinel.decide', run.id, 'skip');
+              ctx.effect({ toast: run.pr ? `#${run.pr.number} stays open` : 'Not now' });
+            }, { plain: true, hotkey: 'n' }),
+          isRunning(run.state) &&
+            ctx.draw.button('run:stop', 'Stop', async () => {
+              await ctx.call('sentinel.stop', run.id);
+              ctx.effect({ toast: 'Stopped' });
+            }, { plain: true, hotkey: 'x' }),
+          item && ctx.draw.button('run:files', 'Files', () => ctx.go({ name: 'files', params: { id: item.id, run: run.id } }), { plain: true, dim: true, hotkey: 'f' }),
+          ctx.draw.button('run:more', 'More', () => ctx.go({ name: 'run-more', params: { id: run.sentinelId, run: run.id } }), { plain: true, dim: true, hotkey: 'm' }),
+        ),
+      ],
+      { title: headlineOf(run), ...(tone ? { tone } : {}) },
+    ),
     attention(ctx, working),
-    row([
-      isRunning(run.state) &&
-        ctx.draw.button('run:stop', 'Stop', async () => {
-          await ctx.call('sentinel.stop', run.id);
-          ctx.effect({ toast: 'Stopped' });
-        }, { hotkey: 'x' }),
-      item && ctx.draw.button('run:files', 'Files', () => ctx.go({ name: 'files', params: { id: item.id, run: run.id } }), { plain: true, dim: true, hotkey: 'f' }),
-      ctx.draw.button('run:more', 'More', () => ctx.go({ name: 'run-more', params: { id: run.sentinelId, run: run.id } }), { plain: true, dim: true, hotkey: 'm' }),
-    ]),
-    col([title('Steps'), run.steps.length === 0 && dim('No steps ran.'), ...run.steps.map((st, i) => stepRow(ctx, run, st, i, item, now, gone))], { gap: 1 }),
-    report ? col([title('Report'), md(peerText(report))]) : loadNote(loaded, 'Reading the report...'),
+    card([run.steps.length === 0 && dim('No steps ran.'), col(run.steps.map((st, i) => stepRow(ctx, run, st, i, item, now, gone)), { gap: 1 })], { title: counted('Steps', run.steps.length) }),
+    report ? card([md(peerText(report))], { title: 'Report' }) : loadNote(loaded, 'Reading the report...'),
     keptBy(ctx, run),
     leftBy(ctx, run),
   );
@@ -144,12 +158,22 @@ export function runMorePage(ctx: Ctx, runId: string): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx, 'Run'),
-    title(headlineOf(run)),
-    chat ? ctx.draw.button('more:chat', 'Open Chat', () => openChannel(ctx, chat), { plain: true, hotkey: 'e' }) : undefined,
-    item ? ctx.draw.button('more:sentinel', `Open ${item.name}`, () => openSentinel(ctx, item.id), { plain: true, hotkey: 'i' }) : undefined,
-    ctx.draw.button('more:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', run.sentinelId, run.id), { plain: true, hotkey: 'f' }),
-    ended && hasOwnChat(run) ? ctx.draw.button('more:delete-chat', 'Delete Chat...', () => ctx.go(askRoute('run-chat', { id: run.sentinelId, run: run.id })), { plain: true }) : undefined,
-    ended ? ctx.draw.button('more:delete-run', 'Delete Run...', () => ctx.go(askRoute('run', { id: run.sentinelId, run: run.id })), { plain: true, hotkey: 'x' }) : undefined,
+    card(
+      [
+        meta(runPill(run.state), item?.name),
+        col(
+          [
+            chat ? ctx.draw.button('more:chat', 'Open Chat', () => openChannel(ctx, chat), { plain: true, hotkey: 'e', spans: marked('Open Chat') }) : undefined,
+            item ? ctx.draw.button('more:sentinel', `Open ${item.name}`, () => openSentinel(ctx, item.id), { plain: true, hotkey: 'i', spans: [span('› ', { dim: true }), span('Open'), span(` ${item.name}`)] }) : undefined,
+            ctx.draw.button('more:reveal', 'Show in Finder', () => ctx.call('sentinel.dataReveal', run.sentinelId, run.id), { plain: true, hotkey: 'f', spans: marked('Show in Finder') }),
+          ],
+          { top: 1 },
+        ),
+      ],
+      { title: headlineOf(run) },
+    ),
+    ended && hasOwnChat(run) ? ctx.draw.button('more:delete-chat', 'Delete Chat...', () => ctx.go(askRoute('run-chat', { id: run.sentinelId, run: run.id })), { plain: true, spans: [span('Delete Chat...', { color: 'error' })] }) : undefined,
+    ended ? ctx.draw.button('more:delete-run', 'Delete Run...', () => ctx.go(askRoute('run', { id: run.sentinelId, run: run.id })), { plain: true, hotkey: 'x', spans: [span('Delete Run...', { color: 'error' })] }) : undefined,
     !ended && dim('A run still going isn’t deleted: stop it first.'),
   );
 }

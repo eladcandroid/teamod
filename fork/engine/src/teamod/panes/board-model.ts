@@ -13,7 +13,7 @@ export const SCOPES: ReadonlyArray<{ readonly value: Scope; readonly label: stri
   { value: 'active', label: 'Active', hotkey: '2', hint: 'Ready, In Progress and In Review' },
   { value: 'backlog', label: 'Backlog', hotkey: '3', hint: 'Not planned yet' },
   { value: 'all', label: 'All', hotkey: '4', hint: 'Everything open, and what finished this week' },
-  { value: 'archived', label: 'Archive', hotkey: '5', hint: 'Finished tasks you archived: their words and history kept' },
+  { value: 'archived', label: 'Archived', hotkey: '5', hint: 'Finished tasks you archived: their words and history kept' },
 ];
 
 /** Where a task can be moved by hand, in the order a board reads. Merged into Plan is the plan's to say. */

@@ -44,6 +44,14 @@ The first `/teamod` downloads and builds the engine, which takes a few minutes. 
 
 Approvals and questions appear above your prompt. Your session can also drive teamod through its `mcp__teamod__*` tools.
 
+Press **Keys** (or `0`) to show each control's hotkey.
+
+## עברית
+
+teamod speaks Hebrew. It follows your computer's language, or set it in **Settings › General › Language**. Screens then read from the right.
+
+Most terminals (Ghostty, kitty, WezTerm, iTerm2, VS Code) draw Hebrew backwards. teamod puts the letters in order itself: in its panes, in Claude's answers, and in your own prompts. Terminal.app and GNOME Terminal do this themselves; teamod detects them. If Hebrew still reads backwards, change **Hebrew letters** in the same section. Typing in the prompt is still drawn by Claude Code.
+
 ## Commands
 
 ```

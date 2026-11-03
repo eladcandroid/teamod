@@ -1,9 +1,9 @@
 import type { EnvScope } from '../../core/env-vars.js';
 import { type EnvVar, envProblems, importEnv, parseEnvText } from '../../shared/env-vars.js';
 import type { Ctx, Route } from '../screens.js';
-import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
-import { back, chrome, empty, page } from './common.js';
-import { SETTINGS_PLACES, toggle } from './settings-common.js';
+import { type Node, col, dim, line, row, span, text } from '../tree.js';
+import { back, card, chrome, empty, page, pill } from './common.js';
+import { SETTINGS_PLACES, counted, group, toggle } from './settings-common.js';
 import { errorText, loadingWords, plural, steady, twoPress, windowed } from './work-common.js';
 
 /**
@@ -75,15 +75,23 @@ function varRow(ctx: Ctx, scope: string, names: EnvNames, key: string, shown: Sh
   const showing = shown?.key === key;
   const overridden = names.overridden[key];
   return col([
-    row([
-      line(span(key, { weight: 'semibold' }), from ? span(`  ${from}`, { dim: true }) : undefined),
-      showing
-        ? ctx.draw.button(`env:hide:${key}`, 'Hide', hide, { plain: true })
-        : ctx.draw.button(`env:show:${key}`, 'Show', () => showValue(ctx, scope, key), { plain: true, dim: true }),
-      ctx.draw.button(`env:change:${key}`, 'Change', () => setEditing(key), { plain: true, dim: true }),
-      own ? twoPress(ctx, `env:remove:${key}`, inFile ? `Use the ${filesLabel}` : 'Remove', () => changeVars(ctx, scope, (vars) => vars.filter((v) => v.key !== key))) : undefined,
-    ]),
-    showing ? text(`  ${shown?.value ?? ''}`) : undefined,
+    row(
+      [
+        line(span(key, { weight: 'bold' }), from ? span(`  ${from}`, { dim: true }) : undefined),
+        row(
+          [
+            showing
+              ? ctx.draw.button(`env:hide:${key}`, 'Hide', hide, { plain: true })
+              : ctx.draw.button(`env:show:${key}`, 'Show', () => showValue(ctx, scope, key), { plain: true, dim: true }),
+            ctx.draw.button(`env:change:${key}`, 'Change', () => setEditing(key), { plain: true, dim: true }),
+            own ? twoPress(ctx, `env:remove:${key}`, inFile ? `Use the ${filesLabel}` : 'Remove', () => changeVars(ctx, scope, (vars) => vars.filter((v) => v.key !== key))) : undefined,
+          ],
+          { gap: 2, wrap: false },
+        ),
+      ],
+      { justify: 'space-between' },
+    ),
+    showing ? text(`  ${shown?.value ?? ''}`, { color: 'claude' }) : undefined,
     editing === key
       ? ctx.draw.input(
           `env:value:${key}`,
@@ -174,74 +182,90 @@ export function envPane(ctx: Ctx): Node {
     chrome(ctx, SETTINGS_PLACES, 'env'),
     back(ctx),
     dim('Given to your shells, setup and run commands, and your agent, never to a friend’s request. They stay on this computer. Changes apply to your agent’s next message and to new shells.'),
-    ctx.draw.select(
-      'env:scope',
-      [{ value: '', label: `Everywhere${count(keys.global.length)}` }, ...projects.map((p) => ({ value: p.id, label: `${p.name}${count(keys.projects[p.root]?.keys.length ?? 0)}` }))],
-      (value) => {
-        setShown(undefined);
-        setEditing(undefined);
-        setScope(value ?? '');
-      },
-      { label: 'Variables for', value: scope },
-    ),
-    dim(scope ? 'This project’s worktrees. They win over yours.' : 'Every shell, script and agent run.'),
-    loadingWords(loaded, 'Loading...', 'Couldn’t read them'),
-    names &&
-      project &&
-      toggle(
-        ctx,
-        'env:dotenv',
-        `Include the main folder’s ${filesLabel}`,
-        names.dotenv,
-        (next) => changeVars(ctx, scope, (vars) => vars, next),
-        names.dotenv ? (names.file.length ? `${plural(names.file.length, 'variable')}, read fresh each time something starts.` : 'None there yet.') : 'Off: only the variables set here.',
-      ),
-    addVars(ctx, scope),
-    names && !listed.length ? empty(project ? 'No variables yet, and no .env in the main folder.' : 'No variables yet.') : undefined,
-    ...window.shown.map((key) => varRow(ctx, scope, names!, key, shown, editing, setEditing, hide)),
-    window.controls,
-    project && keptElsewhere > 0
-      ? ctx.draw.button(
-          'env:keep-copy',
-          'Keep a Copy Here',
-          async () => {
-            const n = (await ctx.call('env.importDotenv', scope)) as number | undefined;
-            ctx.effect({ toast: n ? `Copied ${plural(n, 'variable')}` : 'They’re all here already' });
-            ctx.refresh(namesKey(scope));
+    card(
+      [
+        ctx.draw.select(
+          'env:scope',
+          [{ value: '', label: `Everywhere${count(keys.global.length)}` }, ...projects.map((p) => ({ value: p.id, label: `${p.name}${count(keys.projects[p.root]?.keys.length ?? 0)}` }))],
+          (value) => {
+            setShown(undefined);
+            setEditing(undefined);
+            setScope(value ?? '');
           },
-          { plain: true, dim: true },
-        )
-      : undefined,
-    names &&
-      project &&
-      toggle(ctx, 'env:new-keys-back', 'New keys go to the main folder', names.newKeysBack, async (next) => {
-        await ctx.call('env.newKeysBack', scope, next);
-        ctx.refresh(namesKey(scope));
-      }, 'A key a worktree adds to its .env is added there too, so the next worktree works. A changed value is asked about.'),
-    names &&
-      toggle(ctx, 'env:claude-dotenv', 'Your agent reads .env files without asking', names.claudeDotenv, async (next) => {
-        await ctx.call('env.claudeDotenv', scope || undefined, next);
-        ctx.refresh(namesKey(scope));
-      }, project ? 'In this project. Off: it asks you each time. A friend’s request never gets them.' : 'In every project. Off: it asks you each time, or as each project says. A friend’s request never gets them.'),
-    col([
-      title('Database'),
-      dim('Postgres for your agent’s views: DATABASE_URL (or POSTGRES_URL...), or a Supabase project’s URL and SUPABASE_DB_PASSWORD, from here or the project’s .env.'),
-      row([
-        ctx.draw.button(
-          'env:test-db',
-          'Test Connection',
-          async () => {
-            setDb(undefined);
-            try {
-              setDb((await ctx.call('env.testDatabase', ...(scope ? [scope] : []))) as DbTest);
-            } catch (err) {
-              setDb({ ok: false, message: errorText(err) });
-            }
-          },
-          { plain: true, hotkey: 'd' },
+          { label: 'Variables for', value: scope },
         ),
-        db ? (db.ok ? text(`Connected, using ${db.from}.`, { color: 'success' }) : text(db.message, { color: 'error' })) : undefined,
-      ]),
-    ]),
+        dim(scope ? 'This project’s worktrees. They win over yours.' : 'Every shell, script and agent run.'),
+        loadingWords(loaded, 'Loading...', 'Couldn’t read them'),
+        names &&
+          project &&
+          col(
+            [
+              toggle(
+                ctx,
+                'env:dotenv',
+                `Include the main folder’s ${filesLabel}`,
+                names.dotenv,
+                (next) => changeVars(ctx, scope, (vars) => vars, next),
+                names.dotenv ? (names.file.length ? `${plural(names.file.length, 'variable')}, read fresh each time something starts.` : 'None there yet.') : 'Off: only the variables set here.',
+              ),
+            ],
+            { top: 1 },
+          ),
+        names && listed.length > 0 ? col(window.shown.map((key) => varRow(ctx, scope, names, key, shown, editing, setEditing, hide)), { top: 1 }) : undefined,
+        names && !listed.length ? empty(project ? 'No variables yet, and no .env in the main folder.' : 'No variables yet.') : undefined,
+        window.controls,
+        project && keptElsewhere > 0
+          ? ctx.draw.button(
+              'env:keep-copy',
+              'Keep a Copy Here',
+              async () => {
+                const n = (await ctx.call('env.importDotenv', scope)) as number | undefined;
+                ctx.effect({ toast: n ? `Copied ${plural(n, 'variable')}` : 'They’re all here already' });
+                ctx.refresh(namesKey(scope));
+              },
+              { plain: true, dim: true },
+            )
+          : undefined,
+        col([addVars(ctx, scope)], { top: 1 }),
+      ],
+      { title: counted('Variables', listed.length) },
+    ),
+    names &&
+      group(
+        '.env files',
+        [
+          project &&
+            toggle(ctx, 'env:new-keys-back', 'New keys go to the main folder', names.newKeysBack, async (next) => {
+              await ctx.call('env.newKeysBack', scope, next);
+              ctx.refresh(namesKey(scope));
+            }, 'A key a worktree adds to its .env is added there too, so the next worktree works. A changed value is asked about.'),
+          toggle(ctx, 'env:claude-dotenv', 'Your agent reads .env files without asking', names.claudeDotenv, async (next) => {
+            await ctx.call('env.claudeDotenv', scope || undefined, next);
+            ctx.refresh(namesKey(scope));
+          }, project ? 'In this project. Off: it asks you each time. A friend’s request never gets them.' : 'In every project. Off: it asks you each time, or as each project says. A friend’s request never gets them.'),
+        ],
+      ),
+    card(
+      [
+        dim('Postgres for your agent’s views: DATABASE_URL (or POSTGRES_URL...), or a Supabase project’s URL and SUPABASE_DB_PASSWORD, from here or the project’s .env.'),
+        row([
+          ctx.draw.button(
+            'env:test-db',
+            'Test Connection',
+            async () => {
+              setDb(undefined);
+              try {
+                setDb((await ctx.call('env.testDatabase', ...(scope ? [scope] : []))) as DbTest);
+              } catch (err) {
+                setDb({ ok: false, message: errorText(err) });
+              }
+            },
+            { plain: true, hotkey: 'd' },
+          ),
+          db ? (db.ok ? line(pill(`Connected, using ${db.from}.`, 'ok', '✓')) : line(pill(db.message, 'error', '✗'))) : undefined,
+        ], { top: 1, gap: 2 }),
+      ],
+      { title: 'Database' },
+    ),
   );
 }

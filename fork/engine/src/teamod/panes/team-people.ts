@@ -7,10 +7,10 @@ import { agentName } from '../../shared/agent-label.js';
 import { TRUST_LEVELS, type TrustLevel } from '../../shared/settings-schema.js';
 import { windowsOf } from '../../ui/usage-cards.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
-import { back, empty, page } from './common.js';
+import { type Node, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, back, card, empty, field, meta, page, pill, section } from './common.js';
 import { ruleRow } from './team-requests.js';
-import { STATE_WORDS, byName, choice, confirmPress, errorWords, failed, levelOf, listOf, openConversation, picture, presenceSpan, top } from './team-common.js';
+import { STATE_WORDS, byName, choice, confirmPress, errorWords, failed, levelOf, listOf, nameButton, openConversation, peerMd, picture, presencePill, top } from './team-common.js';
 
 /**
  * Your teammates: turning the network on (only ever the one press here), your status, adding someone
@@ -45,14 +45,24 @@ const presenceFor = (state: PresenceState, note: string, duration: Duration): Pr
 
 const selfWords = (p: Presence): string => [CHOICE_WORDS[p.state], p.note?.trim()].filter(Boolean).join(' · ');
 
+const SELF_TONE = { online: 'ok', away: 'warn', dnd: 'error', offline: 'quiet' } as const;
+
+/** Your own status, as the pill beside your name. */
+const selfPill = (p: Presence) => pill(selfWords(p), SELF_TONE[p.state]);
+
+/** Someone asks to be your teammate: a card that waits for your answer. */
 function offerRow(ctx: Ctx, o: FriendOfferView, on: boolean): Node {
-  return col([
-    line(span(o.name, { weight: 'semibold' }), o.via ? `, from the ${o.via} team, wants to add you as a teammate` : ' wants to add you as a teammate'),
-    row([
-      on ? ctx.draw.button(`offer:${o.peerId}:yes`, 'Accept', () => ctx.call('network.friends.answerOffer', o.peerId, true), { plain: true }) : dim('Turn on the network to accept.'),
-      ctx.draw.button(`offer:${o.peerId}:no`, 'Not Now', () => ctx.call('network.friends.answerOffer', o.peerId, false), { plain: true, dim: true }),
-    ]),
-  ]);
+  return card(
+    [
+      dim('Wants to add you as a teammate'),
+      o.via ? meta(`From the ${o.via} team`) : undefined,
+      actions(
+        on ? ctx.draw.button(`offer:${o.peerId}:yes`, 'Accept', () => ctx.call('network.friends.answerOffer', o.peerId, true), {}) : dim('Turn on the network to accept.'),
+        ctx.draw.button(`offer:${o.peerId}:no`, 'Not Now', () => ctx.call('network.friends.answerOffer', o.peerId, false), { plain: true, dim: true }),
+      ),
+    ],
+    { title: o.name, tone: 'warn' },
+  );
 }
 
 const incomingOffers = (ctx: Ctx): FriendOfferView[] => (ctx.state.network.offers ?? []).filter((o) => o.dir === 'in').sort((a, b) => a.at - b.at);
@@ -63,9 +73,11 @@ function offPage(ctx: Ctx): Node {
   const offers = incomingOffers(ctx);
   return page(
     top(ctx, 'people'),
-    title('Talk with teammates directly'),
-    dim('Messages, channels and files go straight from computer to computer, end-to-end encrypted. No server, no account. It stays off until you turn it on.'),
-    turning
+    card(
+      [
+        dim('Messages, channels and files go straight from computer to computer, end-to-end encrypted. No server, no account. It stays off until you turn it on.'),
+        actions(
+          turning
       ? dim('Turning on...')
       : ctx.draw.button(
           'network:on',
@@ -80,15 +92,25 @@ function offPage(ctx: Ctx): Node {
           },
           { primary: true, hotkey: 'a' },
         ),
-    offers.length > 0 && col(offers.slice(0, 40).map((o) => offerRow(ctx, o, false))),
+        ),
+      ],
+      { title: 'Talk with teammates directly' },
+    ),
+    offers.length > 0 && col(offers.slice(0, 40).map((o) => offerRow(ctx, o, false)), { gap: 1 }),
   );
 }
 
+/** What's new from a teammate, in their own words: the start of their latest message. */
+const latestFrom = (f: FriendView): string | undefined => (f.last && !f.last.mine && f.last.text.trim() ? f.last.text.replace(/\s+/g, ' ').slice(0, 60) : undefined);
+
+/** A teammate's card: their name (it opens them), how they are, what's new, and a message to them. */
 function friendRow(ctx: Ctx, f: FriendView): Node {
-  return ctx.draw.button(`friend:${f.peerId}`, f.name, () => ctx.go({ name: 'friend', params: { id: f.peerId } }), {
-    plain: true,
-    spans: [span(`${f.name}  `, f.unread ? { weight: 'semibold' } : {}), presenceSpan(f), ...(f.via === 'relay' && f.online ? [span('  through another computer', { dim: true })] : []), ...(f.unread ? [span(`  ${f.unread} new`, { color: 'claude' })] : [])],
-  });
+  const latest = f.unread ? latestFrom(f) : undefined;
+  return card([
+    row([nameButton(ctx, `friend:${f.peerId}`, f.name, () => ctx.go({ name: 'friend', params: { id: f.peerId } })), ctx.draw.button(`dm:${f.peerId}`, 'Message', () => openConversation(ctx, `dm:${f.peerId}`), { plain: true, ...(f.unread ? {} : { dim: true }) })], { justify: 'space-between', wrap: false }),
+    meta(presencePill(f), f.via === 'relay' && f.online && 'through another computer', f.unread ? pill(`${f.unread} new`, 'accent', '✦') : undefined),
+    latest ? md(peerMd(latest)) : undefined,
+  ]);
 }
 
 /** Your teammates, or the card that turns the network on. Then whoever's in your room who isn't one yet. */
@@ -103,21 +125,20 @@ export function friendsPage(ctx: Ctx): Node {
   const asked = (peerId: string): boolean => (net.offers ?? []).some((o) => o.dir === 'out' && o.peerId === peerId);
   return page(
     top(ctx, 'people'),
-    me && ctx.draw.button('status', 'Your status', () => ctx.go({ name: 'status' }), { plain: true, hotkey: 'u', spans: [span(`${me.name}  `, { weight: 'semibold' }), span(selfWords(me.presence), { dim: true })] }),
+    me && card([nameButton(ctx, 'status', me.name, () => ctx.go({ name: 'status' }), [span('  You', { dim: true })], { hotkey: 'u' }), line(selfPill(me.presence))]),
     ctx.draw.button('add', 'Add a Teammate', () => ctx.go({ name: 'add' }), { primary: true, hotkey: 'a' }),
-    offers.length > 0 && listOf(ctx, 'offers', offers, (o) => offerRow(ctx, o, true)),
-    friends.length > 0 ? col([dim(`Teammates (${friends.length})`), listOf(ctx, 'friends', friends, (f) => friendRow(ctx, f))]) : empty('No teammates yet. Send someone a code or a link: they’re a teammate once they use it.'),
+    offers.length > 0 && section('Asking to be your teammate', [listOf(ctx, 'offers', offers, (o) => offerRow(ctx, o, true))], offers.length),
+    friends.length > 0 ? section('Teammates', [listOf(ctx, 'friends', friends, (f) => friendRow(ctx, f))], friends.length) : empty('No teammates yet. Send someone a code or a link: they’re a teammate once they use it.'),
     net.pendingJoins.length > 0 && listOf(ctx, 'pending', net.pendingJoins, (p) => dim(`Asked to join ${p.name}: waiting for an admin to let you in.`)),
     strangers.length > 0 &&
-      col([
-        dim('In your room, not teammates yet'),
+      section('In your room, not teammates yet', [
         listOf(ctx, 'strangers', strangers, (p) =>
           row([
             ctx.draw.button(`stranger:${p.peerId}`, p.name, () => ctx.go({ name: 'room-person', params: { id: p.peerId } }), { plain: true }),
             asked(p.peerId) ? dim('Asked') : ctx.draw.button(`stranger:${p.peerId}:add`, 'Add', () => ctx.call('network.friends.addFromRoom', p.peerId), { plain: true, dim: true }),
           ]),
         ),
-      ]),
+      ], strangers.length),
     ctx.draw.button('network', 'More', () => ctx.go({ name: 'network' }), { plain: true, dim: true, hotkey: 'm' }),
   );
 }
@@ -154,46 +175,50 @@ export function addPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'people'),
     back(ctx, 'People'),
-    title('Add a Teammate'),
-    col([
-      dim('Send them the code or the link. It works once, then you can talk, share and ask each other’s agents.'),
-      invite
-        ? col([
-            line(span('Code  ', { dim: true }), span(invite.code, { weight: 'semibold' })),
-            line(span('Link  ', { dim: true }), invite.link),
-            dim(invite.codeExpiresAt <= now ? `The code expired; the link works for ${leftWords(invite.expiresAt, now)}.` : `The code works for ${leftWords(invite.codeExpiresAt, now)}, the link for ${leftWords(invite.expiresAt, now)}.`),
-            row([
-              ctx.draw.button('invite:copy-link', 'Copy Link', copy(invite.link, 'the link'), { primary: true, hotkey: 'a' }),
-              ctx.draw.button('invite:copy-code', 'Copy Code', copy(invite.code, 'the code'), { plain: true, hotkey: 'q' }),
-              ctx.draw.button('invite:cancel', 'Cancel Invitation', () => ctx.call('network.friends.cancelInvite', invite.id), { plain: true, dim: true }),
-            ]),
-          ])
-        : ctx.draw.button('invite:create', 'Create Invitation', () => ctx.call('network.friends.invite'), { primary: true, hotkey: 'a' }),
-    ]),
-    col([
-      dim('Have a code or link? Paste what they sent you.'),
-      ctx.draw.input(
-        'invite:accept',
-        async (value) => {
-          const words = value?.trim();
-          if (!words) return;
-          setError(undefined);
-          try {
-            setAccepted((await ctx.call(/^teamod:\/\/join/.test(words) ? 'network.groups.join' : 'network.friends.accept', words)) as Accepted | undefined);
-          } catch (err) {
-            setError(acceptWords(err));
-          }
-        },
-        { placeholder: 'K7QM-4XPA-R2TD or teamod://add#…', submitLabel: 'add' },
-      ),
-      failed(error),
-      accepted?.kind === 'friend' &&
-        row([text(`You and ${accepted.name} are teammates now.`), ctx.draw.button('accepted:open', `Message ${accepted.name}`, () => openConversation(ctx, `dm:${accepted.peerId}`), { plain: true })]),
-      accepted?.kind === 'group' &&
-        (accepted.status === 'joined'
-          ? row([text(`You’re in ${accepted.name}.`), ctx.draw.button('accepted:open', `Open ${accepted.name}`, () => openConversation(ctx, `group:${accepted.groupId}`), { plain: true })])
-          : text(`You asked to join ${accepted.name}. An admin lets you in.`)),
-    ]),
+    card(
+      [
+        dim('Send them the code or the link. It works once, then you can talk, share and ask each other’s agents.'),
+        invite
+          ? col([
+              col([field('Code', span(invite.code, { weight: 'bold' })), field('Link', invite.link)], { top: 1 }),
+              dim(invite.codeExpiresAt <= now ? `The code expired; the link works for ${leftWords(invite.expiresAt, now)}.` : `The code works for ${leftWords(invite.codeExpiresAt, now)}, the link for ${leftWords(invite.expiresAt, now)}.`),
+              actions(
+                ctx.draw.button('invite:copy-link', 'Copy Link', copy(invite.link, 'the link'), { primary: true, hotkey: 'a' }),
+                ctx.draw.button('invite:copy-code', 'Copy Code', copy(invite.code, 'the code'), { plain: true, hotkey: 'q' }),
+                ctx.draw.button('invite:cancel', 'Cancel Invitation', () => ctx.call('network.friends.cancelInvite', invite.id), { plain: true, dim: true }),
+              ),
+            ])
+          : actions(ctx.draw.button('invite:create', 'Create Invitation', () => ctx.call('network.friends.invite'), { primary: true, hotkey: 'a' })),
+      ],
+      { title: 'Add a Teammate' },
+    ),
+    card(
+      [
+        dim('Paste what they sent you.'),
+        ctx.draw.input(
+          'invite:accept',
+          async (value) => {
+            const words = value?.trim();
+            if (!words) return;
+            setError(undefined);
+            try {
+              setAccepted((await ctx.call(/^teamod:\/\/join/.test(words) ? 'network.groups.join' : 'network.friends.accept', words)) as Accepted | undefined);
+            } catch (err) {
+              setError(acceptWords(err));
+            }
+          },
+          { placeholder: 'K7QM-4XPA-R2TD or teamod://add#…', submitLabel: 'add' },
+        ),
+        failed(error),
+        accepted?.kind === 'friend' &&
+          row([text(`You and ${accepted.name} are teammates now.`, { color: 'success' }), ctx.draw.button('accepted:open', `Message ${accepted.name}`, () => openConversation(ctx, `dm:${accepted.peerId}`), { plain: true })]),
+        accepted?.kind === 'group' &&
+          (accepted.status === 'joined'
+            ? row([text(`You’re in ${accepted.name}.`, { color: 'success' }), ctx.draw.button('accepted:open', `Open ${accepted.name}`, () => openConversation(ctx, `group:${accepted.groupId}`), { plain: true })])
+            : text(`You asked to join ${accepted.name}. An admin lets you in.`)),
+      ],
+      { title: 'Have a code or link?' },
+    ),
   );
 }
 
@@ -210,17 +235,22 @@ export function statusPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'people'),
     back(ctx, 'People'),
-    title('Your status'),
-    text(selfWords(presence)),
-    row((['online', 'away', 'dnd', 'offline'] as const).map((state) => choice(ctx, `status:${state}`, CHOICE_WORDS[state], presence.state === state, () => set(state, presence.note ?? '', duration)))),
-    presence.state === 'offline' ? dim('You still get messages.') : presence.state === 'dnd' ? dim('It silences notifications.') : undefined,
-    presence.state !== 'online' &&
-      row(
-        DURATIONS.map((d) =>
-          choice(ctx, `status:for:${d.id}`, d.label, duration === d.id, () => set(presence.state, presence.note ?? '', d.id)),
-        ),
-      ),
-    ctx.draw.input('status:note', (value) => set(presence.state, value ?? '', duration), { label: 'Note', value: presence.note ?? '', placeholder: 'What’s your status?', submitLabel: 'save' }),
+    card(
+      [
+        line(selfPill(presence)),
+        section('Show me as', [row((['online', 'away', 'dnd', 'offline'] as const).map((state) => choice(ctx, `status:${state}`, CHOICE_WORDS[state], presence.state === state, () => set(state, presence.note ?? '', duration))), { gap: 2 })]),
+        presence.state === 'offline' ? dim('You still get messages.') : presence.state === 'dnd' ? dim('It silences notifications.') : undefined,
+        presence.state !== 'online' &&
+          section('For how long', [row(
+            DURATIONS.map((d) =>
+              choice(ctx, `status:for:${d.id}`, d.label, duration === d.id, () => set(presence.state, presence.note ?? '', d.id)),
+            ),
+            { gap: 2 },
+          )]),
+        col([ctx.draw.input('status:note', (value) => set(presence.state, value ?? '', duration), { label: 'Note', value: presence.note ?? '', placeholder: 'What’s your status?', submitLabel: 'save' })], { top: 1 }),
+      ],
+      { title: 'Your status' },
+    ),
   );
 }
 
@@ -261,41 +291,46 @@ export function friendPage(ctx: Ctx, id: string): Node {
   const f = ctx.state.network.friends.find((x) => x.peerId === id);
   if (!f) return page(top(ctx, 'people'), back(ctx, 'People'), empty('Not a teammate any more.'));
   const level = levelOf(ctx.state, id);
-  const card = ctx.state.gateway.cards[id];
+  const theirs = ctx.state.gateway.cards[id];
   const grant = ctx.state.granted[id];
   const caps = ctx.state.gateway.capabilities;
   const rules = rulesFor(ctx.state, id);
   const version = f.teamod && f.teamod.version !== 'unknown' ? shortVersion(f.teamod.version) : undefined;
+  const usages = (theirs?.usages ?? []).slice(0, 4).flatMap((u) => {
+    const left = windowsOf(u).map((w) => `${w.label} ${Math.max(0, 100 - w.pct)}% left`);
+    return left.length > 0 ? [dim(`Their ${agentName(u.agent)} plan: ${left.join(', ')}`)] : [];
+  });
   return page(
     top(ctx, 'people'),
     back(ctx, 'People'),
-    col([
-      title(f.name),
-      line(presenceSpan(f)),
-      dim(!f.online ? 'Not connected' : f.via === 'relay' ? 'Connected through another member’s computer, still end-to-end encrypted' : 'Connected directly'),
-      version ? dim(`Their version: ${version}`) : undefined,
-    ]),
-    row([
-      ctx.draw.button('friend:message', `Message ${f.name}`, () => openConversation(ctx, `dm:${id}`), { primary: true, hotkey: 'a' }),
-      ctx.state.gateway.enabled ? ctx.draw.button('friend:ask', 'Ask Their Agent', () => ctx.go({ name: 'ask', params: { to: id } }), { plain: true, hotkey: 'q' }) : undefined,
-    ]),
+    card(
+      [
+        meta(presencePill(f), !f.online ? 'Not connected' : f.via === 'relay' ? 'Connected through another member’s computer, still end-to-end encrypted' : 'Connected directly'),
+        version ? meta(`Their version: ${version}`) : undefined,
+        actions(
+          ctx.draw.button('friend:message', `Message ${f.name}`, () => openConversation(ctx, `dm:${id}`), { primary: true, hotkey: 'a' }),
+          ctx.state.gateway.enabled ? ctx.draw.button('friend:ask', 'Ask Their Agent', () => ctx.go({ name: 'ask', params: { to: id } }), { plain: true, hotkey: 'q' }) : undefined,
+        ),
+      ],
+      { title: f.name },
+    ),
     f.avatar ? picture(ctx, `friend:${id}:avatar`, `${f.name}’s picture`, async () => (await ctx.call('network.avatar.get', f.avatar)) as { mime: string; b64: string }) : undefined,
-    card?.note?.trim() ? col([dim(`Ask ${f.name} for`), text(card.note.trim())]) : undefined,
-    col([dim('Trust'), trustChoices(ctx, `friend:${id}:trust`, id, level), dim(TRUST_INFO[level].detail)]),
-    grant && dim(`They let you: ${GRANT_INFO[grant.level].short}. ${GRANT_INFO[grant.level].detail}.`),
-    ...(card?.usages ?? []).slice(0, 4).map((u) => {
-      const left = windowsOf(u).map((w) => `${w.label} ${Math.max(0, 100 - w.pct)}% left`);
-      return left.length > 0 ? dim(`Their ${agentName(u.agent)} plan: ${left.join(', ')}`) : undefined;
-    }),
-    card && card.offers.length > 0 ? dim(`Their computer offers you: ${card.offers.map((n) => CAP_INFO[n].label).join(', ')}`) : undefined,
-    card && card.projects.length > 0 ? dim(`Projects you can ask about: ${card.projects.slice(0, 20).join(', ')}`) : undefined,
+    Boolean(theirs?.note?.trim() || grant || usages.length > 0 || (theirs && theirs.offers.length > 0) || (theirs && theirs.projects.length > 0)) &&
+      section('What they offer', [
+        theirs?.note?.trim() ? col([dim(`Ask ${f.name} for`), md(peerMd(theirs.note.trim()))]) : undefined,
+        grant && dim(`They let you: ${GRANT_INFO[grant.level].short}. ${GRANT_INFO[grant.level].detail}.`),
+        ...usages,
+        theirs && theirs.offers.length > 0 ? dim(`Their computer offers you: ${theirs.offers.map((n) => CAP_INFO[n].label).join(', ')}`) : undefined,
+        theirs && theirs.projects.length > 0 ? dim(`Projects you can ask about: ${theirs.projects.slice(0, 20).join(', ')}`) : undefined,
+      ]),
+    section('Trust', [trustChoices(ctx, `friend:${id}:trust`, id, level), dim(TRUST_INFO[level].detail)]),
     ctx.state.gateway.enabled &&
-      col([
-        dim('What their agent can do here, at their trust'),
+      section('What their agent can do here, at their trust', [
         ...CAP_ORDER.map((need) => line(`${CAP_INFO[need].label}: `, span(CAP_LEVEL_INFO[capFor(caps, need, level)], { dim: true }))),
         ctx.draw.button('friend:access', 'Change for All Teammates', () => ctx.go({ name: 'access' }), { plain: true, dim: true }),
       ]),
-    ctx.state.gateway.enabled && col([dim(`Your rules for ${f.name}`), rules.length === 0 && empty('No rules yet. Choosing Always on one of their requests makes one.'), listOf(ctx, `friend:${id}:rules`, rules, (r) => ruleRow(ctx, `rule:${r.id}`, r, false))]),
+    ctx.state.gateway.enabled &&
+      section(`Your rules for ${f.name}`, [rules.length === 0 && empty('No rules yet. Choosing Always on one of their requests makes one.'), listOf(ctx, `friend:${id}:rules`, rules, (r) => ruleRow(ctx, `rule:${r.id}`, r, false))], rules.length),
     ctx.draw.button('friend:more', 'More', () => ctx.go({ name: 'friend-more', params: { id } }), { plain: true, dim: true, hotkey: 'm' }),
   );
 }
@@ -313,22 +348,29 @@ export function friendMorePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'people'),
     back(ctx, f.name),
-    title(f.name),
-    col([
-      dim('How far their requests reach'),
-      row([choice(ctx, 'friend:reach:folder', 'Only your shared folders', reach === 'folder', () => ctx.call('session.setAccess', id, 'folder')), choice(ctx, 'friend:reach:full', 'This whole computer', reach === 'full', () => ctx.call('session.setAccess', id, 'full'))]),
-      full ? dim('Full trust already reaches the whole computer.') : undefined,
+    card(
+      [
+        section('How far their requests reach', [
+          row([choice(ctx, 'friend:reach:folder', 'Only your shared folders', reach === 'folder', () => ctx.call('session.setAccess', id, 'folder')), choice(ctx, 'friend:reach:full', 'This whole computer', reach === 'full', () => ctx.call('session.setAccess', id, 'full'))], { gap: 2 }),
+          full ? dim('Full trust already reaches the whole computer.') : undefined,
+        ]),
+        ctx.state.gateway.enabled &&
+          section('Your agent asks them', [row([choice(ctx, 'friend:freely:no', 'Checking with you first', !freely, () => ctx.call('gateway.setAskFreely', id, false)), choice(ctx, 'friend:freely:yes', 'Without checking', freely, () => ctx.call('gateway.setAskFreely', id, true))], { gap: 2 })]),
+      ],
+      { title: f.name },
+    ),
+    section('Channels', [
+      ctx.draw.button('friend:new-channel', `New Channel with ${f.name}`, () => ctx.go({ name: 'new-channel', params: { with: id } }), { plain: true }),
+      channels.length > 0 && col([dim('Add to a channel'), listOf(ctx, `friend:${id}:channels`, channels, (g) => ctx.draw.button(`friend:add-to:${g.id}`, g.name, () => ctx.call('network.groups.addMember', g.id, id), { plain: true }))], { top: 1 }),
     ]),
-    ctx.state.gateway.enabled &&
-      col([dim('Your agent asks them'), row([choice(ctx, 'friend:freely:no', 'Checking with you first', !freely, () => ctx.call('gateway.setAskFreely', id, false)), choice(ctx, 'friend:freely:yes', 'Without checking', freely, () => ctx.call('gateway.setAskFreely', id, true))])]),
-    ctx.draw.button('friend:new-channel', `New Channel with ${f.name}`, () => ctx.go({ name: 'new-channel', params: { with: id } }), { plain: true }),
     ctx.state.peers.some((p) => p.peerId === id && !p.guest) && ctx.draw.button('friend:room', 'In Your Room', () => ctx.go({ name: 'room-person', params: { id } }), { plain: true }),
-    channels.length > 0 && col([dim('Add to a channel'), listOf(ctx, `friend:${id}:channels`, channels, (g) => ctx.draw.button(`friend:add-to:${g.id}`, g.name, () => ctx.call('network.groups.addMember', g.id, id), { plain: true }))]),
-    remembered && ctx.draw.button('friend:forget', 'Forget the Trust You Picked', () => ctx.call('people.forget', id), { plain: true, dim: true }),
-    confirmPress(ctx, 'friend:remove', `Remove ${f.name}`, `You won’t be connected any more, and your conversation with ${f.name} is removed from this computer. Channels you share stay.`, async () => {
-      await ctx.call('network.friends.remove', id);
-      ctx.go({ name: 'friends' });
-    }),
+    actions(
+      remembered && ctx.draw.button('friend:forget', 'Forget the Trust You Picked', () => ctx.call('people.forget', id), { plain: true, dim: true }),
+      confirmPress(ctx, 'friend:remove', `Remove ${f.name}`, `You won’t be connected any more, and your conversation with ${f.name} is removed from this computer. Channels you share stay.`, async () => {
+        await ctx.call('network.friends.remove', id);
+        ctx.go({ name: 'friends' });
+      }),
+    ),
   );
 }
 
@@ -344,29 +386,34 @@ export function networkPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'people'),
     back(ctx, 'People'),
-    title('The network'),
-    dim('On. Your computer connects straight to your teammates’, end-to-end encrypted.'),
-    status.error ? failed(status.error) : undefined,
-    status.value?.peerId ? dim(`Your id: ${status.value.peerId}`) : undefined,
-    status.value?.address ? dim(`Your address: ${status.value.address}`) : undefined,
-    col([
-      dim('People you haven’t picked a trust level for'),
-      row([
-        choice(ctx, 'network:policy:ask', 'Ask me each time', ctx.state.policy === 'ask', () => ctx.call('session.setClaudeSharing', 'ask')),
-        choice(ctx, 'network:policy:auto', 'Without asking', ctx.state.policy === 'auto', () => ctx.call('session.setClaudeSharing', 'auto')),
-        choice(ctx, 'network:policy:deny', 'Never', ctx.state.policy === 'deny', () => ctx.call('session.setClaudeSharing', 'deny')),
-      ]),
+    card(
+      [
+        line(pill('On', 'ok')),
+        dim('Your computer connects straight to your teammates’, end-to-end encrypted.'),
+        status.error ? failed(status.error) : undefined,
+        status.value?.peerId ? field('Your id', span(status.value.peerId, { dim: true })) : undefined,
+        status.value?.address ? field('Your address', span(status.value.address, { dim: true })) : undefined,
+      ],
+      { title: 'The network' },
+    ),
+    section('People you haven’t picked a trust level for', [
+      row(
+        [
+          choice(ctx, 'network:policy:ask', 'Ask me each time', ctx.state.policy === 'ask', () => ctx.call('session.setClaudeSharing', 'ask')),
+          choice(ctx, 'network:policy:auto', 'Without asking', ctx.state.policy === 'auto', () => ctx.call('session.setClaudeSharing', 'auto')),
+          choice(ctx, 'network:policy:deny', 'Never', ctx.state.policy === 'deny', () => ctx.call('session.setClaudeSharing', 'deny')),
+        ],
+        { gap: 2 },
+      ),
     ]),
-    col([
-      dim('Teammates may ask to start work here; you approve each one'),
-      row([choice(ctx, 'network:worktrees:ask', 'Yes', ctx.state.prefs.friendWorktrees === 'ask', () => ctx.call('session.setFriendWorktrees', 'ask')), choice(ctx, 'network:worktrees:off', 'No', ctx.state.prefs.friendWorktrees === 'off', () => ctx.call('session.setFriendWorktrees', 'off'))]),
+    section('Teammates may ask to start work here; you approve each one', [
+      row([choice(ctx, 'network:worktrees:ask', 'Yes', ctx.state.prefs.friendWorktrees === 'ask', () => ctx.call('session.setFriendWorktrees', 'ask')), choice(ctx, 'network:worktrees:off', 'No', ctx.state.prefs.friendWorktrees === 'off', () => ctx.call('session.setFriendWorktrees', 'off'))], { gap: 2 }),
     ]),
-    avatar ? col([dim('Your picture'), picture(ctx, 'network:avatar', 'Your picture', async () => (await ctx.call('network.avatar.get', avatar)) as { mime: string; b64: string }), ctx.draw.button('network:avatar:remove', 'Take It Away', () => ctx.call('network.avatar.set', null), { plain: true, dim: true })]) : undefined,
+    avatar ? section('Your picture', [picture(ctx, 'network:avatar', 'Your picture', async () => (await ctx.call('network.avatar.get', avatar)) as { mime: string; b64: string }), ctx.draw.button('network:avatar:remove', 'Take It Away', () => ctx.call('network.avatar.set', null), { plain: true, dim: true })]) : undefined,
     remembered.length > 0 &&
-      col([
-        dim('Remembered from before'),
+      section('Remembered from before', [
         listOf(ctx, 'network:remembered', remembered, ([id, r]) => row([line(r.name, span(`  ${TRUST_INFO[r.trust].label}`, { dim: true })), ctx.draw.button(`network:forget:${id}`, 'Forget', () => ctx.call('people.forget', id), { plain: true, dim: true })])),
-      ]),
+      ], remembered.length),
     confirmPress(ctx, 'network:off', 'Turn Off', 'You stop being connected to your teammates until you turn it on again. What you have stays on this computer.', () => ctx.call('network.setEnabled', false)),
   );
 }

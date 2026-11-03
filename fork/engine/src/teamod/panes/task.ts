@@ -10,11 +10,12 @@ import { steeredMessages } from '../../shared/claude-notices.js';
 import type { StepPage, StepRecord, StepSummary } from '../../shared/steps.js';
 import { agentChoices, agentForChoice, choiceForAgent } from '../../ui/agent-choice.js';
 import { queueIn } from '../../ui/compose.js';
+import { stateOf } from '../../ui/workspace-models.js';
 import type { EnvChange } from '../../workspaces/env.js';
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx, Screen } from '../screens.js';
-import { type Node, code, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { type Place, ago, back, chrome, empty, findWorkspace, page, statusOf } from './common.js';
+import { type Node, type Span, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { type Place, actions, ago, back, card, chrome, empty, findWorkspace, page, section } from './common.js';
 import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } from './task-changes.js';
 import { filePage, filesPage, scratchPage } from './task-files.js';
 import { agentOutputPage, agentPage, agentStepPage, agentTaskPage, agentsPage } from './task-agents.js';
@@ -38,7 +39,14 @@ const placesOf = (id: string): readonly Place[] => [
 
 const stepWords = (step: StepSummary): string => step.label ?? step.doing ?? step.title;
 
-/** One run's card: who, what it's doing, how to open its steps, and what it said. */
+const DOT = span(' · ', { dim: true });
+const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
+const kept = <T>(list: ReadonlyArray<T | false | undefined | null | ''>): T[] => list.filter((x): x is T => Boolean(x));
+
+/** Who said it and when, small: `elad · 9m`. */
+const whoLine = (who: readonly Span[], ts: number, ...rest: ReadonlyArray<Span | false | undefined>): Node => line(...who, DOT, span(ago(ts), { dim: true }), ...rest);
+
+/** One run: who, how long ago, its steps folded to one dim line, then what it said. */
 function agentItem(ctx: Ctx, ws: Workspace, item: AgentItem): Node {
   const running = isRunning(item.status);
   const steps = item.steps.length;
@@ -46,19 +54,21 @@ function agentItem(ctx: Ctx, ws: Workspace, item: AgentItem): Node {
   const channel = `ws:${ws.id}`;
   const subs = item.subagents.filter((s) => s.kind !== 'background');
   const background = item.subagents.filter((s) => s.kind === 'background');
+  const claude = { color: 'claude' } as const;
   return col([
-    line(
-      span(agentLabel(item.agent, undefined, true, { capital: true }), { weight: 'semibold', color: 'claude' }),
-      span(`  ${ago(item.ts)}`, { dim: true }),
-      running && span(item.status === 'queued' ? '  waiting its turn' : '  working', { color: 'claude' }),
+    whoLine(
+      [span('✦ ', claude), span(agentLabel(item.agent, undefined, true, { capital: true }), { weight: 'semibold', color: 'claude' })],
+      item.ts,
+      running && DOT,
+      running && span(item.status === 'queued' ? 'waiting its turn' : 'working', claude),
     ),
     steps > 0 &&
-      ctx.draw.button(`steps:${item.id}`, `${steps} step${steps === 1 ? '' : 's'}`, () => ctx.go({ name: 'steps', params: { id: ws.id, channel, item: item.id } }), {
+      ctx.draw.button(`steps:${item.id}`, plural(steps, 'step'), () => ctx.go({ name: 'steps', params: { id: ws.id, channel, item: item.id } }), {
         plain: true,
         dim: true,
-        spans: [span(`${steps} step${steps === 1 ? '' : 's'}${running && latest ? `, now: ${latest}` : ''}`, { dim: true })],
+        spans: kept([span('▸ ', { dim: true }), span(plural(steps, 'step'), { dim: true }), running && latest && DOT, running && latest && span('now: ', { dim: true }), running && latest && span(latest, { dim: true })]),
       }),
-    subs.length > 0 && dim(`${subs.length} sub-agent${subs.length === 1 ? '' : 's'}, ${subs.filter((s) => s.status === 'running').length} running`),
+    subs.length > 0 && line(span(plural(subs.length, 'sub-agent'), { dim: true }), DOT, span(`${subs.filter((s) => s.status === 'running').length} running`, { dim: true })),
     background.length > 0 && dim(`${background.length} in the background`),
     ...(item.text ? richNodes(ctx, item.text) : []),
     item.status === 'error' && text('This run failed.', { color: 'error' }),
@@ -86,18 +96,19 @@ function chatItem(ctx: Ctx, ws: Workspace, item: ChatItem, waiting: ReturnType<t
   const mine = !item.byAgent && item.from === ctx.state.selfId;
   const steer = waiting.get(item.id);
   const split = splitImages(item.text);
+  const edit =
+    mine && ws.kind !== 'main' && !ws.archived
+      ? ctx.draw.button(`edit:${item.id}`, 'Edit', () => ctx.go({ name: 'edit', params: { id: ws.id, line: item.id } }), { plain: true, dim: true })
+      : undefined;
   return col([
-    line(span(item.name, { weight: 'semibold' }), span(`  ${ago(item.ts)}`, { dim: true })),
+    row([whoLine([span(item.name, { weight: 'semibold' })], item.ts), edit], { justify: 'space-between' }),
     md(split.text),
     ...split.images.map((image, i) => imageRow(ctx, item.id, i, image)),
     steer &&
       row([
         dim(steer.waiting === 'stopping' ? 'Your agent stops its step to read this' : 'Sent. Waiting for your agent to read it'),
         steer.waiting === 'next_step' ? ctx.draw.button(`steer-now:${item.id}`, 'Send Now', () => ctx.call('host.steerNow', steer.request), { plain: true }) : undefined,
-      ]),
-    mine && ws.kind !== 'main' && !ws.archived
-      ? ctx.draw.button(`edit:${item.id}`, 'Edit', () => ctx.go({ name: 'edit', params: { id: ws.id, line: item.id } }), { plain: true, dim: true })
-      : undefined,
+      ], { gap: 2 }),
   ]);
 }
 
@@ -121,11 +132,11 @@ function queueRows(ctx: Ctx, channel: string): Node | undefined {
   const queued = queueIn(ctx.state, channel, ctx.state.selfId);
   if (!queued.length) return undefined;
   const [, setDraft] = ctx.local(`composer:${channel}:draft`, '');
-  return col([
-    dim(`Waiting (${queued.length})`),
-    ...queued.map((q, i) =>
+  return section(
+    'Waiting',
+    queued.map((q, i) =>
       row([
-        text(q.prompt.split('\n')[0]?.slice(0, 80) || 'A message'),
+        line(span('◌ ', { dim: true }), span(q.prompt.split('\n')[0]?.slice(0, 80) || 'A message')),
         q.yours ? ctx.draw.button(`q:${q.requestId}:now`, 'Steer', () => ctx.call('host.promote', q.requestId), { plain: true }) : undefined,
         q.yours && i > 0 ? ctx.draw.button(`q:${q.requestId}:up`, 'Up', () => ctx.call('host.reorderQueued', q.requestId, i - 1), { plain: true, dim: true }) : undefined,
         q.yours && i < queued.length - 1 ? ctx.draw.button(`q:${q.requestId}:down`, 'Down', () => ctx.call('host.reorderQueued', q.requestId, i + 1), { plain: true, dim: true }) : undefined,
@@ -142,21 +153,26 @@ function queueRows(ctx: Ctx, channel: string): Node | undefined {
             )
           : undefined,
         q.yours ? ctx.draw.button(`q:${q.requestId}:drop`, 'Remove', () => ctx.call('host.cancelQueued', q.requestId), { plain: true, dim: true }) : undefined,
-      ]),
+      ], { gap: 2 }),
     ),
-  ]);
+    queued.length,
+  );
 }
 
 /** A side question's answer, above the box, never in the chat. */
 function btwCard(ctx: Ctx, channel: string): Node | undefined {
   const btw = ctx.state.btw[channel];
   if (!btw) return undefined;
-  return col([
-    row([line(span('By the way: ', { dim: true }), btw.question), ctx.draw.button('btw:close', 'Close', () => ctx.call('session.btwDismiss', channel), { plain: true, dim: true })]),
-    btw.state === 'thinking' && dim('Thinking...'),
-    btw.text ? md(btw.text) : undefined,
-    btw.state === 'failed' && text(btw.error ?? 'That did not work.', { color: 'error' }),
-  ]);
+  return card(
+    [
+      line(span(btw.question)),
+      btw.state === 'thinking' && dim('Thinking...'),
+      btw.text ? md(btw.text) : undefined,
+      btw.state === 'failed' && text(btw.error ?? 'That did not work.', { color: 'error' }),
+      actions(ctx.draw.button('btw:close', 'Close', () => ctx.call('session.btwDismiss', channel), { plain: true, dim: true })),
+    ],
+    { title: 'By the way' },
+  );
 }
 
 function contextMeter(ctx: Ctx, channel: string): string | undefined {
@@ -214,7 +230,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
     await ctx.call('session.submit', outgoing, { channel, ...(mode === 'steer' ? { urgent: true } : {}) });
   };
   if (ws.archived) {
-    return row([dim('Archived.'), ctx.draw.button('restore', 'Restore', () => ctx.call('workspaces.restore', ws.id), { primary: true })]);
+    return card([dim('Archived. Its branch and files are kept.'), actions(ctx.draw.button('restore', 'Restore', () => ctx.call('workspaces.restore', ws.id), { primary: true }))]);
   }
   return col([
     ctx.draw.input(`composer:${channel}:box`, send, { placeholder, rows: 2, ...(draft ? { value: draft } : {}), submitLabel: mode === 'btw' ? 'ask' : mode === 'steer' ? 'steer' : running ? 'queue' : 'send' }),
@@ -247,7 +263,7 @@ function composer(ctx: Ctx, ws: Workspace, channel: string, running: boolean): N
       ctx.draw.button('model', ws.agent?.model ?? ws.model ?? ws.agent?.label ?? 'Model', () => ctx.go({ name: 'model', params: { id: ws.id } }), { plain: true, dim: true }),
       ctx.draw.button('more', 'More', () => ctx.go({ name: 'more', params: { id: ws.id } }), { plain: true, dim: true }),
       meter ? dim(meter) : undefined,
-    ]),
+    ], { gap: 2 }),
   ]);
 }
 
@@ -284,14 +300,23 @@ function stepPage(ctx: Ctx, ws: Workspace, channel: string, itemId: string, step
     back(ctx, 'Steps'),
     loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
     !step && dim(loaded.loading ? 'Loading...' : 'Details of this step aren’t kept here.'),
-    step && title(stepWords(step)),
-    step?.text ? md(step.text) : undefined,
-    input ? col([dim('In'), code(input)]) : undefined,
-    step?.output ? col([dim('Out'), code(step.output)]) : undefined,
-    step?.truncated && dim('Cut to fit.'),
-    step?.isError && text('It failed.', { color: 'error' }),
+    step &&
+      card(
+        [
+          step.text ? md(step.text) : undefined,
+          step.isError && text('It failed.', { color: 'error' }),
+          step.truncated && dim('Cut to fit.'),
+        ],
+        { title: stepWords(step), ...(step.isError ? { tone: 'error' as const } : {}) },
+      ),
+    input ? section('Input', [code(input)]) : undefined,
+    step?.output ? section('Output', [code(step.output)]) : undefined,
   );
 }
+
+/** A step's mark: running, failed, or done. */
+const stepMark = (status: string | undefined): Span =>
+  status === 'running' ? span('… ', { color: 'claude' }) : status === 'error' ? span('✗ ', { color: 'error' }) : span('· ', { dim: true });
 
 /** A run's steps, oldest first, each one opens. */
 function stepsPage(ctx: Ctx, ws: Workspace, channel: string, itemId: string): Node {
@@ -302,14 +327,19 @@ function stepsPage(ctx: Ctx, ws: Workspace, channel: string, itemId: string): No
   return page(
     chrome(ctx, placesOf(ws.id)),
     back(ctx, 'Chat'),
-    title('Steps'),
-    loaded.value?.missing && dim('The details of this run aren’t kept on this computer.'),
-    steps.length === 0 && !loaded.value?.missing ? dim(loaded.loading ? 'Loading...' : 'No steps yet.') : undefined,
-    ...steps.map((step) =>
-      ctx.draw.button(`step:${step.id}`, stepWords(step), () => ctx.go({ name: 'steps', params: { id: ws.id, channel, item: itemId, step: step.id } }), {
-        plain: true,
-        spans: [span(step.status === 'running' ? '… ' : step.status === 'error' ? '! ' : '  ', step.status === 'error' ? { color: 'error' } : { dim: true }), span(stepWords(step)), span(step.parent ? '  sub-agent' : '', { dim: true })],
-      }),
+    section(
+      'Steps',
+      [
+        loaded.value?.missing && dim('The details of this run aren’t kept on this computer.'),
+        steps.length === 0 && !loaded.value?.missing ? dim(loaded.loading ? 'Loading...' : 'No steps yet.') : undefined,
+        ...steps.map((step) =>
+          ctx.draw.button(`step:${step.id}`, stepWords(step), () => ctx.go({ name: 'steps', params: { id: ws.id, channel, item: itemId, step: step.id } }), {
+            plain: true,
+            spans: kept([stepMark(step.status), span(stepWords(step)), step.parent && span('  sub-agent', { dim: true })]),
+          }),
+        ),
+      ],
+      steps.length || undefined,
     ),
   );
 }
@@ -319,15 +349,18 @@ function editPage(ctx: Ctx, ws: Workspace, lineId: string): Node {
   const item = ctx.state.log.find((l) => l.id === lineId);
   if (item?.type !== 'chat') return page(chrome(ctx, placesOf(ws.id)), back(ctx), empty('That message is gone.'));
   const [how, setHow] = ctx.local<'here' | 'fork'>(`edit:${lineId}:how`, 'here');
+  const choice = (key: string, label: string, hotkey: string, on: boolean, pick: () => void): Node =>
+    ctx.draw.button(key, label, pick, { plain: true, hotkey, ...(on ? { spans: [span('● ', { color: 'claude' }), span(label, { weight: 'semibold' })] } : { dim: true, spans: [span('○ ', { dim: true }), span(label, { dim: true })] }) });
   return page(
     chrome(ctx, placesOf(ws.id)),
     back(ctx, 'Chat'),
-    title('Edit this message'),
-    dim(how === 'here' ? 'Rewinds this conversation and its files to here, then sends your new words.' : 'Keeps this conversation as it is, and starts a copy from here with your new words.'),
-    row([
-      ctx.draw.button('edit:here', 'Rewind', () => setHow('here'), { plain: true, hotkey: 'r', ...(how === 'here' ? {} : { dim: true }) }),
-      ctx.draw.button('edit:fork', 'Fork', () => setHow('fork'), { plain: true, hotkey: 'f', ...(how === 'fork' ? {} : { dim: true }) }),
-    ]),
+    card(
+      [
+        row([choice('edit:here', 'Rewind', 'r', how === 'here', () => setHow('here')), choice('edit:fork', 'Fork', 'f', how === 'fork', () => setHow('fork'))], { gap: 3 }),
+        dim(how === 'here' ? 'Rewinds this conversation and its files to here, then sends your new words.' : 'Keeps this conversation as it is, and starts a copy from here with your new words.'),
+      ],
+      { title: 'Edit this message' },
+    ),
     ctx.draw.input(
       `edit:${lineId}:box`,
       async (value) => {
@@ -347,20 +380,27 @@ function modelPage(ctx: Ctx, ws: Workspace, channel: string): Node {
   return page(
     chrome(ctx, placesOf(ws.id)),
     back(ctx, 'Chat'),
-    title('Agent and model'),
-    ...choices.map((choice) =>
-      choice.disabled
-        ? line(span(choice.label, { dim: true }), choice.why ? span(`  ${choice.why}`, { dim: true }) : undefined)
-        : ctx.draw.button(
-            `model:${choice.value}`,
-            choice.label,
-            async () => {
-              if (choice.runtime === (ws.agent?.runtime ?? 'claude')) await ctx.call('workbench.setModel', channel, choice.model);
-              else await ctx.call('workbench.setAgent', channel, agentForChoice(choice.value, ctx.state.runtimes));
-              ctx.nav.back(ctx.pane);
-            },
-            { plain: true, ...(choice.value === current ? {} : { dim: true }) },
-          ),
+    card(
+      choices.map((choice) =>
+        choice.disabled
+          ? line(span(`  ${choice.label}`, { dim: true }), choice.why ? span(`  ${choice.why}`, { dim: true }) : undefined)
+          : ctx.draw.button(
+              `model:${choice.value}`,
+              choice.label,
+              async () => {
+                if (choice.runtime === (ws.agent?.runtime ?? 'claude')) await ctx.call('workbench.setModel', channel, choice.model);
+                else await ctx.call('workbench.setAgent', channel, agentForChoice(choice.value, ctx.state.runtimes));
+                ctx.nav.back(ctx.pane);
+              },
+              {
+                plain: true,
+                ...(choice.value === current
+                  ? { spans: [span('● ', { color: 'claude' }), span(choice.label, { weight: 'semibold' })] }
+                  : { dim: true, spans: [span('○ ', { dim: true }), span(choice.label, { dim: true })] }),
+              },
+            ),
+      ),
+      { title: 'Agent and model' },
     ),
   );
 }
@@ -374,22 +414,31 @@ function envList(changes: readonly EnvChange[]): Node {
 function removePage(ctx: Ctx, ws: Workspace): Node {
   ctx.load(`remove:${ws.id}`, () => ctx.call('workspaces.prepareRemoval', ws.id));
   const changes = ctx.state.envChanges[ws.id] ?? [];
-  return col(
+  return card(
     [
-      title(`Archive ${ws.name}`),
       dim('Its branch and files are kept. You can restore it.'),
-      changes.length > 0 && col([text('Env files changed here would stay behind:', { color: 'warning' }), envList(changes), row([ctx.draw.button('env-back', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), {}), ctx.draw.button('env-save', 'Keep a Copy in teamod', () => ctx.call('workspaces.saveEnvInTeamod', ws.id), {})])]),
-      ctx.draw.button(
-        'archive-go',
-        'Archive',
-        async () => {
-          await ctx.call('workspaces.archive', ws.id);
-          ctx.show('work');
-        },
-        { primary: true },
+      changes.length > 0 &&
+        col(
+          [
+            text('Env files changed here would stay behind:', { color: 'warning' }),
+            envList(changes),
+            row([ctx.draw.button('env-back', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), {}), ctx.draw.button('env-save', 'Keep a Copy in teamod', () => ctx.call('workspaces.saveEnvInTeamod', ws.id), {})], { gap: 2 }),
+          ],
+          { top: 1 },
+        ),
+      actions(
+        ctx.draw.button(
+          'archive-go',
+          'Archive',
+          async () => {
+            await ctx.call('workspaces.archive', ws.id);
+            ctx.show('work');
+          },
+          { primary: true },
+        ),
       ),
     ],
-    { gap: 1 },
+    { title: [span('Archive', { weight: 'bold' }), span(` ${ws.name}`, { weight: 'bold' })], ...(changes.length > 0 ? { tone: 'warn' as const } : {}) },
   );
 }
 
@@ -399,25 +448,49 @@ function morePage(ctx: Ctx, ws: Workspace, channel: string): Node {
   return page(
     chrome(ctx, placesOf(ws.id)),
     back(ctx, 'Chat'),
-    title(ws.name),
-    ctx.draw.button('compact', 'Compact', () => ctx.call(ws.kind === 'chat' ? 'session.compact' : 'workspaces.compact', ws.kind === 'chat' ? channel : ws.id), { plain: true }),
-    ws.kind !== 'main'
-      ? forking
-        ? ctx.draw.input(
-            'fork-name',
-            async (value) => {
-              setForking(false);
-              if (value?.trim()) await ctx.call('workspaces.fork', ws.id, value.trim());
-            },
-            { label: 'Name', placeholder: 'A name for the copy', submitLabel: 'fork', autoFocus: true },
-          )
-        : ctx.draw.button('fork', 'Fork', () => setForking(true), { plain: true })
-      : undefined,
-    ctx.draw.button('finder', 'Show in Finder', () => ctx.call('workspaces.openInFinder', ws.id), { plain: true }),
-    !ws.archived && ws.kind === 'worktree' ? ctx.draw.button('archive', 'Archive', () => ctx.go({ name: 'remove', params: { id: ws.id } }), { plain: true }) : undefined,
-    ctx.draw.button('copy-answer', 'Copy Last Answer', () => ctx.call('session.copyLastAnswer'), { plain: true }),
-    ctx.draw.button('refresh', 'Refresh', () => ctx.call('workspaces.refresh', ws.id), { plain: true }),
-    ctx.draw.button('stop-everywhere', 'Stop Your Agent Everywhere', () => ctx.call('session.stopAgent'), { plain: true }),
+    card(
+      [
+        ctx.draw.button('compact', 'Compact', () => ctx.call(ws.kind === 'chat' ? 'session.compact' : 'workspaces.compact', ws.kind === 'chat' ? channel : ws.id), { plain: true }),
+        ws.kind !== 'main'
+          ? forking
+            ? ctx.draw.input(
+                'fork-name',
+                async (value) => {
+                  setForking(false);
+                  if (value?.trim()) await ctx.call('workspaces.fork', ws.id, value.trim());
+                },
+                { label: 'Name', placeholder: 'A name for the copy', submitLabel: 'fork', autoFocus: true },
+              )
+            : ctx.draw.button('fork', 'Fork', () => setForking(true), { plain: true })
+          : undefined,
+        ctx.draw.button('finder', 'Show in Finder', () => ctx.call('workspaces.openInFinder', ws.id), { plain: true }),
+        !ws.archived && ws.kind === 'worktree' ? ctx.draw.button('archive', 'Archive', () => ctx.go({ name: 'remove', params: { id: ws.id } }), { plain: true }) : undefined,
+        ctx.draw.button('copy-answer', 'Copy Last Answer', () => ctx.call('session.copyLastAnswer'), { plain: true }),
+        ctx.draw.button('refresh', 'Refresh', () => ctx.call('workspaces.refresh', ws.id), { plain: true }),
+        ctx.draw.button('stop-everywhere', 'Stop Your Agent Everywhere', () => ctx.call('session.stopAgent'), { plain: true }),
+      ],
+      { title: ws.name },
+    ),
+  );
+}
+
+/** The worktree at the top of its chat: name, state in a colored pill, branch, and Stop while it works. */
+function headerCard(ctx: Ctx, ws: Workspace, channel: string, running: boolean): Node {
+  const st = stateOf(ctx.state, ws, 0);
+  const color = st.tone === 'error' ? 'error' : st.tone === 'warn' ? 'warning' : st.tone === 'ok' ? 'success' : st.tone === 'claude' || st.tone === 'info' ? 'claude' : undefined;
+  const style = color ? { color } : { dim: true };
+  const askOnly = ws.askOnly && ws.kind !== 'chat';
+  return card(
+    [
+      line(span(`${st.icon} `, style), span(st.label, style), ws.branch ? DOT : undefined, ws.branch ? span(`⌥ ${ws.branch}`, { dim: true }) : undefined),
+      askOnly && dim('Questions only: your agent won’t change anything in main.'),
+      (running || askOnly) &&
+        actions(
+          running && ctx.draw.button('stop', 'Stop', () => ctx.call('host.stopRun', channel), { hotkey: 'x' }),
+          askOnly && ctx.draw.button('continue', 'Continue in New Worktree', () => ctx.call('workspaces.continueInWorktree', ws.id), { plain: true }),
+        ),
+    ],
+    { title: ws.name, ...(st.tone === 'error' ? { tone: 'error' as const } : st.tone === 'warn' ? { tone: 'warn' as const } : {}) },
   );
 }
 
@@ -456,17 +529,19 @@ export const taskPane: Screen = (ctx) => {
   const envAsks = ctx.state.envAsks[ws.id] ?? [];
   return page(
     chrome(ctx, placesOf(ws.id), 'chat'),
-    col([row([title(ws.name), ws.branch ? dim(ws.branch) : undefined]), line(statusOf(ctx.state, ws))]),
+    headerCard(ctx, ws, channel, running),
     envAsks.length > 0 &&
-      col([
-        text('Env files changed here, and the main folder doesn’t have them:', { color: 'warning' }),
-        envList(envAsks),
-        row([ctx.draw.button('env-copy', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), { primary: true }), ctx.draw.button('env-keep', 'Keep Here Only', () => ctx.call('workspaces.keepEnvHere', ws.id), { plain: true, dim: true })]),
-      ]),
-    ws.askOnly && ws.kind !== 'chat'
-      ? row([dim('Questions only: your agent won’t change anything in main.'), ctx.draw.button('continue', 'Continue in New Worktree', () => ctx.call('workspaces.continueInWorktree', ws.id), { plain: true })])
-      : undefined,
-    running && ctx.draw.button('stop', 'Stop', () => ctx.call('host.stopRun', channel), { hotkey: 'x' }),
+      card(
+        [
+          text('Env files changed here, and the main folder doesn’t have them:'),
+          envList(envAsks),
+          actions(
+            ctx.draw.button('env-copy', 'Copy to the Main Folder', () => ctx.call('workspaces.applyEnvBack', ws.id), ws.archived ? {} : { primary: true }),
+            ctx.draw.button('env-keep', 'Keep Here Only', () => ctx.call('workspaces.keepEnvHere', ws.id), { plain: true, dim: true }),
+          ),
+        ],
+        { tone: 'warn' },
+      ),
     chat(ctx, ws, channel),
     queueRows(ctx, channel),
     btwCard(ctx, channel),

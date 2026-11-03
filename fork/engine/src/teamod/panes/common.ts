@@ -95,7 +95,12 @@ export function back(ctx: Ctx, label = 'Back'): Node | undefined {
   return ctx.nav.canGoBack(ctx.pane) ? ctx.draw.button('back', `‹ ${label}`, () => ctx.nav.back(ctx.pane), { plain: true, hotkey: 'b', dim: true }) : undefined;
 }
 
-export const page = (...children: ReadonlyArray<Node | false | undefined | null>): Node => col(children, { gap: 1 });
+/** A screen's sections, a blank row apart (a section's own space above it is that row, not a second). */
+export const page = (...children: ReadonlyArray<Node | false | undefined | null>): Node =>
+  col(
+    children.map((c) => (c && c.k === 'box' && c.top === 1 ? { ...c, top: 0 } : c)),
+    { gap: 1 },
+  );
 
 export const empty = (words: string): Node => col([dim(words)], { top: 1 });
 

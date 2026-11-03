@@ -4,18 +4,21 @@ import { dialogueHeader } from '../../core/dialogues/view.js';
 import { type AgentRef, defaultAgentOf } from '../../protocol.js';
 import { agentChoices, agentForChoice } from '../../ui/agent-choice.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, md, row, span, text, title } from '../tree.js';
-import { ago, back, empty, page } from './common.js';
-import { choice, listOf, peerMd, top } from './team-common.js';
+import { type Node, col, dim, line, md, row, span, text } from '../tree.js';
+import { type Tone, ago, back, card, empty, meta, page, pill, section } from './common.js';
+import { choice, listOf, nameButton, peerMd, tick, top } from './team-common.js';
 
 /**
  * Dialogues: agents talking turn by turn, chaired by the engine. You start one, set its caps, answer
  * Continue? and stop it; what an agent says is only ever drawn.
  */
 
-const toneStyle = (d: Dialogue): { readonly color?: string; readonly dim?: boolean } => {
+/** Who talks, by name, joined by a dot: names stay as they are in any language. */
+const whoOf = (d: Dialogue): string => d.participants.map((_, i) => speakerName(d, i)).join(' · ');
+
+const toneOf = (d: Dialogue): Tone => {
   const tone = dialogueHeader(d).tone;
-  return tone === 'failed' ? { color: 'error' } : tone === 'live' ? { color: 'claude' } : tone === 'waiting' ? { color: 'warning' } : { dim: true };
+  return tone === 'failed' ? 'error' : tone === 'live' ? 'accent' : tone === 'waiting' ? 'warn' : 'quiet';
 };
 
 export function dialoguesPage(ctx: Ctx): Node {
@@ -24,10 +27,20 @@ export function dialoguesPage(ctx: Ctx): Node {
     top(ctx, 'dialogues'),
     ctx.draw.button('dialogues:new', 'New Dialogue', () => ctx.go({ name: 'dialogue-new' }), { primary: true, hotkey: 'a' }),
     all.length === 0 && empty('No dialogues yet. Two or more agents talk turn by turn, and you set how far they go.'),
-    listOf(ctx, 'dialogues:list', all, (d) => {
-      const h = dialogueHeader(d);
-      return ctx.draw.button(`dialogue:${d.id}`, h.topic, () => ctx.go({ name: 'dialogue', params: { id: d.id } }), { plain: true, spans: [span(`${h.topic.replace(/\s+/g, ' ').slice(0, 70)}  `), span(`${h.who} · ${h.status}`, toneStyle(d)), span(`  ${ago(d.updatedAt)}`, { dim: true })] });
-    }),
+    all.length > 0 &&
+      section('Dialogues', [
+        listOf(ctx, 'dialogues:list', all, (d) => {
+          const h = dialogueHeader(d);
+          const tone = toneOf(d);
+          return card(
+            [
+              nameButton(ctx, `dialogue:${d.id}`, h.topic.replace(/\s+/g, ' ').slice(0, 70), () => ctx.go({ name: 'dialogue', params: { id: d.id } })),
+              meta(pill(h.status, tone), whoOf(d), ago(d.updatedAt)),
+            ],
+            tone === 'warn' ? { tone: 'warn' } : {},
+          );
+        }),
+      ], all.length),
   );
 }
 
@@ -51,27 +64,38 @@ export function dialoguePage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'dialogues'),
     back(ctx, 'Dialogues'),
-    col([line(span(h.mode, { dim: true }), `  ${h.who}`), title(h.topic.replace(/\s+/g, ' ').slice(0, 200)), line(span(h.status, toneStyle(d)), span(`  ${h.progress}${h.budget ? ` · ${h.budget}` : ''}`, { dim: true }))]),
-    d.status === 'proposed' &&
-      col([
-        d.mode === 'cross-reference' ? undefined : ctx.draw.input(`dialogue:${id}:turn-cap`, (value) => setTurns(value?.trim() ?? ''), { label: 'Turns', placeholder: String(d.turnCap), submitLabel: 'keep', ...(turns ? { value: turns } : {}) }),
-        ctx.draw.input(`dialogue:${id}:budget-cap`, (value) => setBudget(value?.trim() ?? ''), { label: 'Budget (k tokens)', placeholder: d.budget ? String(Math.round(d.budget / 1000)) : 'none', submitLabel: 'keep', ...(budget ? { value: budget } : {}) }),
-      ]),
-    row(
-      h.actions.map((a) =>
+    card(
+      [
+        meta(pill(h.status, toneOf(d)), h.progress, h.budget),
+        meta(h.mode, whoOf(d)),
+        d.status === 'proposed' &&
+          col(
+            [
+              d.mode === 'cross-reference' ? undefined : ctx.draw.input(`dialogue:${id}:turn-cap`, (value) => setTurns(value?.trim() ?? ''), { label: 'Turns', placeholder: String(d.turnCap), submitLabel: 'keep', ...(turns ? { value: turns } : {}) }),
+              ctx.draw.input(`dialogue:${id}:budget-cap`, (value) => setBudget(value?.trim() ?? ''), { label: 'Budget (k tokens)', placeholder: d.budget ? String(Math.round(d.budget / 1000)) : 'none', submitLabel: 'keep', ...(budget ? { value: budget } : {}) }),
+            ],
+            { top: 1 },
+          ),
+        h.actions.length > 0 &&
+          row(
+            h.actions.map((a) =>
         a === 'start'
           ? ctx.draw.button('dialogue:start', 'Start', start, { primary: true, hotkey: 'a' })
           : a === 'continue'
             ? ctx.draw.button('dialogue:continue', 'Continue', () => ctx.call('dialogues.continue', id), { primary: true, hotkey: 'a' })
             : ctx.draw.button(`dialogue:${a}`, a === 'cancel' ? 'Cancel' : 'Stop', () => ctx.call('dialogues.stop', id), { plain: true, hotkey: 'x' }),
-      ),
+            ),
+            { gap: 2, top: 1 },
+          ),
+      ],
+      { title: h.topic.replace(/\s+/g, ' ').slice(0, 200), ...(toneOf(d) === 'warn' ? { tone: 'warn' as const } : toneOf(d) === 'error' ? { tone: 'error' as const } : {}) },
     ),
     from > 0 && ctx.draw.button('dialogue:earlier', `Earlier (${from})`, () => setLimit(wanted + 30), { plain: true, dim: true }),
     d.turns.length === 0 && d.status !== 'proposed' ? dim('No turns yet.') : undefined,
     col(
       shown.map((turn) =>
         col([
-          line(span(turn.by === 'person' ? (turn.name ?? 'A person') : speakerName(d, turn.by), { weight: 'semibold', ...(turn.by === 'person' ? {} : { color: 'claude' }) }), span(`  ${ago(turn.at)}`, { dim: true }), turn.by === 'person' ? undefined : span(`  turn ${turn.n}`, { dim: true })),
+          line(span(turn.by === 'person' ? (turn.name ?? 'A person') : speakerName(d, turn.by), { weight: 'bold', ...(turn.by === 'person' ? {} : { color: 'claude' }) }), span(`  ${ago(turn.at)}`, { dim: true }), turn.by === 'person' ? undefined : span(`  turn ${turn.n}`, { dim: true })),
           md(peerMd(turn.text.slice(0, 40_000))),
         ]),
       ),
@@ -127,16 +151,15 @@ export function dialogueNewPage(ctx: Ctx): Node {
   return page(
     top(ctx, 'dialogues'),
     back(ctx, 'Dialogues'),
-    title('New Dialogue'),
-    col([
-      dim('Who talks'),
+    text('New Dialogue', { weight: 'bold' }),
+    section('Who talks', [
       listOf(ctx, 'dialogue-new:options', options, (o) =>
-        ctx.draw.button(`dialogue-new:${o.value}`, `${chosen.includes(o.value) ? '[x]' : '[ ]'} ${o.label}`, () => setChosen(chosen.includes(o.value) ? chosen.filter((v) => v !== o.value) : [...chosen, o.value]), { plain: true, ...(chosen.includes(o.value) ? {} : { dim: true }) }),
+        tick(ctx, `dialogue-new:${o.value}`, o.label, chosen.includes(o.value), () => setChosen(chosen.includes(o.value) ? chosen.filter((v) => v !== o.value) : [...chosen, o.value])),
       ),
       dim('A teammate’s agent takes each turn as a request to them, under their rules.'),
-    ]),
-    col([row(MODES.map(([m, label]) => choice(ctx, `dialogue-new:mode:${m}`, label, mode === m, () => setMode(m)))), dim(MODES.find(([m]) => m === mode)?.[2] ?? '')]),
-    col([dim('Where its thread lives'), choice(ctx, 'dialogue-new:where:room', 'The room', where === 'room', () => setWhere('room')), listOf(ctx, 'dialogue-new:worktrees', worktrees, (w) => choice(ctx, `dialogue-new:where:${w.value}`, w.label, where === w.value, () => setWhere(w.value)))]),
+    ], picked.length || undefined),
+    section('How', [row(MODES.map(([m, label]) => choice(ctx, `dialogue-new:mode:${m}`, label, mode === m, () => setMode(m))), { gap: 2 }), dim(MODES.find(([m]) => m === mode)?.[2] ?? '')]),
+    section('Where its thread lives', [choice(ctx, 'dialogue-new:where:room', 'The room', where === 'room', () => setWhere('room')), listOf(ctx, 'dialogue-new:worktrees', worktrees, (w) => choice(ctx, `dialogue-new:where:${w.value}`, w.label, where === w.value, () => setWhere(w.value)))]),
     needs ? text(needs, { color: 'warning' }) : undefined,
     !needs &&
       ctx.draw.input(

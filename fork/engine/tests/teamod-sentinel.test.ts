@@ -324,8 +324,8 @@ describe('the list', () => {
   it('leads each row with how it’s doing and what it found', () => {
     const app = started({ items, runs: [run({ sentinelId: 'a' })], nextAt: { a: Date.now() + 60_000 }, troubles: {} }, { projects });
     const said = words(app.screens.view('sentinel', viewport));
-    expect(said).toContain('Alpha  Every day at 7:00  next ');
-    expect(said).toContain('Done  3 commits landed');
+    expect(said).toContain('Alpha\n● On · Every day at 7:00 · next ');
+    expect(said).toContain('✓ Done · 3 commits landed');
     expect(said).toContain('Hasn’t run yet');
     expect(said).toContain('Paused after 3 failures in a row');
     // Each with its one thing to do.

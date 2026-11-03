@@ -28,12 +28,19 @@ const TOOL_PREFIX = 'mcp__teamod__'
 /** The blocks the engine draws: the bridge decides, this only saves asking it about every answer. */
 const RICH_FENCE = /```(teamod-|teamod-|mermaid|json|math|latex|tex|console|terminal|shell-session|tree)/i
 
+/** Hebrew or Arabic: most terminals draw them backwards, so the bridge may draw them instead. */
+const RTL_TEXT = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/
+
+/** Whether the bridge might draw this message: rich blocks anywhere, right-to-left words on a terminal. */
+const mayDraw = (text: string, surface: string): boolean =>
+  (text.includes('```') && RICH_FENCE.test(text)) || (surface === 'terminal' && RTL_TEXT.test(text))
+
 /** Lanes the daemon runs load user settings, so they load this mod too. It stays out of them. */
 const isInLane = async ($: EngineInterface): Promise<boolean> =>
   (await $.env.get('TEAMOD_DAEMON')) === '1'
 
 /** The Claude Code this was last tested on: the mod API is early access and moves between releases. */
-const TESTED_ON = '2.1.316'
+const TESTED_ON = '2.1.317'
 
 /** Where the engine comes from when the mod was installed without a checkout: the mod's own repository. */
 const ENGINE_REPO = 'https://github.com/eladcandroid/teamod.git'
@@ -139,7 +146,7 @@ export const register: Register = (on, options) => {
       const title = answer.title ?? TITLES[answer.open] ?? answer.open
       const opened = await $.ui.open({ id: answer.open, title, focus: true })
 
-      return { text: opened.isPlaced ? `${title} opened.` : `${title} waits: ${opened.reason}` }
+      return { text: opened.isPlaced ? (answer.said ?? `${title} opened.`) : `${title} waits: ${opened.reason}` }
     }
 
     return { text: answer.text ?? '' }
@@ -197,13 +204,37 @@ export const register: Register = (on, options) => {
   // An answer with a chart, a graph or live cards in it; everything else is left to the engine.
   // A fence not closed yet stays Markdown on the bridge's side, so this holds while it streams.
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
-    if (!e.props.text.includes('```') || !RICH_FENCE.test(e.props.text)) return next(e)
+    if (!mayDraw(e.props.text, e.surface)) return next(e)
     const viewport = { surface: e.surface, columns: e.viewport?.columns ?? 80, rows: e.viewport?.rows ?? 40 }
     const rich = await richOf($, e.props.text, viewport).catch(() => undefined)
     if (!rich || 'plain' in rich) return next(e)
     await readRev($, rich.site)
 
     return draw($, e, rich.site, viewport, rich.tree) as JSX.Element
+  })
+
+  // Your own words in Hebrew, which most terminals would draw backwards: the bridge orders them.
+  on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
+    if (e.surface !== 'terminal' || !RTL_TEXT.test(e.props.text) || e.props.text.trimStart().startsWith('/')) return next(e)
+    try {
+      const viewport = { surface: e.surface, columns: Math.max(20, (e.viewport?.columns ?? 80) - 2), rows: e.viewport?.rows ?? 40 }
+      const rich = await richOf($, e.props.text, viewport)
+      if (!rich || 'plain' in rich) return next(e)
+      await readRev($, rich.site)
+      const { Box, Text } = $.ui.resolve(e)
+
+      return (
+        <Box flexDirection="row">
+          <Text dimColor>{'❯ '}</Text>
+          <Box flexDirection="column" flexGrow={1}>
+            {draw($, e, rich.site, viewport, rich.tree) as JSX.Element}
+          </Box>
+        </Box>
+      )
+    } catch (err) {
+      if (isSuperseded(err)) return next(e)
+      throw err
+    }
   })
 
   // What waits for you, above the prompt. Nothing waiting draws nothing of ours.

@@ -2,9 +2,9 @@ import { type GhJob, type GhRun, type GhRunFull, type GhStep, type GhWorkflow, R
 import { repoSlug } from '../../core/issues/model.js';
 import type { GitHubRepo } from '../../workspaces/github.js';
 import type { Ctx } from '../screens.js';
-import { type Node, type Span, code, col, dim, line, row, span, title } from '../tree.js';
+import { type Node, type Span, code, col, dim, line, row, span, text, title } from '../tree.js';
 import { type Asked, MAIN_KEY, MORE_KEY, asking, drawAgain, fromGitHub, notReadable, projectHere, projectSwitch, prop, readingWords, subPage, top, webLink, windowed } from './board-common.js';
-import { ago, empty, page } from './common.js';
+import { ago, card, empty, meta, page, section } from './common.js';
 
 /** How a run, job or step is going, in the surface's own colors. */
 const toneStyle = (tone: RunTone): Omit<Span, 't'> => (tone === 'passed' ? { color: 'success' } : tone === 'failed' ? { color: 'error' } : tone === 'running' ? { color: 'claude' } : tone === 'queued' || tone === 'waiting' ? { color: 'warning' } : { dim: true });
@@ -15,10 +15,14 @@ const runRow = (ctx: Ctx, projectId: string, run: GhRun): Node => {
   return ctx.draw.button(`run:${run.id}`, run.title, () => ctx.go({ name: 'run', params: { project: projectId, run: String(run.id) } }), {
     plain: true,
     spans: [
-      span(`${statusWords(run)}  `, toneStyle(runTone(run))),
+      span(`● ${statusWords(run)}  `, toneStyle(runTone(run))),
       span(run.title),
-      span(`  ${run.workflow} #${run.number}  ${eventWords(run.event)}${where ? `  ${where}` : ''}${run.actor ? `  ${run.actor}` : ''}`, { dim: true }),
-      span(`  ${durationWords(runDuration(run, now))}  ${ago(run.createdAt, now)}`, { dim: true }),
+      span(`  ${run.workflow} #${run.number}`, { dim: true }),
+      span(`  ${eventWords(run.event)}`, { dim: true }),
+      ...(where ? [span(`  ${where}`, { dim: true })] : []),
+      ...(run.actor ? [span(`  ${run.actor}`, { dim: true })] : []),
+      span(`  ${durationWords(runDuration(run, now))}`, { dim: true }),
+      span(`  ${ago(run.createdAt, now)}`, { dim: true }),
     ],
   });
 };
@@ -53,11 +57,11 @@ export function actionsPage(ctx: Ctx): Node {
     top(ctx, 'actions'),
     projectSwitch(ctx, projects, here),
     row([
-      ctx.draw.button('actions:runs', 'Runs', () => undefined, { plain: true, hotkey: '1' }),
+      ctx.draw.button('actions:runs', 'Runs', () => undefined, { plain: true, hotkey: '1', spans: [span('Runs', { color: 'claude', weight: 'bold' })] }),
       ctx.draw.button('actions:workflows', 'Workflows', () => ctx.go({ name: 'workflows', params: { project: here.id } }), { plain: true, hotkey: '2', dim: true }),
       list?.kind === 'github' && ctx.draw.button('actions:filter', workflow || branch ? `Only ${[workflow ? (known.find((f) => f.path === workflow)?.name ?? fileName(workflow)) : '', branch].filter(Boolean).join(' on ')}` : 'Filter', () => setNarrowing(!narrowing), { plain: true, hotkey: 'f', dim: true }),
       list && list.kind !== 'none' && ctx.draw.button('actions:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true }),
-    ]),
+    ], { gap: 2 }),
     narrowing &&
       col([
         row([
@@ -71,7 +75,7 @@ export function actionsPage(ctx: Ctx): Node {
     readingWords(ctx, key, loaded, `Asking GitHub for ${here.name}’s workflow runs...`, 'Couldn’t read the runs'),
     list && list.kind !== 'github' && notReadable(ctx, list, 'Actions', loaded.refresh),
     list?.kind === 'github' && !runs.length && empty(workflow || branch ? 'No runs like that yet. Pick another workflow or branch.' : `Nothing has run in ${repoSlug(list.repo)}. Add a workflow under .github/workflows and push it.`),
-    list?.kind === 'github' && runs.length > 0 && col([rows.earlier, ...rows.rows.map((run) => runRow(ctx, here.id, run)), rows.more]),
+    list?.kind === 'github' && runs.length > 0 && card([rows.earlier, ...rows.rows.map((run) => runRow(ctx, here.id, run)), rows.more]),
     list?.kind === 'github' && runs.length > 0 && dim(`${live ? `${runs.filter(isLive).length} running · ` : ''}${runs.length}${list.more ? '+' : ''} run${runs.length === 1 && !list.more ? '' : 's'} · ${repoSlug(list.repo)} · from GitHub ${ago(list.fetchedAt)}${live ? ' · watching, every few seconds' : ''}`),
     list && list.kind !== 'none' && webLink(`${list.repo.url}/actions`, 'Open on GitHub'),
   );
@@ -91,7 +95,7 @@ export function workflowsPage(ctx: Ctx, projectId: string): Node {
     ctx,
     'actions',
     'Actions',
-    row([title(`Workflows in ${project.name}`), ctx.draw.button('workflows:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true })]),
+    row([text(`Workflows in ${project.name}`, { weight: 'bold' }), ctx.draw.button('workflows:refresh', loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true })], { justify: 'space-between' }),
     readingWords(ctx, key, loaded, 'Reading the workflows, from the project’s folder and GitHub...', 'Couldn’t read the workflows'),
     loaded.value && !flows.length && empty('No workflows yet. Workflows live in .github/workflows. Ask your agent to set one up, then push it.'),
     rows.earlier,
@@ -103,17 +107,18 @@ export function workflowsPage(ctx: Ctx, projectId: string): Node {
 function workflowCard(ctx: Ctx, projectId: string, flow: GhWorkflow, last: GhRun | undefined): Node {
   const [open, setOpen] = ctx.local(`workflow:${projectId}:${flow.path}:open`, false);
   const off = flow.state !== 'active' && flow.state !== 'not_pushed';
-  return col([
-    line(span(flow.name, { weight: 'semibold' }), span(`  ${flow.path}`, { dim: true }), flow.state === 'not_pushed' ? span('  Not pushed yet', { color: 'warning' }) : off ? span('  Turned off', { dim: true }) : undefined),
+  return card([
+    line(span(flow.name, { weight: 'bold' }), flow.state === 'not_pushed' ? span('  ● Not pushed yet', { color: 'warning' }) : off ? span('  ● Turned off', { dim: true }) : undefined),
+    dim(flow.path),
     last &&
       ctx.draw.button(`workflow:${flow.path}:last`, last.title, () => ctx.go({ name: 'run', params: { project: projectId, run: String(last.id) } }), {
         plain: true,
-        spans: [span('Last run  ', { dim: true }), span(`${statusWords(last)}  `, toneStyle(runTone(last))), span(last.title), span(`  ${ago(last.createdAt)}`, { dim: true })],
+        spans: [span('Last run  ', { dim: true }), span(`● ${statusWords(last)}  `, toneStyle(runTone(last))), span(last.title), span(`  ${ago(last.createdAt)}`, { dim: true })],
       }),
     row([
       flow.file !== undefined ? ctx.draw.button(`workflow:${flow.path}:yaml`, open ? 'Hide the YAML' : 'Show the YAML', () => setOpen(!open), { plain: true, dim: true }) : dim('GitHub didn’t give this file.'),
       flow.url ? webLink(flow.url, 'Open on GitHub') : undefined,
-    ]),
+    ], { gap: 2 }),
     open && flow.file !== undefined && code(flow.file, { language: 'yaml', path: flow.path }),
   ]);
 }
@@ -121,7 +126,7 @@ function workflowCard(ctx: Ctx, projectId: string, flow: GhWorkflow, last: GhRun
 const stepRow = (step: GhStep, now: number): Node => {
   const tone = runTone(step);
   const took = spanOf(step, now);
-  return line(span(`${statusWords(step)}  `, toneStyle(tone)), span(`${step.number}  ${step.name}`), took !== undefined && tone !== 'skipped' ? span(`  ${durationWords(took)}`, { dim: true }) : undefined);
+  return line(span(`${statusWords(step)}  `, toneStyle(tone)), span(`${step.number}  `, { dim: true }), span(step.name), took !== undefined && tone !== 'skipped' ? span(`  ${durationWords(took)}`, { dim: true }) : undefined);
 };
 
 /** A job: how it went and how long, its steps (open while it runs or once it fails), and where a failed one failed. */
@@ -134,7 +139,7 @@ function jobCard(ctx: Ctx, projectId: string, runId: number, job: GhJob, now: nu
   return col([
     ctx.draw.button(`job:${job.id}`, job.name, () => setOpened(!open), {
       plain: true,
-      spans: [span(`${statusWords(job)}  `, toneStyle(tone)), span(job.name, { weight: 'semibold' }), ...(job.runner ? [span(`  ${job.runner}`, { dim: true })] : []), ...(took !== undefined ? [span(`  ${durationWords(took)}`, { dim: true })] : [])],
+      spans: [span(`${open ? '▾' : '▸'} `, { dim: true }), span(`● ${statusWords(job)}  `, toneStyle(tone)), span(job.name, { weight: 'bold' }), ...(job.runner ? [span(`  ${job.runner}`, { dim: true })] : []), ...(took !== undefined ? [span(`  ${durationWords(took)}`, { dim: true })] : [])],
     }),
     open && (job.steps.length ? col([steps.earlier, ...steps.rows.map((s) => stepRow(s, now)), steps.more], { padX: 2 }) : dim(isLive(job) ? 'Waiting for a runner...' : 'No steps ran.')),
     open &&
@@ -173,7 +178,7 @@ export function runPage(ctx: Ctx, projectId: string, runId: number): Node {
     ctx,
     'actions',
     'Actions',
-    col([title(run.title), line(span(statusWords(run), toneStyle(tone)), span(`  ${durationWords(runDuration(run, now))} · ${jobsSummary(run.jobs)}`, { dim: true }))]),
+    card([text(run.title, { weight: 'bold' }), meta(span(`● ${statusWords(run)}`, toneStyle(tone)), durationWords(runDuration(run, now)), jobsSummary(run.jobs))], failed ? { tone: 'error' } : {}),
     readingWords(ctx, key, loaded, '', ''),
     failed && ctx.draw.button(`run:${runId}:rerun-failed`, 'Re-run Failed Jobs', () => rerun(true), { primary: true, hotkey: MAIN_KEY }),
     live &&
@@ -189,8 +194,8 @@ export function runPage(ctx: Ctx, projectId: string, runId: number): Node {
           loaded.refresh();
         },
       }),
-    run.jobs.length ? col([jobs.earlier, ...jobs.rows.map((job) => jobCard(ctx, projectId, runId, job, now)), jobs.more]) : dim(live ? 'Waiting for a runner to pick it up...' : 'This run has no jobs.'),
-    col([
+    section('Jobs', [run.jobs.length ? card([jobs.earlier, ...jobs.rows.map((job) => jobCard(ctx, projectId, runId, job, now)), jobs.more]) : dim(live ? 'Waiting for a runner to pick it up...' : 'This run has no jobs.')], run.jobs.length),
+    section('Details', [
       prop(ctx, `run:${runId}:workflow`, 'Workflow', `${run.workflow}${run.path ? ` · ${fileName(run.path)}` : ''} #${run.number}${run.attempt > 1 ? ` · attempt ${run.attempt}` : ''}`),
       prop(ctx, `run:${runId}:started-by`, 'Started by', `${eventWords(run.event)}${run.actor ? ` · ${run.actor}` : ''}`),
       run.branch ? prop(ctx, `run:${runId}:branch`, 'Branch', run.branch) : undefined,
@@ -202,7 +207,7 @@ export function runPage(ctx: Ctx, projectId: string, runId: number): Node {
     row([
       ctx.draw.button(`run:${runId}:refresh`, loaded.loading ? 'Asking GitHub...' : 'Ask GitHub Again', loaded.refresh, { plain: true, hotkey: 'e', dim: true }),
       !live && ctx.draw.button(`run:${runId}:more`, 'More', () => ctx.go({ name: 'run-more', params: { project: projectId, run: String(runId) } }), { plain: true, hotkey: MORE_KEY, dim: true }),
-    ]),
+    ], { gap: 2 }),
   );
 }
 

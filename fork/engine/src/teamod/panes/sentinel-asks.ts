@@ -1,8 +1,8 @@
 import { type Tile, tileTitle } from '../../core/sentinel/dashboard-model.js';
 import { ACCESS_INFO, type Access, type MergeStep, sentinelChatChannel, sentinelChatTitle } from '../../core/sentinel/model.js';
 import type { Ctx, Route } from '../screens.js';
-import { type Node, text, title } from '../tree.js';
-import { back, empty, page } from './common.js';
+import { type Node, text } from '../tree.js';
+import { actions, back, card, empty, page } from './common.js';
 import { type Here, leave, top } from './sentinel-common.js';
 import { patchStep } from './sentinel-model.js';
 
@@ -196,5 +196,5 @@ function asking(ctx: Ctx, p: Readonly<Record<string, string>>): Asking | undefin
 export function askPage(ctx: Ctx): Node {
   const now = asking(ctx, ctx.route.params ?? {});
   if (!now) return page(top(ctx), back(ctx), empty('That is no longer there.'));
-  return page(top(ctx, now.here), back(ctx, 'Cancel'), title(now.title), text(now.message), ctx.draw.button('ask:yes', now.confirm, () => now.run(), { primary: true, hotkey: 'y' }));
+  return page(top(ctx, now.here), back(ctx, 'Cancel'), card([text(now.message), actions(ctx.draw.button('ask:yes', now.confirm, () => now.run(), { primary: true, hotkey: 'y' }))], { title: now.title, tone: 'warn' }));
 }

@@ -492,7 +492,7 @@ describe('a project’s home', () => {
     view(s);
     await s.settle();
     const tree = view(s);
-    expect(words(tree)).toContain('Pull requests (9)');
+    expect(words(tree)).toContain('Pull requests  9');
     expect(words(tree)).toContain('Checks fail');
     expect(words(tree)).toContain('Draft');
     expect(words(tree)).not.toContain('#5');

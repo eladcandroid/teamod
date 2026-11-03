@@ -12,7 +12,13 @@ import { type Node, code, col, dim, line, row, span, text, title } from '../tree
 import { MAIN_KEY, MORE_KEY, agentRows, asking, choices, field, myAgent, openStarted, prop, sharedWith, subPage, top, webLink, windowed, written } from './board-common.js';
 import { MOVES, assigneeChoices, dueText, toggleCheck } from './board-model.js';
 import { matesOf, priorityStyle, selfOf, soloOn, statusStyle } from './board-tasks.js';
-import { ago, back, empty, findWorkspace, homePath, openWorkspace, page } from './common.js';
+import { type Tone, ago, back, card, empty, findWorkspace, homePath, meta, openWorkspace, page, pill, section } from './common.js';
+
+/** A status as a pill: what's at work or finished gets a color, the rest stays quiet. */
+const statusTone = (status: Issue['status']): Tone => (status === 'in_progress' ? 'accent' : status === 'done' ? 'ok' : 'quiet');
+
+/** Urgent and High stand out; the rest stay quiet. */
+const priorityTone = (priority: Issue['priority']): Tone => (priority === 'urgent' ? 'error' : priority === 'high' ? 'warn' : 'quiet');
 
 /** A page holds several lists: each shows this many until asked for more. */
 const PAGE_ROWS = 20;
@@ -133,7 +139,7 @@ function properties(ctx: Ctx, issue: Issue): Node {
   const words = agentWords(ctx, issue);
   const { live } = worktreeOfTask(ctx, issue);
   const onPlan = planOfIssue(ctx, issue);
-  return col([
+  return section('Details', [
     edit('priority', 'Priority', PRIORITY_INFO[issue.priority].label, priorityStyle(issue.priority)),
     several ? edit('repo', 'Repo', project?.name ?? 'Repo') : undefined,
     soloOn(ctx, issue.projectId) ? undefined : edit('assignee', 'Assignee', assigneeName(issue.assignee, self)),
@@ -147,7 +153,7 @@ function properties(ctx: Ctx, issue: Issue): Node {
     onPlan ? prop(ctx, `prop:${issue.id}:plan`, 'Plan', (onPlan.body ?? onPlan.draft)?.title ?? 'New plan', () => ctx.go({ name: 'plan', params: { id: onPlan.id } })) : undefined,
     issue.github ? prop(ctx, `prop:${issue.id}:github`, 'GitHub', `${issue.github.repo}#${issue.github.number}`, () => ctx.go({ name: 'issue', params: { project: issue.projectId, number: String(issue.github?.number ?? '') } })) : undefined,
     issue.link ? webLink(issue.link.url, `${PROVIDER_INFO[issue.link.provider].label}: ${issue.link.key}`) : undefined,
-    prop(ctx, `prop:${issue.id}:created`, 'Created', `${ago(issue.createdAt)} by ${actorName(issue.createdBy, self)}`),
+    prop(ctx, `prop:${issue.id}:created`, 'Created', `${ago(issue.createdAt)} · ${actorName(issue.createdBy, self)}`),
     prop(ctx, `prop:${issue.id}:updated`, 'Updated', ago(issue.updatedAt)),
   ]);
 }
@@ -181,7 +187,7 @@ function briefSection(ctx: Ctx, issue: Issue, section: BriefSection): Node {
   const count = ticks?.total ? `${ticks.done} of ${ticks.total}${ticks.deferred ? ` · ${ticks.deferred} deferred` : ''}${ticks.notDone ? ` · ${ticks.notDone} not done` : ''}` : undefined;
   return col([
     row([
-      line(span(info.label, { weight: 'semibold' }), count ? span(`  ${count}`, { dim: true }) : undefined),
+      line(span(info.label, { weight: 'bold' }), count ? span(`  ${count}`, { dim: true }) : undefined),
       ctx.draw.button(`brief:${section}:edit`, 'Edit', () => ctx.go({ name: 'task-brief', params: { id: issue.id, section } }), { plain: true, dim: true }),
       versions > 0 && ctx.draw.button(`brief:${section}:history`, `History (${versions})`, () => ctx.go({ name: 'task-history', params: { id: issue.id, section } }), { plain: true, dim: true }),
     ]),
@@ -217,7 +223,7 @@ function subTasks(ctx: Ctx, issue: Issue): Node {
   const progress = progressOf(board, issue);
   const list = windowed(ctx, `task:${issue.id}:kids`, kids, PAGE_ROWS);
   return col([
-    line(span('Sub-tasks', { weight: 'semibold' }), progress.total ? span(`  ${progress.done} of ${progress.total}`, { dim: true }) : undefined),
+    line(span('Sub-tasks', { weight: 'bold' }), progress.total ? span(`  ${progress.done} of ${progress.total}`, { dim: true }) : undefined),
     list.earlier,
     ...list.rows.map((k) => taskLine(ctx, `kid:${k.id}`, k, { label: 'Make It a Task of Its Own', run: () => ctx.call('board.update', k.id, { parent: null }) })),
     list.more,
@@ -247,17 +253,23 @@ function relatedTo(ctx: Ctx, issue: Issue): ReadonlyArray<{ readonly rel: Relati
 }
 
 function relations(ctx: Ctx, issue: Issue): Node {
+  const groups = relatedTo(ctx, issue);
+  // Only the links there are, each a group of rows; one quiet row adds another.
   return col(
-    relatedTo(ctx, issue).map((g) => {
-      const list = windowed(ctx, `rel:${issue.id}:${g.rel}`, g.items, PAGE_ROWS);
-      return col([
-        row([text(g.title, { weight: 'semibold' }), ctx.draw.button(`rel:${g.rel}:add`, 'Add', () => ctx.go({ name: 'task-relate', params: { id: issue.id, rel: g.rel } }), { plain: true, dim: true })]),
-        g.items.length ? undefined : dim(g.hint),
-        list.earlier,
-        ...list.rows.map((other) => taskLine(ctx, `rel:${g.rel}:${other.id}`, other, { label: 'Remove', run: () => ctx.call('board.relate', issue.id, g.rel, other.id, false) })),
-        list.more,
-      ]);
-    }),
+    [
+      ...groups
+        .filter((g) => g.items.length > 0)
+        .map((g) => {
+          const list = windowed(ctx, `rel:${issue.id}:${g.rel}`, g.items, PAGE_ROWS);
+          return col([
+            line(span(g.title, { weight: 'bold' }), span(`  ${g.items.length}`, { dim: true })),
+            list.earlier,
+            ...list.rows.map((other) => taskLine(ctx, `rel:${g.rel}:${other.id}`, other, { label: 'Remove', run: () => ctx.call('board.relate', issue.id, g.rel, other.id, false) })),
+            list.more,
+          ]);
+        }),
+      row([dim('Link'), ...groups.map((g) => ctx.draw.button(`rel:${g.rel}:add`, g.title, () => ctx.go({ name: 'task-relate', params: { id: issue.id, rel: g.rel } }), { plain: true, dim: true }))], { gap: 2 }),
+    ],
     { gap: 1 },
   );
 }
@@ -281,7 +293,7 @@ function proofList(ctx: Ctx, issue: Issue, as: 'proof' | 'file'): Node {
   const list = windowed(ctx, `task:${issue.id}:${as}`, items, PAGE_ROWS);
   return col([
     row([
-      line(span(as === 'file' ? 'Files' : 'Proof', { weight: 'semibold' }), items.length ? span(`  ${items.length}`, { dim: true }) : undefined),
+      line(span(as === 'file' ? 'Files' : 'Proof', { weight: 'bold' }), items.length ? span(`  ${items.length}`, { dim: true }) : undefined),
       ctx.draw.button(`${as}:add`, as === 'file' ? 'Add Files' : 'Add Proof', () => ctx.go({ name: 'task-proof', params: { id: issue.id, as } }), { plain: true, dim: true }),
     ]),
     items.length === 0 && dim(as === 'file' ? 'Files added for the work to use show here. Your agent gets them too.' : 'Screenshots, pages and results that show it works. The agent adds them as it goes.'),
@@ -299,7 +311,7 @@ function activity(ctx: Ctx, issue: Issue): Node {
   const list = windowed(ctx, `task:${issue.id}:activity`, newest, 30, { more: 'Show earlier', earlier: 'Show later' });
   return col(
     [
-      text('Activity', { weight: 'semibold' }),
+      text('Activity', { weight: 'bold' }),
       list.more,
       ...list.rows
         .slice()
@@ -343,17 +355,26 @@ export function taskPage(ctx: Ctx, ref: string): Node {
   const working = workingWords(workingOn(ctx.state.team, issue.id).map((p) => p.name));
   const waiting = waitingWords(waitingOn(ctx.state.team, issue.id));
   const proofFirst = isFinished(issue.status) && taskProof(issue).length > 0;
+  const due = issue.due ? dueText(issue.due) : undefined;
+  const late = Boolean(due?.late && open);
+  const who = issue.assignee && !soloOn(ctx, issue.projectId) ? assigneeName(issue.assignee, ctx.state.selfId) : undefined;
+  const needsChecks = Boolean(issue.needsChecks && open && unticked.length > 0);
   return page(
     top(ctx, 'tasks'),
     back(ctx, 'Tasks'),
-    col([
-      parent && ctx.draw.button(`task:${issue.id}:parent`, `${parent.key} ${parent.title}`, () => ctx.go({ name: 'task', params: { id: parent.id } }), { plain: true, spans: [span('Part of ', { dim: true }), span(`${parent.key} ${parent.title}`, { dim: true })] }),
-      isEpic(board, issue) && dim(`Epic${progress.total ? ` · ${progress.done} of ${progress.total} sub-tasks done` : ''}`),
-      line(span(issue.key, { dim: true }), span(`  ${STATUS_INFO[issue.status].label}`, statusStyle(issue.status))),
-      title(issue.title),
-    ]),
-    working ? text(working, { color: 'claude' }) : undefined,
-    waiting ? dim(waiting) : undefined,
+    // The task in one card: what it's part of, its key and title, its state, and who has it by when.
+    card(
+      [
+        parent && ctx.draw.button(`task:${issue.id}:parent`, `${parent.key} ${parent.title}`, () => ctx.go({ name: 'task', params: { id: parent.id } }), { plain: true, spans: [span('Part of ', { dim: true }), span(`${parent.key} ${parent.title}`, { dim: true })] }),
+        line(span(issue.key, { dim: true }), isEpic(board, issue) ? span(`  Epic${progress.total ? ` · ${progress.done} of ${progress.total} sub-tasks done` : ''}`, { dim: true }) : undefined),
+        text(issue.title, { weight: 'bold' }),
+        line(pill(STATUS_INFO[issue.status].label, statusTone(issue.status)), ...(issue.priority !== 'none' ? [span('   '), pill(PRIORITY_INFO[issue.priority].label, priorityTone(issue.priority))] : [])),
+        (Boolean(who) || Boolean(due)) && meta(who, due ? span(`Due ${due.text}`, late ? { color: 'error' } : { dim: true }) : undefined),
+        working ? text(working, { color: 'claude' }) : undefined,
+        waiting ? dim(waiting) : undefined,
+      ],
+      needsChecks || issue.worktreeGone ? { tone: 'warn' } : {},
+    ),
     issue.private &&
       !isArchived(issue) &&
       row([
@@ -384,9 +405,9 @@ export function taskPage(ctx: Ctx, ref: string): Node {
           ctx.draw.button(`task:${issue.id}:gone:cancel`, 'Cancel Task', () => ctx.call('board.settleGone', issue.id, 'canceled'), { plain: true }),
         ]),
       ]),
-    issue.needsChecks && open && unticked.length > 0 && text(`Needs its checks. ${unticked.length === 1 ? 'A criterion is' : `${unticked.length} criteria are`} neither ticked nor explained, so it stays out of review: tick each one, or add “— deferred: why” after it.`, { color: 'warning' }),
+    needsChecks && text(`Needs its checks. ${unticked.length === 1 ? 'A criterion is' : `${unticked.length} criteria are`} neither ticked nor explained, so it stays out of review: tick each one, or add “— deferred: why” after it.`, { color: 'warning' }),
     !isArchived(issue) && nextStep(ctx, issue),
-    !isArchived(issue) && moveTo(ctx, issue),
+    row([!isArchived(issue) && moveTo(ctx, issue), ctx.draw.button(`task:${issue.id}:more`, 'More', () => ctx.go({ name: 'task-more', params: { id: issue.id } }), { plain: true, hotkey: MORE_KEY, dim: true })], { gap: 3 }),
     proofFirst && proofList(ctx, issue, 'proof'),
     brief(ctx, issue),
     proofList(ctx, issue, 'file'),
@@ -395,7 +416,6 @@ export function taskPage(ctx: Ctx, ref: string): Node {
     !proofFirst && proofList(ctx, issue, 'proof'),
     properties(ctx, issue),
     activity(ctx, issue),
-    ctx.draw.button(`task:${issue.id}:more`, 'More', () => ctx.go({ name: 'task-more', params: { id: issue.id } }), { plain: true, hotkey: MORE_KEY, dim: true }),
   );
 }
 
@@ -432,12 +452,16 @@ export function taskMorePage(ctx: Ctx, ref: string): Node {
       ctx,
       'tasks',
       issue.key,
-      title(issue.title),
-      ctx.draw.button(`more:${issue.id}:unarchive`, 'Restore from Archive', async () => {
-        await ctx.call('board.unarchive', issue.id);
-        ctx.effect({ toast: `${issue.key} is back on the board` });
-      }, { plain: true }),
-      ctx.draw.button(`more:${issue.id}:copy`, 'Copy Key', () => ctx.effect({ copy: issue.key, toast: `Copied ${issue.key}` }), { plain: true }),
+      card(
+        [
+          ctx.draw.button(`more:${issue.id}:unarchive`, 'Restore from Archive', async () => {
+            await ctx.call('board.unarchive', issue.id);
+            ctx.effect({ toast: `${issue.key} is back on the board` });
+          }, { plain: true }),
+          ctx.draw.button(`more:${issue.id}:copy`, 'Copy Key', () => ctx.effect({ copy: issue.key, toast: `Copied ${issue.key}` }), { plain: true }),
+        ],
+        { title: issue.title },
+      ),
       removeTask(ctx, issue, true),
     );
   }
@@ -445,36 +469,40 @@ export function taskMorePage(ctx: Ctx, ref: string): Node {
     ctx,
     'tasks',
     issue.key,
-    title(issue.title),
-    !writing && ctx.draw.button(`more:${issue.id}:rename`, 'Rename', () => ctx.go({ name: 'task-edit', params: { id: issue.id, field: 'title' } }), { plain: true }),
-    !live && startable && !writing && ctx.draw.button(`more:${issue.id}:start-with`, 'Start with Another Agent', () => ctx.go({ name: 'task-start-with', params: { id: issue.id } }), { plain: true }),
-    !live && startable && !writing && ctx.draw.button(`more:${issue.id}:start-bare`, 'Start Worktree Only', () => startTask(ctx, issue, { bare: true }), { plain: true }),
-    live && ctx.draw.button(`more:${issue.id}:reveal`, 'Reveal Folder', () => ctx.call('workspaces.openInFinder', live.id), { plain: true }),
-    !startable &&
-      ctx.draw.button(`more:${issue.id}:reopen`, 'Reopen the Task', async () => {
-        await ctx.call('board.update', issue.id, { status: 'todo' });
-        ctx.effect({ toast: `Reopened ${issue.key}` });
-      }, { plain: true }),
-    !live && startable && ctx.draw.button(`more:${issue.id}:agent`, 'Agent for This Task', () => ctx.go({ name: 'task-agent', params: { id: issue.id } }), { plain: true }),
-    ctx.draw.button(`more:${issue.id}:subtask`, 'Add Sub-task', () => ctx.go({ name: 'new-task', params: { parent: issue.id, board: boardOf(issue), project: issue.projectId } }), { plain: true }),
-    issue.private
-      ? ctx.draw.button(`more:${issue.id}:share`, 'Share with Team', async () => {
-          await ctx.call('board.setPrivate', issue.id, false);
-          ctx.effect({ toast: `Shared ${issue.key} with the team` });
-        }, { plain: true })
-      : shared
-        ? ctx.draw.button(`more:${issue.id}:private`, 'Make Private', async () => {
-            await ctx.call('board.setPrivate', issue.id, true);
-            ctx.effect({ toast: `${issue.key} is private: only you see it` });
-          }, { plain: true })
-        : undefined,
-    !STATUS_INFO[issue.status].open &&
-      ctx.draw.button(`more:${issue.id}:archive`, 'Archive', async () => {
-        await ctx.call('board.archive', issue.id);
-        ctx.effect({ toast: `Archived ${issue.key}` });
-      }, { plain: true }),
-    ctx.draw.button(`more:${issue.id}:copy`, 'Copy Key', () => ctx.effect({ copy: issue.key, toast: `Copied ${issue.key}` }), { plain: true }),
-    ctx.draw.button(`more:${issue.id}:copy-title`, 'Copy Title and Key', () => ctx.effect({ copy: `${issue.key} ${issue.title}`, toast: 'Copied' }), { plain: true }),
+    card(
+      [
+        !writing && ctx.draw.button(`more:${issue.id}:rename`, 'Rename', () => ctx.go({ name: 'task-edit', params: { id: issue.id, field: 'title' } }), { plain: true }),
+        !live && startable && !writing && ctx.draw.button(`more:${issue.id}:start-with`, 'Start with Another Agent', () => ctx.go({ name: 'task-start-with', params: { id: issue.id } }), { plain: true }),
+        !live && startable && !writing && ctx.draw.button(`more:${issue.id}:start-bare`, 'Start Worktree Only', () => startTask(ctx, issue, { bare: true }), { plain: true }),
+        live && ctx.draw.button(`more:${issue.id}:reveal`, 'Reveal Folder', () => ctx.call('workspaces.openInFinder', live.id), { plain: true }),
+        !startable &&
+          ctx.draw.button(`more:${issue.id}:reopen`, 'Reopen the Task', async () => {
+            await ctx.call('board.update', issue.id, { status: 'todo' });
+            ctx.effect({ toast: `Reopened ${issue.key}` });
+          }, { plain: true }),
+        !live && startable && ctx.draw.button(`more:${issue.id}:agent`, 'Agent for This Task', () => ctx.go({ name: 'task-agent', params: { id: issue.id } }), { plain: true }),
+        ctx.draw.button(`more:${issue.id}:subtask`, 'Add Sub-task', () => ctx.go({ name: 'new-task', params: { parent: issue.id, board: boardOf(issue), project: issue.projectId } }), { plain: true }),
+        issue.private
+          ? ctx.draw.button(`more:${issue.id}:share`, 'Share with Team', async () => {
+              await ctx.call('board.setPrivate', issue.id, false);
+              ctx.effect({ toast: `Shared ${issue.key} with the team` });
+            }, { plain: true })
+          : shared
+            ? ctx.draw.button(`more:${issue.id}:private`, 'Make Private', async () => {
+                await ctx.call('board.setPrivate', issue.id, true);
+                ctx.effect({ toast: `${issue.key} is private: only you see it` });
+              }, { plain: true })
+            : undefined,
+        !STATUS_INFO[issue.status].open &&
+          ctx.draw.button(`more:${issue.id}:archive`, 'Archive', async () => {
+            await ctx.call('board.archive', issue.id);
+            ctx.effect({ toast: `Archived ${issue.key}` });
+          }, { plain: true }),
+        ctx.draw.button(`more:${issue.id}:copy`, 'Copy Key', () => ctx.effect({ copy: issue.key, toast: `Copied ${issue.key}` }), { plain: true }),
+        ctx.draw.button(`more:${issue.id}:copy-title`, 'Copy Title and Key', () => ctx.effect({ copy: `${issue.key} ${issue.title}`, toast: 'Copied' }), { plain: true }),
+      ],
+      { title: issue.title },
+    ),
     removeTask(ctx, issue, false),
   );
 }

@@ -1,9 +1,9 @@
 import { type McpServerRow, type McpSignIn, type McpTurned, CLAUDE_AI_CONNECTORS_URL } from '../../shared/mcp.js';
 import type { ClaudeSkill } from '../../shared/skills.js';
 import type { Ctx } from '../screens.js';
-import { type Node, type Span, col, dim, line, span, text, title } from '../tree.js';
-import { back, chrome, empty, homePath, page } from './common.js';
-import { SETTINGS_PLACES, toggle } from './settings-common.js';
+import { type Node, col, dim, line, row, span, text } from '../tree.js';
+import { type Tone, back, card, chrome, empty, homePath, page, pill } from './common.js';
+import { SETTINGS_PLACES, counted, toggle } from './settings-common.js';
 import { findField, loadingWords, segments, steady, windowed } from './work-common.js';
 
 /** Settings › Skills and MCP: the servers your own agent gets and how each is, and the skills and commands it can use. */
@@ -22,12 +22,12 @@ const FROM: Readonly<Record<McpServerRow['from'], (where?: string) => string>> =
   'claude.ai': () => 'A claude.ai connector',
 };
 
-const STATUS: Readonly<Record<McpServerRow['status'], { readonly words: string; readonly style: Omit<Span, 't'> }>> = {
-  connected: { words: 'Connected', style: { color: 'success' } },
-  'needs-auth': { words: 'Needs you to sign in', style: { color: 'warning' } },
-  failed: { words: 'Couldn’t connect', style: { color: 'error' } },
-  pending: { words: 'Still starting', style: { dim: true } },
-  disabled: { words: 'Turned off', style: { dim: true } },
+const STATUS: Readonly<Record<McpServerRow['status'], { readonly words: string; readonly tone: Tone; readonly icon: string }>> = {
+  connected: { words: 'Connected', tone: 'ok', icon: '●' },
+  'needs-auth': { words: 'Needs you to sign in', tone: 'warn', icon: '●' },
+  failed: { words: 'Couldn’t connect', tone: 'error', icon: '✗' },
+  pending: { words: 'Still starting', tone: 'quiet', icon: '○' },
+  disabled: { words: 'Turned off', tone: 'quiet', icon: '○' },
 };
 
 /** Asking means starting its agent: a list stays good a minute. */
@@ -69,7 +69,7 @@ function serverRow(ctx: Ctx, server: McpServerRow, runtime: McpRuntime, key: str
   return col([
     server.canTurnOff
       ? toggle(ctx, `mcp:${server.name}:on`, server.label, server.status !== 'disabled', turn)
-      : line(span(server.label, { weight: 'semibold' }), span(`  ${status.words}`, status.style)),
+      : line(span(server.label, { weight: 'bold' }), span('  '), pill(status.words, status.tone, status.icon)),
     dim(`${FROM[server.from](server.where)}${tools}${why}`),
     waiting?.name === server.name
       ? col([dim('Waiting for your browser...'), { k: 'link', href: waiting.url, text: 'Open the sign-in page' }])
@@ -94,18 +94,17 @@ function mcpSection(ctx: Ctx): Node {
   const words = WORDS[runtime];
   const rows = loaded.value ?? [];
   const window = windowed(ctx, key, rows, { size: 30 });
-  return col([
-    title('MCP servers'),
+  return card([
     tabs.length > 1 && segments(ctx, 'mcp:tab', tabs.map((id) => ({ value: id, label: id === mine ? `${WORDS[id].name}, yours` : WORDS[id].name })), runtime, pick),
     dim(`${words.where} Only runs you start get them, never a friend’s.`),
     loaded.loading && !loaded.value ? dim(`Asking ${words.app}...`) : undefined,
     loadingWords({ ...loaded, loading: false }, '', 'Couldn’t ask'),
     loaded.value && !rows.length ? empty(words.none) : undefined,
     note ? text(note) : undefined,
-    ...window.shown.map((server) => serverRow(ctx, server, runtime, key, waiting, setWaiting, setNote)),
+    rows.length > 0 && col(window.shown.map((server) => serverRow(ctx, server, runtime, key, waiting, setWaiting, setNote)), { gap: 1, top: 1 }),
     window.controls,
-    ctx.draw.button('mcp:check', loaded.loading ? 'Checking...' : 'Check Again', () => ctx.refresh(key), { plain: true, dim: true, hotkey: 'c' }),
-  ]);
+    row([ctx.draw.button('mcp:check', loaded.loading ? 'Checking...' : 'Check Again', () => ctx.refresh(key), { plain: true, dim: true, hotkey: 'c' })], { top: 1 }),
+  ], { title: counted('MCP servers', rows.length) });
 }
 
 const SOURCE: Readonly<Record<ClaudeSkill['source'], string>> = { project: 'this project', user: 'yours', plugin: 'a plugin' };
@@ -122,29 +121,32 @@ function skillsSection(ctx: Ctx): Node {
   const q = find.query.toLowerCase();
   const list = (loaded.value ?? []).filter((s) => !q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q));
   const window = windowed(ctx, 'skills', list, { size: 30 });
-  return col([
-    title('Skills and commands'),
+  return card([
     dim('What the / list offers in a conversation.'),
     projects.length > 0 &&
       ctx.draw.select(
         'skills:project',
         [{ value: '', label: 'Yours, everywhere' }, ...projects.map((p) => ({ value: p.id, label: p.name }))],
         (value) => setProject(value ?? ''),
-        { label: 'In', value: project?.id ?? '' },
+        { label: 'Where', value: project?.id ?? '' },
       ),
     dir ? dim(homePath(ctx.state, dir)) : undefined,
     loadingWords(loaded, 'Looking...', 'Couldn’t look'),
     loaded.value && (loaded.value.length > 8 || q) ? find.node : undefined,
     loaded.value && !list.length ? empty(q ? `Nothing matches “${find.query}”.` : 'None here yet.') : undefined,
-    ...window.shown.map((skill) =>
-      col([
-        line(span(`/${skill.name}`, { weight: 'semibold' }), skill.args ? span(` ${skill.args}`, { dim: true }) : undefined, span(`  ${skill.kind === 'command' ? 'a command' : 'a skill'}, ${SOURCE[skill.source]}`, { dim: true })),
-        skill.description ? dim(`  ${skill.description}`) : undefined,
-        skill.onCodex ? dim(`  ${skill.onCodex}`) : undefined,
-      ]),
-    ),
+    list.length > 0 &&
+      col(
+        window.shown.map((skill) =>
+          col([
+            line(span(`/${skill.name}`, { weight: 'bold' }), skill.args ? span(` ${skill.args}`, { dim: true }) : undefined, span(`  ${skill.kind === 'command' ? 'a command' : 'a skill'}, ${SOURCE[skill.source]}`, { dim: true })),
+            skill.description ? dim(`  ${skill.description}`) : undefined,
+            skill.onCodex ? dim(`  ${skill.onCodex}`) : undefined,
+          ]),
+        ),
+        { top: 1 },
+      ),
     window.controls,
-  ]);
+  ], { title: counted('Skills and commands', list.length) });
 }
 
 export function toolsPane(ctx: Ctx): Node {

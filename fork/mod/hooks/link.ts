@@ -249,7 +249,7 @@ export async function forgetView($: EngineInterface, site: string): Promise<void
   if (current) await request($, current, `/view/${site}`, { method: 'DELETE' })
 }
 
-type Pressed = { ok: boolean; error?: string; open?: string; toast?: string; copy?: string; focus?: string }
+type Pressed = { ok: boolean; error?: string; open?: string; title?: string; toast?: string; copy?: string; focus?: string }
 
 /** A press of the person's: only ever from a control they acted on. */
 export async function press(
@@ -272,7 +272,7 @@ export async function press(
     if (answer.toast) $.ui.toast(answer.toast)
     if (answer.copy) await $.ui.copy({ text: answer.copy, surface: viewport.surface as 'terminal' })
     if (answer.open) {
-      await $.ui.open({ id: answer.open, title: TITLES[answer.open] ?? answer.open, focus: true })
+      await $.ui.open({ id: answer.open, title: answer.title ?? TITLES[answer.open] ?? answer.open, focus: true })
     }
     if (answer.focus) await $.ui.focus({ requestId: site, key: answer.focus })
   } catch (err) {
@@ -325,7 +325,7 @@ export async function termFrame(
   })) as Record<string, unknown>
 }
 
-type Commanded = { open?: string; title?: string; text?: string }
+type Commanded = { open?: string; title?: string; said?: string; text?: string }
 
 /** `/teamod <words>`, as the bridge reads them. */
 export async function commandOf(

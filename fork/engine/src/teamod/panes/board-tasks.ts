@@ -8,7 +8,7 @@ import type { Ctx } from '../screens.js';
 import { type Node, type Span, col, dim, row, span, title } from '../tree.js';
 import { MAIN_KEY, MORE_KEY, agentRows, asking, choices, field, lookedProject, myAgent, openStarted, prop, realProjects, sharedWith, subPage, toggle, top, windowed } from './board-common.js';
 import { type BoardChoice, type Person, type Scope, SCOPES, assigneeChoices, assigneesIn, boardChoices, boardOrder, boardRepos, boardToShow, doneCount, dueText, isSolo, neighbours, scopeCounts, scoped, statusBeside, untucked } from './board-model.js';
-import { ago, empty, findWorkspace, page } from './common.js';
+import { ago, card, empty, findWorkspace, page, section } from './common.js';
 
 /** The statuses a scope shows as groups, in order. */
 function statusesFor(scope: Scope): readonly IssueStatus[] {
@@ -56,7 +56,7 @@ export function issueMeta(ctx: Ctx, issue: Issue, showing?: string): Span[] {
   const open = STATUS_INFO[issue.status].open;
   const bits: Span[] = [];
   const add = (words: string, style: Omit<Span, 't'> = { dim: true }): void => void bits.push(span(`  ${words}`, style));
-  if (issue.priority !== 'none') add(PRIORITY_INFO[issue.priority].label, priorityStyle(issue.priority));
+  if (issue.priority !== 'none') add(`● ${PRIORITY_INFO[issue.priority].label}`, priorityStyle(issue.priority));
   if (issue.private) add('Private');
   if (issue.drafting) add('The agent is writing...', { color: 'claude' });
   if (issue.needsChecks && open) add('Needs its checks', { color: 'warning' });
@@ -212,31 +212,44 @@ export function tasksPage(ctx: Ctx): Node {
     if (!isFolded && !rows.length && (g.items.length || !showEmpty || g.status === 'in_plan')) return undefined;
     if (isFolded && !g.items.length) return undefined;
     const done = g.status === 'done' && !archive ? doneCount(board, g.boardId) : 0;
+    // A status: its heading and count (a press folds it), then its tasks as compact rows in one card.
     return col([
-      row([
-        ctx.draw.button(`group:${g.key}`, `${STATUS_INFO[g.status].label} ${g.items.length}`, () => setFolded(isFolded ? folded.filter((s) => s !== g.status) : [...folded, g.status]), {
-          plain: true,
-          spans: [span(STATUS_INFO[g.status].label, { weight: 'semibold', ...statusStyle(g.status) }), span(` ${g.items.length}`, { dim: true }), ...(isFolded ? [span('  folded', { dim: true })] : []), ...(g.boardName ? [span(`  ${g.boardName}`, { dim: true })] : [])],
-        }),
-        !archive && !mine && ctx.draw.button(`group:${g.key}:new`, 'New', () => newTask(g.status), { plain: true, dim: true }),
-        done > 0 && ctx.draw.button(`group:${g.key}:archive`, `Archive ${done}`, async () => {
-          await ctx.call('board.archiveDone', g.boardId);
-          ctx.effect({ toast: 'Done tasks are in the Archive' });
-        }, { plain: true, dim: true }),
-      ]),
-      ...rows.map((i) => {
-        const tasks = isEpic(board, i) ? board.issues.filter((k) => k.parent === i.id).length : 0;
-        const away = !opened.includes(i.id);
-        return col([
-          tasks
-            ? row([
-                taskRow(ctx, i, mine ? undefined : here.id),
-                ctx.draw.button(`tuck:${i.id}`, away ? `Show ${tasks} sub-task${tasks === 1 ? '' : 's'}` : 'Tuck Sub-tasks', () => setOpened(away ? [...opened, i.id] : opened.filter((o) => o !== i.id)), { plain: true, dim: true }),
-              ])
-            : taskRow(ctx, i, mine ? undefined : here.id),
-          moving && !archive && moveRow(ctx, i, g.items),
-        ]);
-      }),
+      row(
+        [
+          ctx.draw.button(`group:${g.key}`, `${STATUS_INFO[g.status].label} ${g.items.length}`, () => setFolded(isFolded ? folded.filter((s) => s !== g.status) : [...folded, g.status]), {
+            plain: true,
+            spans: [span(STATUS_INFO[g.status].label, { weight: 'bold', ...statusStyle(g.status) }), span(`  ${g.items.length}`, { dim: true }), ...(isFolded ? [span('  folded', { dim: true })] : []), ...(g.boardName ? [span(`  ${g.boardName}`, { dim: true })] : [])],
+          }),
+          row(
+            [
+              !archive && !mine && ctx.draw.button(`group:${g.key}:new`, 'New', () => newTask(g.status), { plain: true, dim: true }),
+              done > 0 &&
+                ctx.draw.button(`group:${g.key}:archive`, `Archive ${done}`, async () => {
+                  await ctx.call('board.archiveDone', g.boardId);
+                  ctx.effect({ toast: 'Done tasks are in the Archive' });
+                }, { plain: true, dim: true }),
+            ],
+            { gap: 2 },
+          ),
+        ],
+        { justify: 'space-between' },
+      ),
+      rows.length > 0 &&
+        card(
+          rows.map((i) => {
+            const tasks = isEpic(board, i) ? board.issues.filter((k) => k.parent === i.id).length : 0;
+            const away = !opened.includes(i.id);
+            return col([
+              tasks
+                ? row([
+                    taskRow(ctx, i, mine ? undefined : here.id),
+                    ctx.draw.button(`tuck:${i.id}`, away ? `Show ${tasks} sub-task${tasks === 1 ? '' : 's'}` : 'Tuck Sub-tasks', () => setOpened(away ? [...opened, i.id] : opened.filter((o) => o !== i.id)), { plain: true, dim: true }),
+                  ])
+                : taskRow(ctx, i, mine ? undefined : here.id),
+              moving && !archive && moveRow(ctx, i, g.items),
+            ]);
+          }),
+        ),
     ]);
   };
 
@@ -248,12 +261,23 @@ export function tasksPage(ctx: Ctx): Node {
   const nothing = !board.issues.some((i) => showsOn(i, here.id));
   return page(
     top(ctx, 'tasks'),
-    row([
-      ctx.draw.button('board:pick', here.name, () => ctx.go({ name: 'boards' }), { plain: true, hotkey: 'c', spans: [span(here.name, { weight: 'semibold' }), span('  Change', { dim: true })] }),
-      sync && ctx.draw.button('board:sync', syncWords(sync), () => ctx.go({ name: 'sync', params: { project: here.id } }), { plain: true, ...(sync.error ? { spans: [span(syncWords(sync), { color: 'warning' })] } : { dim: true }) }),
-      ctx.draw.button('tasks:new', 'New Task', () => newTask(), { primary: true, hotkey: 'n' }),
-    ]),
-    row(SCOPES.map((s) => ctx.draw.button(`scope:${s.value}`, s.label, () => setScope(s.value), { plain: true, hotkey: s.hotkey, spans: [span(s.label, s.value === scope ? {} : { dim: true }), span(` ${counts[s.value]}`, { dim: true })] }))),
+    row(
+      [
+        row(
+          [
+            ctx.draw.button('board:pick', here.name, () => ctx.go({ name: 'boards' }), { plain: true, hotkey: 'c', spans: [span(here.name, { weight: 'bold' }), span('  Change', { dim: true })] }),
+            sync && ctx.draw.button('board:sync', syncWords(sync), () => ctx.go({ name: 'sync', params: { project: here.id } }), { plain: true, ...(sync.error ? { spans: [span(syncWords(sync), { color: 'warning' })] } : { dim: true }) }),
+          ],
+          { gap: 2 },
+        ),
+        ctx.draw.button('tasks:new', 'New Task', () => newTask(), { primary: true, hotkey: 'n' }),
+      ],
+      { justify: 'space-between' },
+    ),
+    row(
+      SCOPES.map((s) => ctx.draw.button(`scope:${s.value}`, s.label, () => setScope(s.value), { plain: true, hotkey: s.hotkey, spans: [span(s.label, s.value === scope ? { color: 'claude', weight: 'bold' } : { dim: true }), span(` ${counts[s.value]}`, { dim: true })] })),
+      { gap: 2 },
+    ),
     finding
       ? ctx.draw.input(
           'tasks:filter',
@@ -322,34 +346,49 @@ export function tasksMorePage(ctx: Ctx): Node {
     ctx,
     'tasks',
     'Tasks',
-    title(here.name),
-    go('more:settings', here.repos.length > 1 ? 'Repos on This Board' : 'Board Settings', 'board-settings', { board: here.id }),
-    go('more:about', here.own ? 'About This Board' : 'About This Project', 'about', { project: here.id }),
-    go('more:labels', 'Labels', 'labels', { project: here.id }),
-    !here.own && go('more:sync', sync ? 'Linear Sync' : 'Sync with Linear', 'sync', { project: here.id }),
-    sync && !sync.syncing && ctx.draw.button('more:sync-now', 'Sync Now', () => ctx.call('board.syncNow', here.id), { plain: true }),
-    toggle(ctx, 'more:auto-tasks', 'Open a Task for Every New Worktree', board.autoTasks, () => ctx.call('board.setAutoTasks', !board.autoTasks)),
-    toggle(ctx, 'more:canceled', 'Show Canceled Tasks', !folded.includes('canceled'), () => setFolded(folded.includes('canceled') ? folded.filter((s) => s !== 'canceled') : [...folded, 'canceled'])),
-    done > 0 &&
-      ctx.draw.button('more:archive-done', `Archive ${done} Done Task${done === 1 ? '' : 's'}`, async () => {
-        await ctx.call('board.archiveDone', here.id);
-        ctx.effect({ toast: 'Done tasks are in the Archive' });
-      }, { plain: true }),
-    (filters.people.length > 0 || Boolean(filters.who)) && field('Whose tasks', choices(ctx, 'who', whoChoices, filters.who, (value) => filters.setWho(value))),
-    filters.boardRepos.length > 1 &&
-      field(
-        'Repos',
-        row(filters.boardRepos.map((r) => toggle(ctx, `repo:${r}`, repoName(ctx, r) ?? r, picked(r), () => filters.setRepos(picked(r) ? filters.repos.filter((x) => x !== r) : [...filters.repos, r])))),
-      ),
-    filters.worktrees.length > 0 &&
-      field(
-        'Worktree',
-        row([
-          ctx.draw.button('worktree:all', 'Every worktree', () => filters.setWorktree(''), { plain: true, ...(filters.worktree ? { dim: true } : {}) }),
-          places.earlier,
-          ...places.rows.map((w) => ctx.draw.button(`worktree:${w.id}`, w.name, () => filters.setWorktree(w.id), { plain: true, ...(filters.worktree === w.id ? {} : { dim: true }) })),
-          places.more,
-        ]),
+    card(
+      [
+        go('more:settings', here.repos.length > 1 ? 'Repos on This Board' : 'Board Settings', 'board-settings', { board: here.id }),
+        go('more:about', here.own ? 'About This Board' : 'About This Project', 'about', { project: here.id }),
+        go('more:labels', 'Labels', 'labels', { project: here.id }),
+        !here.own && go('more:sync', sync ? 'Linear Sync' : 'Sync with Linear', 'sync', { project: here.id }),
+        sync && !sync.syncing && ctx.draw.button('more:sync-now', 'Sync Now', () => ctx.call('board.syncNow', here.id), { plain: true }),
+      ],
+      { title: here.name },
+    ),
+    card(
+      [
+        toggle(ctx, 'more:auto-tasks', 'Open a Task for Every New Worktree', board.autoTasks, () => ctx.call('board.setAutoTasks', !board.autoTasks)),
+        toggle(ctx, 'more:canceled', 'Show Canceled Tasks', !folded.includes('canceled'), () => setFolded(folded.includes('canceled') ? folded.filter((s) => s !== 'canceled') : [...folded, 'canceled'])),
+        done > 0 &&
+          ctx.draw.button('more:archive-done', `Archive ${done} Done Task${done === 1 ? '' : 's'}`, async () => {
+            await ctx.call('board.archiveDone', here.id);
+            ctx.effect({ toast: 'Done tasks are in the Archive' });
+          }, { plain: true }),
+      ],
+      { title: 'Options' },
+    ),
+    (filters.people.length > 0 || Boolean(filters.who) || filters.boardRepos.length > 1 || filters.worktrees.length > 0) &&
+      card(
+        [
+          (filters.people.length > 0 || Boolean(filters.who)) && field('Whose tasks', choices(ctx, 'who', whoChoices, filters.who, (value) => filters.setWho(value))),
+          filters.boardRepos.length > 1 &&
+            field(
+              'Repos',
+              row(filters.boardRepos.map((r) => toggle(ctx, `repo:${r}`, repoName(ctx, r) ?? r, picked(r), () => filters.setRepos(picked(r) ? filters.repos.filter((x) => x !== r) : [...filters.repos, r])))),
+            ),
+          filters.worktrees.length > 0 &&
+            field(
+              'Worktree',
+              row([
+                ctx.draw.button('worktree:all', 'Every worktree', () => filters.setWorktree(''), { plain: true, ...(filters.worktree ? { dim: true } : {}) }),
+                places.earlier,
+                ...places.rows.map((w) => ctx.draw.button(`worktree:${w.id}`, w.name, () => filters.setWorktree(w.id), { plain: true, ...(filters.worktree === w.id ? {} : { dim: true }) })),
+                places.more,
+              ]),
+            ),
+        ],
+        { title: 'Show Only' },
       ),
     isOwnBoard(here.id) && boardDelete(ctx, board, here),
   );
@@ -468,17 +507,27 @@ export function newTaskPage(ctx: Ctx): Node {
           { placeholder: soloOn(ctx, repo) ? 'Say what you want done: one task, or a few. Your agent writes them.' : 'Say what you want done: one task, or a few and who each is for. Your agent writes them.', rows: 3, submitLabel: startIt ? 'create and start' : 'create', autoFocus: true },
         ),
     ctx.draw.button('new-task:mode', mine ? 'Let your agent write the title and goal' : 'Write title and goal myself', () => setMine(!mine), { plain: true, dim: true }),
-    repos.length > 1 && field('Repo', choices(ctx, 'new-task:repo', repos.map((r) => ({ value: r, label: repoName(ctx, r) ?? r })), repo, (r) => setRepo(r))),
-    field('Priority', choices(ctx, 'new-task:priority', SCALE.map((p) => ({ value: p, label: p === 'none' ? 'None' : PRIORITY_INFO[p].label })), priority, (p) => setPriority(p))),
-    (Boolean(shared) || forced) &&
-      field(
-        'Who sees it',
-        choices(ctx, 'new-task:sees', [...(forced ? [] : [{ value: 'team' as const, label: 'Your Team' }]), { value: 'only' as const, label: 'Only You' }], forced || only === true ? 'only' : 'team', (v) => setOnly(v === 'only')),
-        forced ? dim('Its parent is private, so it is too.') : only === true ? undefined : dim(`Seen by ${shared ?? 'no one else'}, and whoever they team up with.`),
-      ),
-    !soloOn(ctx, repo) && field('Assignee', choices(ctx, 'new-task:assignee', [{ value: '', label: 'No one' }, ...who.map((c) => ({ value: c.key, label: c.label }))], assignee, (a) => setAssignee(a))),
-    prop(ctx, 'new-task:agent', 'Agent', agent ? agentName(agent, { model: true }) : `Your agent (${agentName(myAgent(ctx))})`, () => ctx.go({ name: 'new-task-agent', params })),
-    toggle(ctx, 'new-task:start', 'Start with your agent: a new worktree, with your agent working on it', startIt, () => setStart(!startIt)),
+    card(
+      [
+        col(
+          [
+            repos.length > 1 && field('Repo', choices(ctx, 'new-task:repo', repos.map((r) => ({ value: r, label: repoName(ctx, r) ?? r })), repo, (r) => setRepo(r))),
+            field('Priority', choices(ctx, 'new-task:priority', SCALE.map((p) => ({ value: p, label: p === 'none' ? 'None' : PRIORITY_INFO[p].label })), priority, (p) => setPriority(p))),
+            (Boolean(shared) || forced) &&
+              field(
+                'Who sees it',
+                choices(ctx, 'new-task:sees', [...(forced ? [] : [{ value: 'team' as const, label: 'Your Team' }]), { value: 'only' as const, label: 'Only You' }], forced || only === true ? 'only' : 'team', (v) => setOnly(v === 'only')),
+                forced ? dim('Its parent is private, so it is too.') : only === true ? undefined : dim(`Seen by ${shared ?? 'no one else'}, and whoever they team up with.`),
+              ),
+            !soloOn(ctx, repo) && field('Assignee', choices(ctx, 'new-task:assignee', [{ value: '', label: 'No one' }, ...who.map((c) => ({ value: c.key, label: c.label }))], assignee, (a) => setAssignee(a))),
+            prop(ctx, 'new-task:agent', 'Agent', agent ? agentName(agent, { model: true }) : `Your agent (${agentName(myAgent(ctx))})`, () => ctx.go({ name: 'new-task-agent', params })),
+            toggle(ctx, 'new-task:start', 'Start with your agent: a new worktree, with your agent working on it', startIt, () => setStart(!startIt)),
+          ],
+          { gap: 1 },
+        ),
+      ],
+      { title: 'Details' },
+    ),
   );
 }
 
@@ -514,21 +563,28 @@ export function boardsPage(ctx: Ctx): Node {
     'Tasks',
     ctx.draw.button('boards:new', 'New Board', () => ctx.go({ name: 'board-new' }), { primary: true, hotkey: 'n' }),
     boards.length === 0 && empty('No boards yet. Every project has its own: add one in Work.'),
-    col([
-      list.earlier,
-      ...list.rows.map((b) =>
-        ctx.draw.button(
-          `boards:pick:${b.id}`,
-          b.name,
-          () => {
-            setPicked(b.id);
-            ctx.nav.back(ctx.pane);
-          },
-          { plain: true, spans: [span(b.name, b.id === here?.id ? { weight: 'semibold' } : {}), span(`  ${hint(b)}`, { dim: true })] },
-        ),
+    boards.length > 0 &&
+      section(
+        'Boards',
+        [
+          card([
+            list.earlier,
+            ...list.rows.map((b) =>
+              ctx.draw.button(
+                `boards:pick:${b.id}`,
+                b.name,
+                () => {
+                  setPicked(b.id);
+                  ctx.nav.back(ctx.pane);
+                },
+                { plain: true, spans: [span(b.id === here?.id ? '● ' : '  ', { color: 'claude' }), span(b.name, b.id === here?.id ? { weight: 'bold' } : {}), span(`  ${hint(b)}`, { dim: true })] },
+              ),
+            ),
+            list.more,
+          ]),
+        ],
+        boards.length,
       ),
-      list.more,
-    ]),
     here && ctx.draw.button('boards:settings', `${here.name} Settings`, () => ctx.go({ name: 'board-settings', params: { board: here.id } }), { plain: true, dim: true }),
   );
 }

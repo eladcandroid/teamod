@@ -77,6 +77,108 @@ describe('the Task screen', () => {
     await screens.press('work', 'earlier', undefined, viewport);
     expect(words(screens.view('work', viewport))).toContain('message 45');
   });
+
+  it('heads the chat with a card: its name, its state and its branch', async () => {
+    const ready = { ...worktree, branch: 'elad/add-login', status: { ahead: 1, changed: 0 } };
+    const { screens } = start({ projects: [project('p1', 'alpha', [ready])], log: [chat] as unknown as AppState['log'] });
+    await screens.press('work', 'ws:w1', undefined, viewport);
+    const tree = screens.view('work', viewport);
+    const head = flat(tree).find((n) => n.k === 'box' && n.border === 'round');
+    expect(head && words(head)).toContain('add-login');
+    expect(head && words(head)).toContain('Ready to merge · 1 commit');
+    expect(head && words(head)).toContain('elad/add-login');
+    expect(words(tree)).toContain('elad · ');
+  });
+
+  describe('every page of it', () => {
+    const ready = { ...worktree, branch: 'elad/add-login', status: { ahead: 1, changed: 0 } };
+    const session = {
+      id: 's1',
+      workspaceId: 'w1',
+      status: 'working',
+      agents: [
+        { id: 'a1', description: 'Review the change', type: 'code-reviewer', background: false, status: 'running', startedAt: 1, lastAt: 2, step: 'Reading a.ts' },
+        { id: 'a2', description: 'Lint it', type: 'general-purpose', background: false, status: 'failed', startedAt: 1, lastAt: 2 },
+      ],
+      tasks: [{ id: 't1', kind: 'command', description: 'Start the server', command: 'npm run dev', status: 'running', startedAt: 1 }],
+    };
+    const full = {
+      selfId: 'me',
+      projects: [project('p1', 'alpha', [ready])],
+      log: [{ ...chat, from: 'me' }, { ...run, status: 'done', text: 'Done.', subagents: [{ kind: 'task', status: 'running' }] }],
+      prs: { w1: { number: 7, url: 'u', state: 'OPEN', title: 'Add login', draft: true, checks: 'failing', review: 'APPROVED', conflicts: true, mergeState: 'behind' } },
+      review: { workspaceId: 'w1', data: { base: 'main', commits: [], files: [{ path: 'a.ts', added: 2, removed: 1, state: 'modified' }] }, selected: 0, loading: false, diff: '+a' },
+      conflicts: { w1: ['a.ts'] },
+      terminals: { w1: 'zsh' },
+      termExits: { w1: 1 },
+      claudeCode: { sessions: [session] },
+      btw: { 'ws:w1': { question: 'What is it?', state: 'done', text: 'A thing.' } },
+      context: { 'ws:w1': { used: 10, window: 100 } },
+      envAsks: { w1: [{ file: '.env', binary: false, added: ['KEY'], changed: [], removed: [] }] },
+    } as unknown as Partial<AppState>;
+    const pages: Array<[string, Record<string, string>]> = [
+      ['ws', { id: 'w1' }],
+      ['steps', { id: 'w1', channel: 'ws:w1', item: 'r1' }],
+      ['steps', { id: 'w1', channel: 'ws:w1', item: 'r1', step: 's1' }],
+      ['edit', { id: 'w1', line: 'm1' }],
+      ['model', { id: 'w1' }],
+      ['more', { id: 'w1' }],
+      ['remove', { id: 'w1' }],
+      ['agents', { id: 'w1' }],
+      ['cc-agent', { id: 'w1', session: 's1', agent: 'a1' }],
+      ['cc-step', { id: 'w1', session: 's1', agent: 'a1', seq: '1' }],
+      ['cc-output', { id: 'w1', session: 's1', agent: 'a1', path: '/r/w1/a.ts' }],
+      ['cc-task', { id: 'w1', session: 's1', task: 't1' }],
+      ['changes', { id: 'w1' }],
+      ['merge', { id: 'w1' }],
+      ['merge-pr', { id: 'w1' }],
+      ['pr', { id: 'w1' }],
+      ['history', { id: 'w1' }],
+      ['commit', { id: 'w1', hash: 'abc' }],
+      ['files', { id: 'w1' }],
+      ['file', { id: 'w1', path: 'a.ts' }],
+      ['file', { id: 'w1', path: 'a.png' }],
+      ['file', { id: 'w1', path: 'a.pdf' }],
+      ['scratch', { id: 'w1' }],
+      ['terminal', { id: 'w1' }],
+      ['scripts', { id: 'w1' }],
+    ];
+    const answer = (t: ReturnType<typeof start>): void => {
+      t.answers.set('agent.steps', () => ({ steps: [{ id: 's1', title: 'Read', label: 'Read a.ts', status: 'done' }, { id: 's2', title: 'Bash', label: 'Run the tests', status: 'error', parent: 'x' }] }));
+      t.answers.set('agent.step', () => ({ id: 's1', title: 'Bash', input: { command: 'npm test' }, output: '1 failing', isError: true, truncated: true }));
+      t.answers.set('claudeCode.steps', () => ({ steps: [{ seq: 1, kind: 'tool', text: 'Read a.ts', status: 'error', detail: true }] }));
+      t.answers.set('claudeCode.outputs', () => ({ outputs: [{ path: '/r/w1/a.ts', how: 'wrote' }] }));
+      t.answers.set('claudeCode.step', () => ({ id: 'x', title: 'Read', label: 'Read a.ts', output: 'a', isError: true }));
+      t.answers.set('claudeCode.output', () => ({ kind: 'text', text: 'a', truncated: true }));
+      t.answers.set('claudeCode.taskOutput', () => ({ text: 'ready', truncated: true }));
+      t.answers.set('git.mergePreview', () => ({ from: 'elad/add-login', into: 'main', folder: '/r/alpha', folderOn: 'dev', folderChanges: ['x'], uncommitted: 2, commits: [], commitCount: 3, files: 2, insertions: 5, deletions: 1, newOnTarget: 0, conflicts: ['a.ts'] }));
+      t.answers.set('workbench.prConversation', () => ({ more: true, reviews: [{ author: 'mia', state: 'CHANGES_REQUESTED', body: 'Fix it' }], comments: [{ author: 'mia', body: 'Hi' }], threads: [{ id: 'th', path: 'a.ts', line: 3, resolved: true, outdated: true, diffHunk: '+a', comments: [{ author: 'mia', body: 'Why?' }] }] }));
+      t.answers.set('git.filters', () => ({ authors: [{ email: 'e@x', name: 'Elad' }] }));
+      t.answers.set('git.log', () => ({ commits: [{ hash: 'abc', short: 'abc', subject: 'Add login' }] }));
+      t.answers.set('git.commit', () => ({ commit: { subject: 'Add login', author: { name: 'Elad' }, date: 1, body: 'Why' }, files: [{ path: 'a.ts', added: 1, removed: 0, diff: '+a' }, { path: 'b.ts', added: 0, removed: 0 }] }));
+      t.answers.set('files.read', () => ({ content: 'const a = 1;', truncated: true }));
+      t.answers.set('files.readImageFile', () => ({ data: 'AAAA', mediaType: 'image/png' }));
+      t.answers.set('workspaces.scratch', () => ({ files: [{ path: 'shot.png', size: 2048, mtime: 1 }] }));
+    };
+    const THEME = new Set(['success', 'error', 'warning', 'claude']);
+
+    it.each(pages.map(([name, params]) => ({ name, params })))('$name $params is tidy: one main action, theme colors, no emoji', async ({ name, params }) => {
+      const t = start(full);
+      answer(t);
+      await t.screens.press('work', 'ws:w1', undefined, viewport);
+      t.screens.nav.go('work', { screen: 'task', name, params } as never);
+      t.screens.view('work', viewport);
+      await t.settle();
+      const tree = t.screens.view('work', viewport);
+      expect(words(tree)).not.toContain('This screen failed');
+      const nodes = flat(tree);
+      expect(nodes.some((n) => n.k === 'button' && n.key === 'place:chat')).toBe(true);
+      expect(nodes.filter((n) => n.k === 'button' && n.primary).length).toBeLessThanOrEqual(1);
+      const spans = nodes.flatMap((n) => (n.k === 'text' ? n.spans : n.k === 'button' ? (n.spans ?? []) : []));
+      for (const s of spans) if (s.color) expect(THEME.has(s.color), s.color).toBe(true);
+      expect(spans.map((s) => s.t).join(' ')).not.toMatch(/\p{Extended_Pictographic}/u);
+    });
+  });
 });
 
 describe('the band', () => {

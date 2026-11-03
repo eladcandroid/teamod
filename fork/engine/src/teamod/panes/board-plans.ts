@@ -3,26 +3,35 @@ import { type Live, liveFrom, planView } from '../../core/plans/progress.js';
 import type { AgentRef } from '../../protocol.js';
 import { agentName } from '../../shared/agent-label.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, span, title } from '../tree.js';
+import { type Node, type Span, col, dim, line, row, span, title } from '../tree.js';
 import { agentRows, choices, field, leadOn, myAgent, projectHere, projectSwitch, prop, subPage, top, windowed } from './board-common.js';
-import { nextWords, planStatus, plansOf, toneStyle } from './board-plan-words.js';
-import { ago, empty, page } from './common.js';
+import { type Tone as PlanTone, nextWords, planStatus, plansOf, toneStyle } from './board-plan-words.js';
+import { type Tone, ago, card, empty, meta, page, section } from './common.js';
 
-const planRow = (ctx: Ctx, plan: Plan, live: Live): Node => {
+/** A plan's, a milestone's or a task's state as a pill: a dot and its words, in its tone. */
+export const planPill = (label: string, tone: PlanTone): Span => span(`● ${label}`, toneStyle(tone));
+
+/** A card's border: only what waits for you or went wrong stands out. */
+export const planCardTone = (tone: PlanTone): Tone | undefined => (tone === 'accent' || tone === 'warn' ? 'warn' : tone === 'error' ? 'error' : undefined);
+
+/** A plan as a card: its name (a press opens it), how it is, and what it waits for. */
+const planCard = (ctx: Ctx, plan: Plan, live: Live): Node => {
   const view = planView(plan, ctx.state.board, live);
   const status = planStatus(view);
   const next = nextWords(view.next);
   const sub = plan.body ? (next.detail ? `${next.title} · ${next.detail}` : next.title) : `${view.milestones.length} milestone${view.milestones.length === 1 ? '' : 's'} · ${view.total} task${view.total === 1 ? '' : 's'} · draft`;
-  return col([
-    ctx.draw.button(`plan:${plan.id}`, planTitle(plan), () => ctx.go({ name: 'plan', params: { id: plan.id } }), {
-      plain: true,
-      spans: [span(planTitle(plan), { weight: 'semibold' }), span(`  ${status.label}`, toneStyle(status.tone)), span(`  ${ago(plan.updatedAt)}`, { dim: true })],
-    }),
-    dim(sub),
-  ]);
+  const tone = planCardTone(status.tone);
+  return card(
+    [
+      ctx.draw.button(`plan:${plan.id}`, planTitle(plan), () => ctx.go({ name: 'plan', params: { id: plan.id } }), { plain: true, spans: [span(planTitle(plan), { weight: 'bold' })] }),
+      meta(planPill(status.label, status.tone), ago(plan.updatedAt)),
+      dim(sub),
+    ],
+    tone ? { tone } : {},
+  );
 };
 
-/** Plans: one project's at a time. Each is a row with how far it got and what it waits for. */
+/** Plans: one project's at a time. Each is a card with how far it got and what it waits for. */
 export function plansPage(ctx: Ctx): Node {
   const state = ctx.state.plans;
   if (!state.enabled) return page(top(ctx, 'plans'), empty('Plans are off: the engine isn’t running them.'));
@@ -33,18 +42,15 @@ export function plansPage(ctx: Ctx): Node {
   const live = liveFrom(ctx.state);
   return page(
     top(ctx, 'plans'),
-    projectSwitch(ctx, projects, here),
-    ctx.draw.button('plans:new', 'New Plan', () => ctx.go({ name: 'plan-new', params: { project: here.id } }), { primary: true, hotkey: 'n' }),
+    row([projectSwitch(ctx, projects, here), ctx.draw.button('plans:new', 'New Plan', () => ctx.go({ name: 'plan-new', params: { project: here.id } }), { primary: true, hotkey: 'n' })], { justify: 'space-between' }),
     plans.length === 0 && empty(`No plans in ${here.name} yet. Say what you want built: your agent reads the code and cuts it into milestones and tasks that run side by side, each with what proves it’s done. You talk it through; nothing reaches the board until you approve.`),
-    list.earlier,
-    ...list.rows.map((plan) => planRow(ctx, plan, live)),
-    list.more,
+    plans.length > 0 && section('Plans', [col([list.earlier, ...list.rows.map((plan) => planCard(ctx, plan, live)), list.more], { gap: 1 })], plans.length),
     ctx.draw.button('plans:style', 'Planning Style', () => ctx.go({ name: 'plan-style' }), { plain: true, dim: true, hotkey: 'y' }),
   );
 }
 
 export const autonomyRows = (ctx: Ctx, key: string, current: Autonomy | undefined, pick: (a: Autonomy) => unknown): Node =>
-  col(AUTONOMIES.map((a) => ctx.draw.button(`${key}:${a}`, AUTONOMY_INFO[a].label, () => pick(a), { plain: true, spans: [span(AUTONOMY_INFO[a].label, a === current ? { weight: 'semibold' } : { dim: true }), span(`  ${AUTONOMY_INFO[a].summary}`, { dim: true })] })));
+  col(AUTONOMIES.map((a) => ctx.draw.button(`${key}:${a}`, AUTONOMY_INFO[a].label, () => pick(a), { plain: true, spans: [span(a === current ? '● ' : '○ ', a === current ? { color: 'claude' } : { dim: true }), span(AUTONOMY_INFO[a].label, a === current ? { weight: 'bold' } : {}), span(`  ${AUTONOMY_INFO[a].summary}`, { dim: true })] })));
 
 /** A new plan: what it's for and how far it runs on its own. Your agent plans from it, reading the code. */
 export function newPlanPage(ctx: Ctx): Node {
@@ -73,9 +79,19 @@ export function newPlanPage(ctx: Ctx): Node {
       },
       { label: 'Goal', value: draft, rows: 6, placeholder: 'Let customers pay by card: a checkout page, webhooks that never double-charge, and refunds from the admin. Done when a test card goes through end to end.', submitLabel: 'plan with your agent', autoFocus: true },
     ),
-    field('How it runs', autonomyRows(ctx, 'plan-new:autonomy', autonomy, (a) => setAutonomy(a))),
-    field('When to run tests', choices(ctx, 'plan-new:tests', TESTS_AT.map((t) => ({ value: t, label: TESTS_AT_INFO[t].label })), testsAt, (t) => setTestsAt(t)), dim(`${TESTS_AT_INFO[testsAt].hint}.`)),
-    prop(ctx, 'plan-new:agent', 'Agent', agent ? agentName(agent, { model: true }) : `Your agent (${agentName(myAgent(ctx))})`, () => ctx.go({ name: 'plan-new-agent', params: { project: here.id } })),
+    card(
+      [
+        col(
+          [
+            field('How it runs', autonomyRows(ctx, 'plan-new:autonomy', autonomy, (a) => setAutonomy(a))),
+            field('When to run tests', choices(ctx, 'plan-new:tests', TESTS_AT.map((t) => ({ value: t, label: TESTS_AT_INFO[t].label })), testsAt, (t) => setTestsAt(t)), dim(`${TESTS_AT_INFO[testsAt].hint}.`)),
+            prop(ctx, 'plan-new:agent', 'Agent', agent ? agentName(agent, { model: true }) : `Your agent (${agentName(myAgent(ctx))})`, () => ctx.go({ name: 'plan-new-agent', params: { project: here.id } })),
+          ],
+          { gap: 1 },
+        ),
+      ],
+      { title: 'Details' },
+    ),
     ctx.draw.button('plan-new:here', 'Plan in a Conversation You Have Open', () => ctx.go({ name: 'plan-here', params: { project: here.id } }), { plain: true, dim: true }),
   );
 }
@@ -108,19 +124,22 @@ export function planHerePage(ctx: Ctx): Node {
     'New Plan',
     col([title('Plan in a Conversation'), dim('Your agent plans there: an empty draft, written from what you say next in that conversation.')]),
     open.length === 0 && empty(`Nothing open in ${here.name}.`),
-    list.earlier,
-    ...list.rows.map((ws) =>
-      ctx.draw.button(
-        `plan-here:${ws.id}`,
-        ws.name,
-        async () => {
-          const plan = (await ctx.call('plans.here', `ws:${ws.id}`, autonomy)) as Plan | undefined;
-          if (plan) leadOn(ctx, 'plan-here', { name: 'plan', params: { id: plan.id } });
-        },
-        { plain: true },
-      ),
-    ),
-    list.more,
+    open.length > 0 &&
+      card([
+        list.earlier,
+        ...list.rows.map((ws) =>
+          ctx.draw.button(
+            `plan-here:${ws.id}`,
+            ws.name,
+            async () => {
+              const plan = (await ctx.call('plans.here', `ws:${ws.id}`, autonomy)) as Plan | undefined;
+              if (plan) leadOn(ctx, 'plan-here', { name: 'plan', params: { id: plan.id } });
+            },
+            { plain: true },
+          ),
+        ),
+        list.more,
+      ]),
   );
 }
 

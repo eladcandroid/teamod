@@ -37,10 +37,10 @@ import {
 import type { Source } from '../../shared/view-spec.js';
 import { agentChoices } from '../../ui/agent-choice.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, row, span, text, title } from '../tree.js';
-import { back, empty, page } from './common.js';
+import { type Node, col, dim, row, span, text } from '../tree.js';
+import { actions, back, card, empty, page, section } from './common.js';
 import { askRoute } from './sentinel-asks.js';
-import { field, leave, pick, saver, top } from './sentinel-common.js';
+import { counted, field, leave, pick, saver, top } from './sentinel-common.js';
 import {
   AFTER_ON,
   AGENT_PRESETS,
@@ -108,8 +108,12 @@ function scheduleFields(ctx: Ctx, t: ScheduleTrigger, set: (next: Trigger) => un
     t.every === 'week' &&
       row(
         WEEK.map((d) =>
-          ctx.draw.button(`when:day:${d}`, DAY_NAMES[d]!, () => set({ ...t, days: toggleDay(t.days, d) }), { plain: true, ...(days.includes(d) ? {} : { dim: true }) }),
+          ctx.draw.button(`when:day:${d}`, DAY_NAMES[d]!, () => set({ ...t, days: toggleDay(t.days, d) }), {
+            plain: true,
+            spans: days.includes(d) ? [span(`● ${DAY_NAMES[d]!}`, { color: 'claude', weight: 'bold' })] : [span(`○ ${DAY_NAMES[d]!}`, { dim: true })],
+          }),
         ),
+        { gap: 2 },
       ),
     t.every === 'month' && pick(ctx, 'when:day', 'On the', Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: ordinal(i + 1) })), String(t.day ?? 1), (d) => set({ ...t, day: Number(d) })),
     pick(ctx, 'when:missed', 'If this computer was asleep', [{ value: 'catch-up', label: 'Run as soon as it wakes' }, { value: 'skip', label: 'Skip that run' }], t.missed, (missed) => set({ ...t, missed: missed as ScheduleTrigger['missed'] })),
@@ -137,7 +141,7 @@ function eventFields(ctx: Ctx, s: Sentinel, t: Trigger, set: (next: Trigger) => 
             const { label: _l, ...rest } = t;
             return set(value.trim() ? { ...rest, label: value.trim() } : rest);
           }, { placeholder: 'Any label' }),
-        pick(ctx, 'when:minutes', 'Look', withValue(GITHUB_MINUTES, t.minutes ?? 2).map((m) => ({ value: String(m), label: everyLabel(m) })), String(t.minutes ?? 2), (m) => set({ ...t, minutes: Number(m) })),
+        pick(ctx, 'when:minutes', 'Check', withValue(GITHUB_MINUTES, t.minutes ?? 2).map((m) => ({ value: String(m), label: everyLabel(m) })), String(t.minutes ?? 2), (m) => set({ ...t, minutes: Number(m) })),
       ];
     case 'stripe':
       return [pick(ctx, 'when:what', 'Event', STRIPE_WHAT, t.what, (what) => set({ ...t, what: what as typeof t.what })), dim(project ? `Account: ${project.name}’s Stripe.` : 'Pick a project in More: it reads that project’s Stripe.')];
@@ -185,11 +189,7 @@ export function whenPage(ctx: Ctx, s: Sentinel): Node {
   const project = ctx.state.projects.find((p) => p.id === (t.kind === 'teamod' ? t.projectId : s.projectId));
   const sentence = eventSentence(t, { project: project?.name });
   const trouble = troubleOf(state, s);
-  return page(
-    top(ctx, 'sentinels'),
-    back(ctx, s.name),
-    col([title('When'), text(scheduleSentence(t, nameIn(state)))]),
-    pick(ctx, 'when:kind', 'What starts it', TRIGGER_CHOICES, t.kind, (kind) => set(triggerOfKind(kind as TriggerKind, t))),
+  const details: Array<Node | false | undefined> = [
     ...(t.kind === 'schedule' ? scheduleFields(ctx, t, set) : []),
     t.kind === 'manual' && dim('It runs only when you press Run Now.'),
     ...(t.kind === 'after'
@@ -201,7 +201,19 @@ export function whenPage(ctx: Ctx, s: Sentinel): Node {
       : []),
     ...eventFields(ctx, s, t, set),
     sentence ? dim(sentence) : undefined,
-    trouble ? text(trouble, { color: 'error' }) : undefined,
+  ];
+  return page(
+    top(ctx, 'sentinels'),
+    back(ctx, s.name),
+    card(
+      [
+        text(scheduleSentence(t, nameIn(state))),
+        trouble ? text(trouble, { color: 'error' }) : undefined,
+        col([pick(ctx, 'when:kind', 'What starts it', TRIGGER_CHOICES, t.kind, (kind) => set(triggerOfKind(kind as TriggerKind, t)))], { top: 1 }),
+      ],
+      { title: 'When', ...(trouble ? { tone: 'error' as const } : {}) },
+    ),
+    section(t.kind === 'schedule' ? 'Schedule' : t.kind === 'after' ? 'After' : t.kind === 'manual' ? 'By hand' : 'Event', [col(details, { gap: 0 })]),
   );
 }
 
@@ -214,15 +226,17 @@ export function addStepPage(ctx: Ctx, s: Sentinel): Node {
     const made = next?.steps.at(-1);
     if (made) ctx.go({ name: 'step', params: { id: s.id, step: made.id } });
   };
+  const choices = stepChoices(s.access);
+  const open = choices.filter((c) => !c.refused);
+  const held = choices.filter((c) => c.refused);
   return page(
     top(ctx, 'sentinels'),
     back(ctx, s.name),
-    title('Add a Step'),
-    ...stepChoices(s.access).map((c) =>
-      c.refused
-        ? col([dim(c.label), dim(c.refused)])
-        : col([ctx.draw.button(`add:${c.kind}`, c.label, () => add(c.kind), { plain: true }), dim(c.hint)]),
+    card(
+      open.map((c) => col([ctx.draw.button(`add:${c.kind}`, c.label, () => add(c.kind), { plain: true, spans: [span('+ ', { dim: true }), span(c.label, { weight: 'semibold' })] }), dim(`  ${c.hint}`)])),
+      { title: counted('Add a Step', open.length) },
     ),
+    held.length > 0 && section('Needs more access', held.map((c) => col([dim(c.label), dim(`  ${c.refused}`)])), held.length),
   );
 }
 
@@ -384,15 +398,15 @@ function measureFields(ctx: Ctx, s: Sentinel, step: MeasureStep, change: Change<
     pick(ctx, 'step:from', 'Reads', MEASURE_FROM_INFO, step.from, (value) => (value === 'source' ? change({ from: 'source', source: step.source ?? newSource('postgres') }) : change({ from: value as MeasureFrom }))),
     from ? dim(`${from.line}.`) : false,
     ...(step.from === 'source' && step.source ? sourceFields(ctx, step.source, (source) => change({ source })) : []),
-    title('Numbers it keeps'),
+    text('Numbers it keeps', { weight: 'bold' }),
     step.metrics.length === 0 && dim(`${step.from === 'claude' ? 'Every number the agent keeps, as it names them.' : 'Every top-level number it finds, by its name.'} Add one to name, label and format it.`),
     ...step.metrics.map((m, i) =>
       ctx.draw.button(`spec:${i}`, m.label || m.name, () => ctx.go({ name: 'spec', params: { id: s.id, step: step.id, at: String(i) } }), {
         plain: true,
-        spans: [span(m.label || m.name), span(`  ${m.pick ? m.pick : m.name}  ${UNIT_CHOICES.find((u) => u.value === unitOf(m))?.label ?? unitOf(m)}`, { dim: true })],
+        spans: [span('› ', { dim: true }), span(m.label || m.name), span(`  ${m.pick ? m.pick : m.name}`, { dim: true }), span(`  ${UNIT_CHOICES.find((u) => u.value === unitOf(m))?.label ?? unitOf(m)}`, { dim: true })],
       }),
     ),
-    ctx.draw.button('spec:add', 'Add a Number', add, { plain: true, hotkey: 'a' }),
+    ctx.draw.button('spec:add', 'Add a Number', add, { plain: true, hotkey: 'a', spans: [span('+ ', { dim: true }), span('Add a Number')] }),
     dim(step.from === 'claude' ? 'Its name is what the agent passes to sentinel_measure.' : 'Where: a JSON path ($.items[0].statistics.subscriberCount, rows[0].count) or a column; empty: its name.'),
     step.metrics.some((m) => m.kind === 'rows') && pick(ctx, 'step:keep', 'Rows kept', [20, 50, 100, ROWS_KEPT].map((k) => ({ value: String(k), label: `${k} rows` })), String(step.keep ?? ROWS_KEPT), (value) => change({ keep: Number(value) })),
   ];
@@ -416,13 +430,14 @@ export function specPage(ctx: Ctx, s: Sentinel, step: MeasureStep, at: number): 
   return page(
     top(ctx, 'sentinels'),
     back(ctx, step.name),
-    title(m.label || m.name),
+    card([
     field(ctx, 'spec:label', 'Label', m.label ?? '', (label) => change({ label, ...(fresh && label.trim() ? { name: metricName(label) } : {}) }), { placeholder: 'Subscribers' }),
     step.from === 'claude'
       ? field(ctx, 'spec:name', 'Name', m.name, (name) => (metricName(name) !== m.name ? change({ name: metricName(name) }) : undefined))
       : field(ctx, 'spec:pick', 'Where', m.pick ?? '', (pickAt) => change({ pick: pickAt }), { placeholder: m.name }),
     pick(ctx, 'spec:unit', 'Unit', UNIT_CHOICES, unitOf(m), (u) => change(u === 'rows' || u === 'output' ? { kind: u, unit: undefined, better: 'none' } : u === 'series' ? { kind: 'series', unit: undefined } : { kind: undefined, unit: u as MetricUnit })),
     !noBetter && pick(ctx, 'spec:better', 'Which way is good', BETTER_CHOICES, m.better ?? 'up', (better) => change({ better: better as Better })),
+    ], { title: m.label || m.name }),
     ctx.draw.button(
       'spec:remove',
       'Remove',
@@ -430,7 +445,7 @@ export function specPage(ctx: Ctx, s: Sentinel, step: MeasureStep, at: number): 
         await save({ steps: patchStep<MeasureStep>(s.steps, step.id, { metrics: step.metrics.filter((_, n) => n !== at) }) });
         ctx.nav.back(ctx.pane);
       },
-      { plain: true, dim: true, hotkey: 'x' },
+      { plain: true, hotkey: 'x', spans: [span('Remove', { color: 'error' })] },
     ),
   );
 }
@@ -462,16 +477,23 @@ export function stepPage(ctx: Ctx, s: Sentinel, step: Step): Node {
         return measureFields(ctx, s, step, change<MeasureStep>);
     }
   };
+  const at = s.steps.findIndex((x) => x.id === step.id);
   return page(
     top(ctx, 'sentinels'),
     back(ctx, s.name),
-    col([title(step.name), dim(`${STEP_INFO[step.kind].label} · ${stepSentence(step, nameIn(ctx.state.sentinel))}`)]),
-    field(ctx, 'step:name', 'Name', step.name, (value) => {
-      const name = value.replace(/\s+/g, ' ').trim();
-      return name ? change({ name }) : undefined;
-    }),
-    ...fields(),
-    ctx.draw.button('step:more', 'More', () => ctx.go({ name: 'step-more', params: { id: s.id, step: step.id } }), { plain: true, dim: true, hotkey: 'm' }),
+    card(
+      [
+        dim(`Step ${at + 1} of ${s.steps.length} · ${STEP_INFO[step.kind].label}`),
+        text(stepSentence(step, nameIn(ctx.state.sentinel))),
+        field(ctx, 'step:name', 'Name', step.name, (value) => {
+          const name = value.replace(/\s+/g, ' ').trim();
+          return name ? change({ name }) : undefined;
+        }),
+      ],
+      { title: step.name },
+    ),
+    section(STEP_INFO[step.kind].label, [col(fields())]),
+    actions(undefined, ctx.draw.button('step:more', 'More', () => ctx.go({ name: 'step-more', params: { id: s.id, step: step.id } }), { plain: true, dim: true, hotkey: 'm' })),
   );
 }
 
@@ -482,10 +504,22 @@ export function stepMorePage(ctx: Ctx, s: Sentinel, step: Step): Node {
   return page(
     top(ctx, 'sentinels'),
     back(ctx, step.name),
-    title(step.name),
-    at > 0 && ctx.draw.button('step:up', 'Move Up', () => save({ steps: moveStep(s.steps, at, -1) }), { plain: true, hotkey: 'u' }),
-    at < s.steps.length - 1 && ctx.draw.button('step:down', 'Move Down', () => save({ steps: moveStep(s.steps, at, 1) }), { plain: true, hotkey: 'j' }),
-    ctx.draw.button(
+    card(
+      [
+        dim(`Step ${at + 1} of ${s.steps.length}`),
+        row(
+          [
+            at > 0 && ctx.draw.button('step:up', 'Move Up', () => save({ steps: moveStep(s.steps, at, -1) }), { plain: true, hotkey: 'u', spans: [span('↑ ', { dim: true }), span('Move Up')] }),
+            at < s.steps.length - 1 && ctx.draw.button('step:down', 'Move Down', () => save({ steps: moveStep(s.steps, at, 1) }), { plain: true, hotkey: 'j', spans: [span('↓ ', { dim: true }), span('Move Down')] }),
+          ],
+          { gap: 2 },
+        ),
+      ],
+      { title: step.name },
+    ),
+    actions(
+      undefined,
+      ctx.draw.button(
       'step:duplicate',
       'Duplicate',
       async () => {
@@ -494,6 +528,7 @@ export function stepMorePage(ctx: Ctx, s: Sentinel, step: Step): Node {
       },
       { plain: true, hotkey: 'e' },
     ),
-    ctx.draw.button('step:remove', 'Remove...', () => ctx.go(askRoute('remove-step', { id: s.id, step: step.id })), { plain: true, hotkey: 'x' }),
+      ctx.draw.button('step:remove', 'Remove...', () => ctx.go(askRoute('remove-step', { id: s.id, step: step.id })), { plain: true, hotkey: 'x', spans: [span('Remove...', { color: 'error' })] }),
+    ),
   );
 }

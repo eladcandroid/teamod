@@ -7,7 +7,7 @@ import type { Ctx } from '../screens.js';
 import { type Node, type Span, col, dim, inert, row, span, text } from '../tree.js';
 
 export { inert };
-import { type Place, chrome, peerText } from './common.js';
+import { type Place, type Tone, chrome, peerText, pill } from './common.js';
 
 /** How many rows a list shows before More, and the most one draw ever holds. */
 export const ROWS = 30;
@@ -50,6 +50,10 @@ export function listOf<T>(ctx: Ctx, key: string, items: readonly T[], draw: (ite
 export const choice = (ctx: Ctx, key: string, label: string, on: boolean, press: () => unknown, hotkey?: string): Node =>
   ctx.draw.button(key, label, press, { plain: true, ...(on ? {} : { dim: true }), ...(hotkey ? { hotkey } : {}) });
 
+/** One that's on or off, ticked: `✓ Knock first`. Its label keeps the `[x]` it had, for keys and readers. */
+export const tick = (ctx: Ctx, key: string, label: string, on: boolean, press: () => unknown): Node =>
+  ctx.draw.button(key, `${on ? '[x]' : '[ ]'} ${label}`, press, { plain: true, spans: [span(on ? '✓ ' : '○ ', on ? { color: 'success' } : { dim: true }), span(label, on ? { weight: 'bold' } : { dim: true })] });
+
 /** What takes something away says so once more, in place, before it does. */
 export function confirmPress(ctx: Ctx, key: string, label: string, words: string, run: () => unknown, hotkey?: string): Node {
   const [asking, setAsking] = ctx.local(`${key}:asking`, false);
@@ -76,6 +80,18 @@ export const errorWords = (err: unknown): string => (err instanceof Error ? err.
 export const failed = (words: string | undefined): Node | undefined => (words ? text(words, { color: 'error' }) : undefined);
 
 export const peerMd = peerText;
+
+/**
+ * Someone's words cut to one line, for `md`: made safe whole first, then links kept as their words,
+ * so cutting it can't leave half a link. Drawn as theirs, never translated.
+ */
+export const peerLine = (raw: string, max = 120): string => {
+  const flat = peerText(raw)
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+};
 
 const MAX_PICTURE = 3 * 1024 * 1024;
 
@@ -118,6 +134,15 @@ export function presenceWords(p: Pick<PersonView, 'online' | 'presence' | 'updat
   const note = state !== 'offline' ? p.presence.note?.trim() : undefined;
   return [STATE_WORDS[state], note].filter(Boolean).join(' · ');
 }
+
+const PRESENCE_TONE: Readonly<Record<PresenceState, Tone>> = { online: 'ok', away: 'warn', dnd: 'error', offline: 'quiet' };
+
+/** Someone's presence as a colored pill: `● Online`, `● Away · at lunch`. */
+export const presencePill = (p: Pick<PersonView, 'online' | 'presence' | 'update'>): Span => pill(presenceWords(p), p.update ? 'warn' : PRESENCE_TONE[shownState(p)]);
+
+/** A card's name that opens it when pressed: bold, the rest of the line after it. */
+export const nameButton = (ctx: Ctx, key: string, name: string, go: () => unknown, rest: readonly Span[] = [], opts: { readonly hotkey?: string } = {}): Node =>
+  ctx.draw.button(key, name, go, { plain: true, ...(opts.hotkey ? { hotkey: opts.hotkey } : {}), spans: [span(name, { weight: 'bold' }), ...rest] });
 
 export function presenceSpan(p: Pick<PersonView, 'online' | 'presence' | 'update'>): Span {
   const state = shownState(p);

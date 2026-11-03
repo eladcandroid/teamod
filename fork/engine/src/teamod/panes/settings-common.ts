@@ -1,7 +1,7 @@
 import type { Prefs } from '../../core/store.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, span } from '../tree.js';
-import type { Place } from './common.js';
+import { type Node, type Span, col, dim, row, span, text } from '../tree.js';
+import { type Place, type Tone, card } from './common.js';
 
 /** What the Settings panes share: their places, a switch, and a choice. */
 
@@ -21,11 +21,18 @@ export type PrefsChange = { readonly [K in keyof Prefs]?: Prefs[K] | null };
 
 export const setPrefs = (ctx: Ctx, change: PrefsChange): Promise<unknown> => ctx.call('session.setPrefs', change);
 
-/** A switch: the row says how it is, and a press turns it the other way. */
+/** How far a switch's label sits from the edge: its detail lines up under it. */
+const SWITCH_WIDTH = 7;
+
+/** A dim line under a setting, lined up with its label (`indent` columns in). */
+export const detailLine = (words: string, indent = 0): Node =>
+  indent > 0 ? row([text(' '.repeat(indent)), dim(words)], { gap: 0, wrap: false }) : dim(words);
+
+/** A switch: the row says how it is (`● On` / `○ Off`), and a press turns it the other way. */
 export function toggle(ctx: Ctx, key: string, label: string, on: boolean, set: (next: boolean) => unknown, detail?: string): Node {
   return col([
-    ctx.draw.button(key, label, () => set(!on), { plain: true, spans: [span(on ? 'On   ' : 'Off  ', on ? { color: 'success' } : { dim: true }), span(label)] }),
-    detail ? dim(`     ${detail}`) : undefined,
+    ctx.draw.button(key, label, () => set(!on), { plain: true, spans: [span(on ? '● On ' : '○ Off', on ? { color: 'success' } : { dim: true }), span('  '), span(label)] }),
+    detail ? detailLine(detail, SWITCH_WIDTH) : undefined,
   ]);
 }
 
@@ -45,6 +52,16 @@ export function choice(ctx: Ctx, key: string, label: string, value: string, opti
   ]);
 }
 
+/**
+ * A settings group: a quiet card with its name on top and its settings a row each, a line of air
+ * between them (`tight`: none, for a long list of switches).
+ */
+export const group = (name: string | undefined, settings: ReadonlyArray<Node | false | undefined | null>, opts: { readonly tone?: Tone; readonly tight?: boolean } = {}): Node =>
+  card([col(settings.filter((s): s is Node => Boolean(s)), { gap: opts.tight ? 0 : 1 })], { ...(name ? { title: name } : {}), ...(opts.tone ? { tone: opts.tone } : {}) });
+
 /** A number kept among the ones offered, even if it was set by hand to something else. */
 export const numberOptions = (values: readonly number[], current: number, words: (n: number) => string = String): Array<{ value: string; label: string }> =>
   [...new Set([...values, current])].sort((a, b) => a - b).map((n) => ({ value: String(n), label: words(n) }));
+
+/** A card's name with how many it holds beside it, dim: `MCP servers  4`. */
+export const counted = (name: string, n: number): Span[] => [span(name, { weight: 'bold' }), ...(n > 0 ? [span(`  ${n}`, { dim: true })] : [])];

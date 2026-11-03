@@ -1,9 +1,10 @@
 import { groupOfKey, isGroupKey, topLevel } from '../../workspaces/arrange.js';
 import type { Project, ProjectGroup, Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
-import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
-import { back, chrome, empty, homePath, page } from './common.js';
-import { activeOf, backTo, errorText, findField, loadingWords, placesOf, plural, projectRoute, steady, twoPress, windowed, workspaceRow } from './work-common.js';
+import { type Node, col, dim, line, row, span, text } from '../tree.js';
+import { back, card, chrome, empty, homePath, meta, page, section } from './common.js';
+import { CARD_LIMIT, activeOf, backTo, errorText, findField, heading, isReady, loadingWords, placesOf, plural, projectRoute, steady, twoPress, windowed, workspaceRow } from './work-common.js';
+import { syncParts } from './work-home.js';
 
 /** The Projects place: what's in progress first, then the rest as you arranged them; adding, grouping and hiding. */
 
@@ -63,7 +64,7 @@ type ListRow =
   | { readonly kind: 'project'; readonly project: Project; readonly quiet: boolean }
   | { readonly kind: 'ws'; readonly ws: Workspace }
   | { readonly kind: 'group'; readonly name: string; readonly count: number; readonly folded: boolean }
-  | { readonly kind: 'label'; readonly words: string };
+  | { readonly kind: 'label'; readonly words: string; readonly count?: number };
 
 /** Everything the list can show, flat and in order: a row is a row wherever it's from, so one window counts them all. */
 function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
@@ -80,8 +81,8 @@ function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
   }
   const chats = ctx.state.projects.find((p) => !p.root);
   const openChats = chats ? activeOf(chats).filter((w) => !q || said(w.name)) : [];
-  if (openChats.length) out.push({ kind: 'label', words: 'Chats' }, ...openChats.map((ws): ListRow => ({ kind: 'ws', ws })));
-  if (quiet.size) out.push({ kind: 'label', words: `Other projects (${quiet.size})` });
+  if (openChats.length) out.push({ kind: 'label', words: 'Chats', count: openChats.length }, ...openChats.map((ws): ListRow => ({ kind: 'ws', ws })));
+  if (quiet.size) out.push({ kind: 'label', words: 'Other projects', count: quiet.size });
   const byRoot = new Map(shown.map((p) => [p.root, p]));
   for (const key of topLevel({ order: ctx.state.projectOrder, groups: ctx.state.projectGroups }, shown.map((p) => p.root))) {
     if (!isGroupKey(key)) {
@@ -102,23 +103,71 @@ function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
   return out;
 }
 
-function listRow(ctx: Ctx, item: ListRow, folded: readonly string[], setFolded: (next: readonly string[]) => void): Node {
-  switch (item.kind) {
-    case 'project': {
-      const p = item.project;
-      const open = (): void => ctx.go(projectRoute(p.id));
-      return item.quiet ? ctx.draw.button(`project:${p.id}`, p.name, open, { plain: true, dim: true }) : ctx.draw.button(`project:${p.id}`, p.name, open, { plain: true, spans: [span(p.name, { weight: 'semibold' })] });
+/** A project's name, bold: pressing it opens its home. */
+function projectHead(ctx: Ctx, p: Project): Node {
+  return ctx.draw.button(`project:${p.id}`, p.name, () => ctx.go(projectRoute(p.id)), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] });
+}
+
+/** Under a project's name: main against origin, and what's in progress. */
+function projectFacts(ctx: Ctx, p: Project): Node {
+  const active = activeOf(p);
+  const worktrees = active.filter((w) => w.kind !== 'chat');
+  const chats = active.length - worktrees.length;
+  const ready = worktrees.filter((w) => isReady(ctx.state, w)).length;
+  return meta(
+    ...syncParts(p.sync),
+    worktrees.length ? plural(worktrees.length, 'worktree') : !chats ? 'No worktrees' : undefined,
+    chats ? plural(chats, 'chat') : undefined,
+    ready ? span(`${ready} ready to merge`, { color: 'success' }) : undefined,
+  );
+}
+
+/**
+ * The window's rows, drawn: a project with work in progress is a card holding its worktrees; so are
+ * the open chats. The quiet ones are cards too while they're few, compact rows past that.
+ */
+function drawList(ctx: Ctx, rows: readonly ListRow[], quietCards: boolean, folded: readonly string[], setFolded: (next: readonly string[]) => void): Node[] {
+  const out: Node[] = [];
+  let open: { head: Array<Node | undefined>; body: Node[]; title?: string } | undefined;
+  const flush = (): void => {
+    if (open) out.push(card([...open.head, ...(open.body.length ? [col(open.body, { top: 1 })] : [])], open.title ? { title: open.title } : {}));
+    open = undefined;
+  };
+  for (const item of rows) {
+    switch (item.kind) {
+      case 'project':
+        flush();
+        if (!item.quiet) open = { head: [projectHead(ctx, item.project), projectFacts(ctx, item.project)], body: [] };
+        else if (quietCards) out.push(card([projectHead(ctx, item.project), projectFacts(ctx, item.project)]));
+        else out.push(row([projectHead(ctx, item.project), meta(...syncParts(item.project.sync))], { gap: 2 }));
+        break;
+      case 'ws':
+        if (open) open.body.push(workspaceRow(ctx, item.ws));
+        else out.push(workspaceRow(ctx, item.ws));
+        break;
+      case 'label':
+        flush();
+        if (item.words === 'Chats') open = { title: 'Chats', head: [], body: [] };
+        else out.push(section(item.words, [], item.count));
+        break;
+      case 'group':
+        flush();
+        out.push(
+          col(
+            [
+              ctx.draw.button(`group:${item.name}`, item.name, () => setFolded(item.folded ? folded.filter((n) => n !== item.name) : [...folded, item.name]), {
+                plain: true,
+                spans: [span(item.folded ? '▸ ' : '▾ ', { dim: true }), span(item.name, { weight: 'semibold' }), span(`  ${item.count}${item.folded ? ', folded' : ''}`, { dim: true })],
+              }),
+            ],
+            { top: 1 },
+          ),
+        );
+        break;
     }
-    case 'ws':
-      return workspaceRow(ctx, item.ws);
-    case 'label':
-      return dim(item.words);
-    case 'group':
-      return ctx.draw.button(`group:${item.name}`, item.name, () => setFolded(item.folded ? folded.filter((n) => n !== item.name) : [...folded, item.name]), {
-        plain: true,
-        spans: [span(item.name, { weight: 'semibold' }), span(`  ${item.count}${item.folded ? ', folded' : ''}`, { dim: true })],
-      });
   }
+  flush();
+  return out;
 }
 
 export function projectsPage(ctx: Ctx): Node {
@@ -129,13 +178,16 @@ export function projectsPage(ctx: Ctx): Node {
   const window = windowed(ctx, 'projects', rows, { keys: true });
   const hiddenCount = ctx.state.hiddenProjects.length;
   const chats = ctx.state.projects.find((p) => !p.root);
+  const quietCount = rows.filter((r) => r.kind === 'project' && r.quiet).length;
+  const heading = shown.length > 0 ? line(span('Projects', { weight: 'bold' }), span(`  ${shown.length}`, { dim: true })) : undefined;
+  const add = addProject(ctx);
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
-    addProject(ctx),
+    add.k === 'button' ? row([heading, add], { justify: 'space-between', gap: 2 }) : col([heading, add], { gap: 1 }),
     shown.length === 0 && empty('No projects yet. Add a repository to start.'),
     shown.length > 0 && find.node,
     find.query && rows.length === 0 ? empty(`Nothing called “${find.query}”.`) : undefined,
-    col(window.shown.map((item) => listRow(ctx, item, folded, setFolded))),
+    col(drawList(ctx, window.shown, quietCount <= CARD_LIMIT, folded, setFolded)),
     window.controls,
     newChat(ctx, chats?.id ?? 'chats'),
     row([
@@ -183,7 +235,7 @@ export function addPage(ctx: Ctx): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, 'Projects'),
-    title('Add Projects'),
+    heading('Add Projects', 'A repository on this computer, or a folder that holds several.'),
     row([
       ctx.draw.button('as:project', 'A Project', () => setAs('project'), { plain: true, hotkey: 'n', ...(as === 'project' ? {} : { dim: true }) }),
       ctx.draw.button('as:folder', 'A Folder of Projects', () => setAs('folder'), { plain: true, hotkey: 'e', ...(as === 'folder' ? {} : { dim: true }) }),
@@ -203,19 +255,30 @@ export function addPage(ctx: Ctx): Node {
     ]),
     loadingWords(loaded, 'Looking in your code folders...', 'Couldn’t look for projects'),
     !loaded.loading && !window.shown.length && !loaded.error ? empty('No other git projects in your code folders.') : undefined,
-    window.shown.length > 0 && dim('On this computer'),
-    ...window.shown.map(({ root, hidden: wasHidden }) =>
-      row([
-        line(nameFromPath(root), span(`  ${homePath(ctx.state, root)}${wasHidden ? '  hidden' : ''}`, { dim: true })),
-        wasHidden
-          ? ctx.draw.button(`show:${root}`, 'Show', () => ctx.call('workspaces.showProject', root), { plain: true })
-          : ctx.draw.button(`found:${root}`, 'Add', async () => {
-              await ctx.call('workspaces.addProject', root);
-              ctx.refresh('work:suggest');
-            }, { plain: true }),
-      ]),
-    ),
-    window.controls,
+    window.shown.length > 0 &&
+      section(
+        'On this computer',
+        [
+          card(
+            window.shown.map(({ root, hidden: wasHidden }) =>
+              row(
+                [
+                  col([text(nameFromPath(root), { weight: 'semibold' }), meta(homePath(ctx.state, root), wasHidden && 'hidden')]),
+                  wasHidden
+                    ? ctx.draw.button(`show:${root}`, 'Show', () => ctx.call('workspaces.showProject', root), { plain: true, spans: [span('Show', { color: 'claude' })] })
+                    : ctx.draw.button(`found:${root}`, 'Add', async () => {
+                        await ctx.call('workspaces.addProject', root);
+                        ctx.refresh('work:suggest');
+                      }, { plain: true, spans: [span('+ Add', { color: 'claude' })] }),
+                ],
+                { justify: 'space-between', gap: 2, wrap: false },
+              ),
+            ),
+          ),
+          window.controls,
+        ],
+        hidden.length + found.length,
+      ),
   );
 }
 
@@ -236,7 +299,7 @@ export function browsePage(ctx: Ctx, dir: string): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx),
-    title(homePath(ctx.state, dir)),
+    heading(homePath(ctx.state, dir), 'Open a folder to look inside; add the one that holds your project.'),
     row([
       ctx.draw.button('browse:add', 'Add This Folder', async () => {
         await ctx.call('projects.add', dir);
@@ -250,9 +313,12 @@ export function browsePage(ctx: Ctx, dir: string): Node {
     ]),
     loadingWords(loaded, 'Looking...', 'Couldn’t read that folder'),
     !loaded.loading && !rows.length && !loaded.error ? empty('No folders in here.') : undefined,
-    ...window.shown.map((entry) =>
-      ctx.draw.button(`dir:${entry.name}`, entry.name, () => ctx.go({ name: 'browse', params: { dir: inside(entry.name) } }), { plain: true, spans: [span(entry.name), ...(entry.size === 1 ? [span('  a git project', { color: 'success' })] : [])] }),
-    ),
+    window.shown.length > 0 &&
+      card(
+        window.shown.map((entry) =>
+          ctx.draw.button(`dir:${entry.name}`, entry.name, () => ctx.go({ name: 'browse', params: { dir: inside(entry.name) } }), { plain: true, spans: [span('▸ ', { dim: true }), span(entry.name), ...(entry.size === 1 ? [span('  ● a git project', { color: 'success' })] : [])] }),
+        ),
+      ),
     window.controls,
   );
 }
@@ -267,7 +333,7 @@ export function newProjectPage(ctx: Ctx): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, 'Projects'),
-    title('New Project'),
+    heading('New Project'),
     ctx.draw.input(
       'new:name',
       async (value) => {
@@ -309,9 +375,14 @@ export function hiddenPage(ctx: Ctx): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, 'Projects'),
-    title('Hidden Projects'),
+    heading('Hidden Projects', hidden.length > 0 && 'They come back where they were.'),
     hidden.length === 0 && empty('None. Hide a project from its More; it waits here until you show it again.'),
-    ...window.shown.map((root) => row([line(nameFromPath(root), span(`  ${homePath(ctx.state, root)}`, { dim: true })), ctx.draw.button(`show:${root}`, 'Show', () => ctx.call('workspaces.showProject', root), { plain: true })])),
+    hidden.length > 0 &&
+      card(
+        window.shown.map((root) =>
+          row([col([text(nameFromPath(root), { weight: 'semibold' }), dim(homePath(ctx.state, root))]), ctx.draw.button(`show:${root}`, 'Show', () => ctx.call('workspaces.showProject', root), { plain: true, spans: [span('Show', { color: 'claude' })] })], { justify: 'space-between', gap: 2, wrap: false }),
+        ),
+      ),
     window.controls,
   );
 }
@@ -358,7 +429,7 @@ export function arrangePage(ctx: Ctx): Node {
   const drawn = (item: ArrangeRow): Node => {
     if (item.kind === 'project') {
       const p = item.project;
-      return row([line(span(`${item.into ? '  ' : ''}${p.name}`)), ...moves(`p:${p.id}`, item), ctx.draw.button(`arrange:p:${p.id}:group`, 'Move to Group', () => ctx.go({ name: 'project-group', params: { id: p.id } }), { plain: true, dim: true })]);
+      return row([line(span(`${item.into ? '  · ' : ''}${p.name}`)), row([...moves(`p:${p.id}`, item), ctx.draw.button(`arrange:p:${p.id}:group`, 'Move to Group', () => ctx.go({ name: 'project-group', params: { id: p.id } }), { plain: true, dim: true })], { gap: 2 })], { justify: 'space-between', gap: 2 });
     }
     const name = item.group.name;
     if (renaming === name) {
@@ -373,17 +444,18 @@ export function arrangePage(ctx: Ctx): Node {
       );
     }
     return row([
-      line(span(name, { weight: 'semibold' }), span(`  ${plural(item.group.projects.length, 'project')}`, { dim: true })),
-      ...moves(`g:${name}`, item),
-      ctx.draw.button(`arrange:g:${name}:rename`, 'Rename', () => setRenaming(name), { plain: true, dim: true }),
-      twoPress(ctx, `arrange:g:${name}:ungroup`, 'Ungroup', () => ctx.call('workspaces.ungroup', name)),
-    ]);
+      line(span(name, { weight: 'bold' }), span(`  ${plural(item.group.projects.length, 'project')}`, { dim: true })),
+      row([
+        ...moves(`g:${name}`, item),
+        ctx.draw.button(`arrange:g:${name}:rename`, 'Rename', () => setRenaming(name), { plain: true, dim: true }),
+        twoPress(ctx, `arrange:g:${name}:ungroup`, 'Ungroup', () => ctx.call('workspaces.ungroup', name)),
+      ], { gap: 2 }),
+    ], { justify: 'space-between', gap: 2, top: item.at > 0 ? 1 : 0 });
   };
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx, 'Projects'),
-    title('Arrange'),
-    dim('Moving a group moves its projects with it. Ungrouping keeps the projects.'),
+    heading('Arrange', 'Moving a group moves its projects with it. Ungrouping keeps the projects.'),
     naming
       ? ctx.draw.input(
           'arrange:new',
@@ -395,7 +467,7 @@ export function arrangePage(ctx: Ctx): Node {
         )
       : ctx.draw.button('arrange:add', 'New Group', () => setNaming(true), { hotkey: 'a', primary: true }),
     rows.length === 0 && empty('No projects to arrange yet.'),
-    col(window.shown.map(drawn)),
+    rows.length > 0 && card(window.shown.map(drawn)),
     window.controls,
   );
 }
@@ -412,14 +484,18 @@ export function projectGroupPage(ctx: Ctx, id: string): Node {
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     back(ctx),
-    title(project.name),
-    dim(current ? `In group: ${current.name}` : 'Not in a group'),
-    ...window.shown.map((g) =>
-      ctx.draw.button(`to:${g.name}`, `Move to “${g.name}”`, async () => {
-        await ctx.call('workspaces.setGroup', project.id, g.name);
-        done();
-      }, { plain: true }),
-    ),
+    heading(project.name, current ? `In group: ${current.name}` : 'Not in a group'),
+    window.shown.length > 0 &&
+      section(
+        'Groups',
+        window.shown.map((g) =>
+          ctx.draw.button(`to:${g.name}`, `Move to “${g.name}”`, async () => {
+            await ctx.call('workspaces.setGroup', project.id, g.name);
+            done();
+          }, { plain: true }),
+        ),
+        others.length,
+      ),
     window.controls,
     naming
       ? ctx.draw.input(

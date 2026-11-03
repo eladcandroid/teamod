@@ -252,6 +252,11 @@ export class Screens {
     return this.host.prefs?.() ?? DEFAULT_PREFS;
   }
 
+  /** Whether right-to-left letters must be ordered by teamod on this surface. */
+  fixesRtl(surface: string): boolean {
+    return fixesRtl(this.prefs(), surface);
+  }
+
   /** The language screens are drawn in now. */
   lang(): Lang {
     return languageOf(this.prefs());
@@ -263,7 +268,7 @@ export class Screens {
   }
 
   /** A drawn tree as this person reads it. */
-  private shown(tree: Node, viewport: Viewport): Node {
+  private shown(tree: Node, viewport: Viewport, site?: SiteId): Node {
     const prefs = this.prefs();
     // For translators: TEAMOD_I18N_MISSING=<file> lists every drawn word the Hebrew catalog lacks.
     const missing = process.env.TEAMOD_I18N_MISSING;
@@ -271,7 +276,13 @@ export class Screens {
       const words = untranslated(inert(tree), 'he');
       if (words.length) appendFileSync(missing, `${words.map((w) => `${this.lastDrawn ?? '?'}\t${JSON.stringify(w)}`).join('\n')}\n`);
     }
-    return present(inert(tree), { lang: languageOf(prefs), fixRtl: fixesRtl(prefs, viewport.surface), keys: prefs.keys, columns: viewport.columns });
+    return present(inert(tree), {
+      lang: languageOf(prefs),
+      fixRtl: fixesRtl(prefs, viewport.surface),
+      keys: prefs.keys,
+      columns: viewport.columns,
+      ...(site && isRich(site) ? { layoutRtl: false } : {}),
+    });
   }
 
   private loaded<T>(key: string, loader: () => Promise<T>, ttlMs?: number): Loaded<T> {
@@ -322,7 +333,7 @@ export class Screens {
       const ctx = this.context(pane, state, viewport, draw);
       const answer = isRich(pane) ? this.answers.get(pane) : undefined;
       if (isRich(pane) && answer === undefined) return { tree: this.shown(dim('This answer is gone from memory.'), viewport), draw };
-      return { tree: this.shown(answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx), viewport), draw };
+      return { tree: this.shown(answer !== undefined ? this.drawAnswer(ctx, answer) : this.screens[ctx.screen](ctx), viewport, pane), draw };
     } catch (err) {
       // Never a dead end: Back and Work still work from a screen that failed.
       const rescue = new Draw();

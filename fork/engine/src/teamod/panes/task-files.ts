@@ -3,7 +3,8 @@ import type { FsEntry } from '../../protocol.js';
 import { shareNameOf } from '../../shared/share-names.js';
 import type { Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
-import { type Node, code, col, dim, md, row, span, text, title } from '../tree.js';
+import { type Node, code, col, dim, line, md, row, span, text } from '../tree.js';
+import { actions, card, empty, section } from './common.js';
 
 /** At most this much of a file goes to a pane; the rest opens elsewhere. */
 const SHOWN_CHARS = 60_000;
@@ -42,11 +43,11 @@ function rowsOf(ctx: Ctx, ws: Workspace, folder: string, open: ReadonlySet<strin
           if (unfolded) next.delete(path);
           else next.add(path);
           setOpen(next);
-        }, { plain: true, spans: [span(`${indent}${unfolded ? 'v' : '>'} ${entry.name}`, { weight: 'semibold' })] }),
+        }, { plain: true, spans: [span(`${indent}${unfolded ? '▾' : '▸'} `, { dim: true }), span(`${entry.name}/`, { weight: 'semibold' })] }),
       );
       if (unfolded) rowsOf(ctx, ws, path, open, setOpen, depth + 1, out);
     } else {
-      out.push(ctx.draw.button(`file:${path}`, entry.name, () => ctx.go({ name: 'file', params: { id: ws.id, path } }), { plain: true, spans: [span(`${indent}  ${entry.name}`)] }));
+      out.push(ctx.draw.button(`file:${path}`, entry.name, () => ctx.go({ name: 'file', params: { id: ws.id, path } }), { plain: true, spans: [span(`${indent}  `), span(entry.name)] }));
     }
   }
 }
@@ -57,11 +58,12 @@ function searchResults(ctx: Ctx, ws: Workspace, query: string, inContents: boole
     if (found.error) return text(found.error, { color: 'error' });
     if (!found.value) return dim('Searching...');
     if (found.value.error) return text(found.value.error, { color: 'error' });
+    if (!found.value.files.length) return empty('Nothing found.');
     return col([
       dim(`${found.value.count} line${found.value.count === 1 ? '' : 's'}${found.value.truncated ? ' and more' : ''}`),
       ...found.value.files.slice(0, 40).flatMap((file) => [
-        ctx.draw.button(`hit-file:${file.path}`, file.path, () => ctx.go({ name: 'file', params: { id: ws.id, path: file.path } }), { plain: true }),
-        ...file.matches.slice(0, 5).map((hit) => dim(`  ${hit.line}: ${hit.text.slice(0, 120)}`)),
+        ctx.draw.button(`hit-file:${file.path}`, file.path, () => ctx.go({ name: 'file', params: { id: ws.id, path: file.path } }), { plain: true, spans: [span(file.path, { weight: 'semibold' })] }),
+        ...file.matches.slice(0, 5).map((hit) => line(span(`  ${hit.line}  `, { dim: true }), span(hit.text.slice(0, 120), { dim: true }))),
       ]),
     ]);
   }
@@ -69,6 +71,7 @@ function searchResults(ctx: Ctx, ws: Workspace, query: string, inContents: boole
   if (found.error) return text(found.error, { color: 'error' });
   if (!found.value) return dim('Searching...');
   if (found.value.error) return text(found.value.error, { color: 'error' });
+  if (!found.value.files.length) return empty('Nothing found.');
   return col([
     ...found.value.files.slice(0, 100).map((file) => ctx.draw.button(`hit:${file.path}`, file.path, () => ctx.go({ name: 'file', params: { id: ws.id, path: file.path } }), { plain: true })),
     found.value.truncated && dim('And more: narrow it down.'),
@@ -82,16 +85,26 @@ export function filesPage(ctx: Ctx, ws: Workspace): Node {
   const [inContents, setInContents] = ctx.local(`files:${ws.id}:contents`, false);
   const rows: Node[] = [];
   if (!query) rowsOf(ctx, ws, '', open, setOpen, 0, rows);
+  /** Search by names or by contents: the one in use marked. */
+  const toggle = (key: string, label: string, on: boolean, pick: () => void): Node =>
+    ctx.draw.button(key, label, pick, { plain: true, ...(on ? { spans: [span(label, { color: 'claude', weight: 'bold' })] } : { dim: true }) });
   return col(
     [
       ctx.draw.input('files-search', (value) => setQuery(value?.trim() ?? ''), { placeholder: inContents ? 'Search what’s in the files' : 'Search file names', submitLabel: 'search', ...(query ? { value: query } : {}) }),
-      row([
-        ctx.draw.button('files-by-name', 'Names', () => setInContents(false), { plain: true, ...(inContents ? { dim: true } : {}) }),
-        ctx.draw.button('files-by-content', 'Contents', () => setInContents(true), { plain: true, ...(inContents ? {} : { dim: true }) }),
-        query ? ctx.draw.button('files-clear', 'Clear', () => setQuery(''), { plain: true, dim: true }) : undefined,
-        ctx.draw.button('scratch', 'Scratch', () => ctx.go({ name: 'scratch', params: { id: ws.id } }), { plain: true, hotkey: 's', dim: true }),
-        ctx.draw.button('files-finder', 'Show in Finder', () => ctx.call('workspaces.openInFinder', ws.id), { plain: true, dim: true }),
-      ]),
+      row(
+        [
+          row([toggle('files-by-name', 'Names', !inContents, () => setInContents(false)), toggle('files-by-content', 'Contents', inContents, () => setInContents(true))], { gap: 2 }),
+          row(
+            [
+              query ? ctx.draw.button('files-clear', 'Clear', () => setQuery(''), { plain: true, dim: true }) : undefined,
+              ctx.draw.button('scratch', 'Scratch', () => ctx.go({ name: 'scratch', params: { id: ws.id } }), { plain: true, hotkey: 's', dim: true }),
+              ctx.draw.button('files-finder', 'Show in Finder', () => ctx.call('workspaces.openInFinder', ws.id), { plain: true, dim: true }),
+            ],
+            { gap: 2 },
+          ),
+        ],
+        { justify: 'space-between' },
+      ),
       query ? searchResults(ctx, ws, query, inContents) : col(rows),
     ],
     { gap: 1 },
@@ -102,19 +115,24 @@ export function filesPage(ctx: Ctx, ws: Workspace): Node {
 export function filePage(ctx: Ctx, ws: Workspace, path: string): Node {
   const at = locationOf(ctx, ws, path);
   if (OPENS_ELSEWHERE.test(path)) {
-    return col([title(path), ctx.draw.button('file-open', 'Open', () => ctx.call('files.open', at), { primary: true, hotkey: 'o' }), ctx.draw.button('file-download', 'Download', () => ctx.call('files.download', at), { plain: true, dim: true })], { gap: 1 });
+    return card(
+      [
+        dim('This kind of file opens in its own app.'),
+        actions(ctx.draw.button('file-open', 'Open', () => ctx.call('files.open', at), { primary: true, hotkey: 'o' }), ctx.draw.button('file-download', 'Download', () => ctx.call('files.download', at), { plain: true, dim: true })),
+      ],
+      { title: path },
+    );
   }
   if (IMAGE.test(path)) {
     const image = ctx.load(`image:${ws.id}:${path}`, async () => (await ctx.call('files.readImageFile', at)) as { readonly data: string; readonly mediaType: string });
     const data = image.value?.data;
     return col(
       [
-        title(path),
+        card([actions(ctx.draw.button('file-open', 'Open', () => ctx.call('files.open', at), { plain: true, hotkey: 'o', dim: true }))], { title: path }),
         image.error ? text(image.error, { color: 'error' }) : undefined,
         !image.value && !image.error ? dim('Loading...') : undefined,
         data && ctx.surface === 'terminal' && /\.png$/i.test(path) ? { k: 'image' as const, key: `img:${path}`, png: data, columns: Math.min(120, Math.max(10, ctx.columns - 2)), rows: Math.min(40, Math.max(6, ctx.rows - 8)), alt: path } : undefined,
         data && ctx.surface !== 'terminal' ? { k: 'svg' as const, source: `<svg xmlns="http://www.w3.org/2000/svg"><image href="data:${image.value?.mediaType ?? 'image/png'};base64,${data}"/></svg>`, alt: path } : undefined,
-        ctx.draw.button('file-open', 'Open', () => ctx.call('files.open', at), { plain: true, hotkey: 'o', dim: true }),
       ],
       { gap: 1 },
     );
@@ -129,24 +147,28 @@ export function filePage(ctx: Ctx, ws: Workspace, path: string): Node {
   const formatter = ctx.load(`formatter:${ws.id}:${path}`, async () => (await ctx.call('files.formatter', ws.id, path)) as { readonly available: boolean });
   return col(
     [
-      title(path),
-      loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
-      !loaded.value && !loaded.error ? dim('Loading...') : undefined,
-      loaded.value &&
-        row([
-          small ? ctx.draw.button('file-edit', editing ? 'Cancel' : 'Edit', () => setEditing(!editing), { plain: true, hotkey: 'e' }) : undefined,
-          isMarkdown ? ctx.draw.button('file-preview', preview ? 'Source' : 'Preview', () => setPreview(!preview), { plain: true, dim: true }) : undefined,
-          formatter.value?.available && small
-            ? ctx.draw.button('file-format', 'Format', async () => {
-                const formatted = (await ctx.call('files.format', ws.id, path, content)) as string;
-                await ctx.call('files.save', ws.id, path, formatted);
-                refresh();
-              }, { plain: true, dim: true })
-            : undefined,
-          ctx.draw.button('file-external', 'Open', () => ctx.call('files.open', at), { plain: true, dim: true }),
-          ctx.draw.button('file-code', 'Open in Editor', () => ctx.call('workbench.openCode', ws.id, path), { plain: true, dim: true }),
-        ]),
-      loaded.value?.truncated ? dim('Only the start of this file: it’s large.') : undefined,
+      card(
+        [
+          loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
+          !loaded.value && !loaded.error ? dim('Loading...') : undefined,
+          loaded.value?.truncated ? dim('Only the start of this file: it’s large.') : undefined,
+          loaded.value &&
+            row([
+              small ? ctx.draw.button('file-edit', editing ? 'Cancel' : 'Edit', () => setEditing(!editing), { plain: true, hotkey: 'e' }) : undefined,
+              isMarkdown ? ctx.draw.button('file-preview', preview ? 'Source' : 'Preview', () => setPreview(!preview), { plain: true, dim: true }) : undefined,
+              formatter.value?.available && small
+                ? ctx.draw.button('file-format', 'Format', async () => {
+                    const formatted = (await ctx.call('files.format', ws.id, path, content)) as string;
+                    await ctx.call('files.save', ws.id, path, formatted);
+                    refresh();
+                  }, { plain: true, dim: true })
+                : undefined,
+              ctx.draw.button('file-external', 'Open', () => ctx.call('files.open', at), { plain: true, dim: true }),
+              ctx.draw.button('file-code', 'Open in Editor', () => ctx.call('workbench.openCode', ws.id, path), { plain: true, dim: true }),
+            ], { gap: 2, top: 1 }),
+        ],
+        { title: path },
+      ),
       editing
         ? ctx.draw.input(
             'file-edit-box',
@@ -174,9 +196,9 @@ interface ScratchFile {
 export function scratchPage(ctx: Ctx, ws: Workspace): Node {
   const loaded = ctx.load(`scratch:${ws.id}`, async () => (await ctx.call('workspaces.scratch', ws.id)) as { readonly files: readonly ScratchFile[] } | undefined, { ttlMs: 5000 });
   const files = [...(loaded.value?.files ?? [])].sort((a, b) => b.mtime - a.mtime);
-  return col(
+  return section(
+    'Scratch',
     [
-      title('Scratch'),
       loaded.error ? text(loaded.error, { color: 'error' }) : undefined,
       !loaded.value && !loaded.error ? dim('Loading...') : undefined,
       loaded.value && files.length === 0 ? dim('What your agent makes along the way lands here: screenshots, test runs, logs.') : undefined,
@@ -187,6 +209,6 @@ export function scratchPage(ctx: Ctx, ws: Workspace): Node {
         }),
       ),
     ],
-    { gap: 0 },
+    loaded.value ? files.length : undefined,
   );
 }

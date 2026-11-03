@@ -5,7 +5,7 @@ import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
 import { MAIN_KEY, asking, choices, field, realProjects, subPage, toggle, webLink, windowed } from './board-common.js';
 import { boardDelete } from './board-tasks.js';
-import { ago, empty } from './common.js';
+import { ago, card, empty } from './common.js';
 
 const repoName = (ctx: Ctx, id: string): string | undefined => ctx.state.projects.find((p) => p.id === id)?.name;
 
@@ -27,7 +27,7 @@ export function boardNewPage(ctx: Ctx): Node {
     'Boards',
     col([title('New Board'), dim('One board for work across a few repos: each task on it runs in one of them, and Start makes its worktree there.')]),
     ctx.draw.input('board-new:name', (value) => setName(value?.trim() ?? ''), { label: 'Name', value: name, placeholder: 'Launch', submitLabel: 'set', autoFocus: !name }),
-    field('Repos: the ones its tasks run in', list.earlier, ...list.rows.map((p) => toggle(ctx, `board-new:repo:${p.id}`, p.name, repos.includes(p.id), () => setRepos(repos.includes(p.id) ? repos.filter((r) => r !== p.id) : [...repos, p.id]))), list.more),
+    card([field('Repos: the ones its tasks run in', list.earlier, ...list.rows.map((p) => toggle(ctx, `board-new:repo:${p.id}`, p.name, repos.includes(p.id), () => setRepos(repos.includes(p.id) ? repos.filter((r) => r !== p.id) : [...repos, p.id]))), list.more)]),
     ctx.draw.input(
       'board-new:prefix',
       (value) => {
@@ -35,7 +35,7 @@ export function boardNewPage(ctx: Ctx): Node {
         if (next && prefixProblem(next)) throw new Error(prefixProblem(next));
         setPrefix(next);
       },
-      { label: 'Keys', value: prefix, placeholder: 'What its task keys start with. Empty: made from the name.', submitLabel: 'set' },
+      { label: 'Task Keys', value: prefix, placeholder: 'What its task keys start with. Empty: made from the name.', submitLabel: 'set' },
     ),
     ready
       ? ctx.draw.button(
@@ -72,14 +72,16 @@ export function boardSettingsPage(ctx: Ctx, boardId: string): Node {
     ctx,
     'tasks',
     'Tasks',
-    col([title(`${name} Board`), dim(`Tasks here run in any of the repos it covers, each in the one it’s for.${saved?.prefix ? ` Keys start with ${saved.prefix}-.` : ''}`)]),
+    col([text(`${name} Board`, { weight: 'bold' }), dim(`Tasks here run in any of the repos it covers, each in the one it’s for.${saved?.prefix ? ` Keys start with ${saved.prefix}-.` : ''}`)]),
     ctx.draw.input('board-settings:name', (value) => ctx.call('board.editBoard', boardId, { name: value?.trim() ?? '' }), { label: 'Name', value: saved?.name ?? '', placeholder: own ? 'Launch' : `Empty: ${repoName(ctx, boardId) ?? 'the project'}’s name`, submitLabel: 'save' }),
-    field(
-      own ? 'Repos: the ones its tasks run in' : 'Repos: others whose tasks go on this board too',
-      list.earlier,
-      ...list.rows.map((p) => (p.id === boardId && !own ? line(span(`[x] ${p.name}`), span('  Its own', { dim: true })) : toggle(ctx, `board-settings:repo:${p.id}`, p.name, repos.includes(p.id), () => flip(p.id)))),
-      list.more,
-    ),
+    card([
+      field(
+        own ? 'Repos: the ones its tasks run in' : 'Repos: others whose tasks go on this board too',
+        list.earlier,
+        ...list.rows.map((p) => (p.id === boardId && !own ? line(span(`[x] ${p.name}`), span('  Its own', { dim: true })) : toggle(ctx, `board-settings:repo:${p.id}`, p.name, repos.includes(p.id), () => flip(p.id)))),
+        list.more,
+      ),
+    ]),
     ctx.draw.input(
       'board-settings:prefix',
       async (value) => {
@@ -91,9 +93,11 @@ export function boardSettingsPage(ctx: Ctx, boardId: string): Node {
       },
       { label: 'Task Keys', value: saved?.prefix ?? '', placeholder: 'BOB', submitLabel: 'save' },
     ),
-    ctx.draw.button('board-settings:about', own ? 'About This Board' : 'About This Project', () => ctx.go({ name: 'about', params: { project: boardId } }), { plain: true }),
-    ctx.draw.button('board-settings:labels', 'Labels', () => ctx.go({ name: 'labels', params: { project: boardId } }), { plain: true }),
-    !own && ctx.draw.button('board-settings:sync', board.sync?.[boardId] ? 'Linear Sync' : 'Sync with Linear', () => ctx.go({ name: 'sync', params: { project: boardId } }), { plain: true }),
+    card([
+      ctx.draw.button('board-settings:about', own ? 'About This Board' : 'About This Project', () => ctx.go({ name: 'about', params: { project: boardId } }), { plain: true }),
+      ctx.draw.button('board-settings:labels', 'Labels', () => ctx.go({ name: 'labels', params: { project: boardId } }), { plain: true }),
+      !own && ctx.draw.button('board-settings:sync', board.sync?.[boardId] ? 'Linear Sync' : 'Sync with Linear', () => ctx.go({ name: 'sync', params: { project: boardId } }), { plain: true }),
+    ]),
     own && boardDelete(ctx, board, here),
   );
 }
@@ -142,26 +146,28 @@ export function labelsPage(ctx: Ctx, projectId: string, issueId: string | undefi
     'tasks',
     issue ? issue.key : 'Tasks',
     col([title('Labels'), dim('A small set everyone shares: the built-in ones, and a few of your own that mean something.')]),
-    field('Built in', dim(DEFAULT_LABELS.map((l) => labelTitle(l.name)).join(' · '))),
-    own.length > 0 &&
-      field(
-        'This project’s labels',
-        ...own.map((l) =>
-          row([
-            line(span(labelTitle(l.name)), l.hint ? span(`  ${l.hint}`, { dim: true }) : undefined),
-            ctx.draw.button(
-              `labels:remove:${l.name}`,
-              'Remove',
-              async () => {
-                await ctx.call('board.removeLabel', projectId, l.name);
-                ctx.effect({ toast: `Removed ${labelTitle(l.name)}: tasks that have it keep it, plainly` });
-              },
-              { plain: true, dim: true },
-            ),
-          ]),
+    card([
+      field('Built in', dim(DEFAULT_LABELS.map((l) => labelTitle(l.name)).join(' · '))),
+      own.length > 0 &&
+        field(
+          'This project’s labels',
+          ...own.map((l) =>
+            row([
+              line(span(labelTitle(l.name)), l.hint ? span(`  ${l.hint}`, { dim: true }) : undefined),
+              ctx.draw.button(
+                `labels:remove:${l.name}`,
+                'Remove',
+                async () => {
+                  await ctx.call('board.removeLabel', projectId, l.name);
+                  ctx.effect({ toast: `Removed ${labelTitle(l.name)}: tasks that have it keep it, plainly` });
+                },
+                { plain: true, dim: true },
+              ),
+            ]),
+          ),
         ),
-      ),
-    title('New Label'),
+    ]),
+    text('New Label', { weight: 'bold' }),
     ctx.draw.input('labels:name', (value) => setName(value?.trim() ?? ''), { label: 'Name', value: name, placeholder: 'Performance', submitLabel: 'set' }),
     field('Icon', choices(ctx, 'labels:icon', LABEL_ICONS.map((i) => ({ value: i, label: i })), icon, (i) => setIcon(i))),
     field('Color', choices(ctx, 'labels:color', LABEL_COLORS.map((c) => ({ value: c, label: LABEL_COLOR_INFO[c].label })), color, (c) => setColor(c))),
@@ -276,9 +282,15 @@ export function syncPage(ctx: Ctx, projectId: string): Node {
     ctx,
     'tasks',
     'Tasks',
-    col([title(`${project.name} syncs with Linear`), dim(`${sync.workspace ? `${sync.workspace} · ` : ''}${sync.team} ${sync.teamKey}`)]),
-    line(span(`${sync.linked} ${sync.linked === 1 ? 'task' : 'tasks'} linked`), span(`  ${sync.syncing ? 'Syncing...' : sync.syncedAt ? `Synced ${ago(sync.syncedAt)}` : 'Not synced yet'}`, { dim: true })),
-    sync.error && text(sync.error.message, { color: 'warning' }),
+    card(
+      [
+        text(`${project.name} syncs with Linear`, { weight: 'bold' }),
+        dim(`${sync.workspace ? `${sync.workspace} · ` : ''}${sync.team} ${sync.teamKey}`),
+        line(span(`● ${sync.linked} ${sync.linked === 1 ? 'task' : 'tasks'} linked`, sync.error ? { color: 'warning' } : { color: 'success' }), span(`  ${sync.syncing ? 'Syncing...' : sync.syncedAt ? `Synced ${ago(sync.syncedAt)}` : 'Not synced yet'}`, { dim: true })),
+        sync.error && text(sync.error.message, { color: 'warning' }),
+      ],
+      sync.error ? { tone: 'warn' } : {},
+    ),
     !sync.syncing && ctx.draw.button('sync:now', 'Sync Now', () => ctx.call('board.syncNow', projectId), { primary: true, hotkey: MAIN_KEY }),
     toggle(ctx, 'sync:autosync', 'Autosync: every minute, and moments after a change here. Off: only when you press Sync Now', sync.auto, () => ctx.call('board.syncAuto', projectId, !sync.auto)),
     dim('Kept in step: title, status, priority, labels, estimate, due date, parent, and the brief as the description. When both sides change the same thing, the newer change wins.'),

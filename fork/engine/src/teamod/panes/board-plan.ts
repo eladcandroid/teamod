@@ -10,8 +10,8 @@ import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, row, span, text, title } from '../tree.js';
 import { MAIN_KEY, MORE_KEY, agentRows, asking, choices, errorText, field, myAgent, pickProject, subPage, top, webLink, windowed, written } from './board-common.js';
 import { MILESTONE_STATE, branchFlow, changeMarks, changeWords, feedOf, headline, milestoneLabel, milestoneRows, modeChange, nextWords, planStatus, prWords, shipAction, taskWords, toneStyle } from './board-plan-words.js';
-import { autonomyRows } from './board-plans.js';
-import { ago, back, empty, openWorkspace, page } from './common.js';
+import { autonomyRows, planCardTone, planPill } from './board-plans.js';
+import { ago, back, card, empty, meta, openWorkspace, page, section } from './common.js';
 
 const gone = (ctx: Ctx): Node => subPage(ctx, 'plans', 'Plans', empty('This plan is gone. It was deleted; its tasks stay on the board.'));
 
@@ -177,7 +177,7 @@ function taskRow(ctx: Ctx, view: PlanView, t: TaskView, mark: string | undefined
       ctx.draw.button(`plan-task:${t.task.id}`, t.task.title, () => ctx.go({ name: 'plan-task', params: { id: plan.id, task: t.task.id } }), {
         plain: true,
         spans: [
-          span(`${info.label}  `, toneStyle(info.tone)),
+          span(`● ${info.label}  `, toneStyle(info.tone)),
           ...(key ? [span(`${key}  `, { dim: true })] : []),
           span(t.task.title),
           ...(mark ? [span(`  ${mark === 'added' ? 'New' : 'Changed'}`, { color: 'warning' })] : []),
@@ -192,7 +192,7 @@ function taskRow(ctx: Ctx, view: PlanView, t: TaskView, mark: string | undefined
           ? ctx.draw.button(`plan-task:${t.task.id}:decide`, 'Decide', () => openHome(ctx, plan), { plain: true })
           : ctx.draw.button(`plan-task:${t.task.id}:start`, 'Start', () => ctx.call('plans.startTask', plan.id, t.task.id), { plain: true })),
     ],
-    { padX: 2 },
+    { justify: 'space-between' },
   );
 }
 
@@ -200,21 +200,25 @@ function milestoneBlock(ctx: Ctx, view: PlanView, m: MilestoneView, marks: Reado
   const { plan } = view;
   const info = MILESTONE_STATE[m.state];
   const tasks = m.milestone.tasks.flatMap((task) => m.tasks.find((x) => x.task.id === task.id) ?? []);
-  return col([
-    ctx.draw.button(`milestone:${m.milestone.id}`, m.milestone.title, () => ctx.go({ name: 'plan-gate', params: { id: plan.id, milestone: m.milestone.id } }), {
-      plain: true,
-      spans: [
-        span(m.state === 'passed' ? '[x] ' : `${m.index + 1}. `, { dim: true }),
-        span(m.milestone.title, { weight: 'semibold' }),
-        span(`  ${milestoneLabel(view, m)}`, toneStyle(info.tone)),
-        ...(m.autonomy !== plan.autonomy ? [span(`  ${AUTONOMY_INFO[m.autonomy].label}`, { dim: true })] : []),
-        span(`  ${m.state === 'draft' ? `${m.milestone.tasks.length} task${m.milestone.tasks.length === 1 ? '' : 's'}` : `${m.finished}/${m.total}`}`, { dim: true }),
-      ],
-    }),
-    m.milestone.goal ? dim(m.milestone.goal) : undefined,
-    ...tasks.map((t) => taskRow(ctx, view, t, marks.get(t.task.id), startable.has(t.task.id))),
-    m.milestone.criteria.length > 0 && line(span('Passes when  ', { dim: true }), span(m.milestone.criteria.join(' · '), { dim: true }), m.run.check ? span(m.run.check.verdict === 'pass' ? '  Agent: passes' : '  Agent: not yet', m.run.check.verdict === 'pass' ? { color: 'success' } : { color: 'error' }) : undefined),
-  ]);
+  const tone = m.state === 'gate' ? 'warn' : m.state === 'failed' ? 'error' : undefined;
+  // A milestone as a card: its name (a press opens its gate), its state, its tasks as rows, and what passes it.
+  return card(
+    [
+      ctx.draw.button(`milestone:${m.milestone.id}`, m.milestone.title, () => ctx.go({ name: 'plan-gate', params: { id: plan.id, milestone: m.milestone.id } }), {
+        plain: true,
+        spans: [span(m.state === 'passed' ? '✓ ' : `${m.index + 1}. `, m.state === 'passed' ? { color: 'success' } : { dim: true }), span(m.milestone.title, { weight: 'bold' })],
+      }),
+      meta(planPill(milestoneLabel(view, m), info.tone), m.autonomy !== plan.autonomy && AUTONOMY_INFO[m.autonomy].label, m.state === 'draft' ? `${m.milestone.tasks.length} task${m.milestone.tasks.length === 1 ? '' : 's'}` : `${m.finished}/${m.total}`),
+      m.milestone.goal ? dim(m.milestone.goal) : undefined,
+      tasks.length > 0 && col(tasks.map((t) => taskRow(ctx, view, t, marks.get(t.task.id), startable.has(t.task.id))), { top: 1 }),
+      m.milestone.criteria.length > 0 &&
+        col(
+          [line(span('Passes when  ', { dim: true }), span(m.milestone.criteria.join(' · '), { dim: true }), m.run.check ? span(m.run.check.verdict === 'pass' ? '  Agent: passes' : '  Agent: not yet', m.run.check.verdict === 'pass' ? { color: 'success' } : { color: 'error' }) : undefined)],
+          { top: 1 },
+        ),
+    ],
+    tone ? { tone } : {},
+  );
 }
 
 /** The plan as an outline: milestones in order, those that run side by side together, each with its tasks. */
@@ -261,8 +265,15 @@ export function planPage(ctx: Ctx, id: string): Node {
   return page(
     top(ctx, 'plans'),
     back(ctx, 'Plans'),
-    col([title(planTitle(plan)), line(span(status.label, toneStyle(status.tone)), span(`  ${ago(plan.updatedAt)}`, { dim: true }))]),
-    !drafting && line(span(said.who === 'you' ? 'You: ' : '', { weight: 'semibold' }), span(said.text, said.who === 'agent' ? { color: 'claude' } : {})),
+    // The plan in one card: its name, how it is, and the one thing it waits for.
+    card(
+      [
+        text(planTitle(plan), { weight: 'bold' }),
+        meta(planPill(status.label, status.tone), ago(plan.updatedAt)),
+        !drafting && line(span(said.who === 'you' ? 'You: ' : '', { weight: 'bold' }), span(said.text, said.who === 'agent' ? { color: 'claude' } : {})),
+      ],
+      planCardTone(status.tone) ? { tone: planCardTone(status.tone)! } : {},
+    ),
     mainAction(ctx, view, step),
     pr && webLink(pr.url, `#${pr.number} · ${pr.state === 'OPEN' ? prWords(pr) : pr.state === 'MERGED' ? 'Merged' : 'Closed'}`),
     step.trouble &&
@@ -295,14 +306,17 @@ export function planPage(ctx: Ctx, id: string): Node {
         text(`Your agent proposes changes: ${changeWords(plan)}`, { color: 'warning' }),
         ctx.draw.button(`plan:${plan.id}:discard-changes`, 'Discard', () => ctx.call('plans.discard', plan.id), { plain: true, dim: true }),
       ]),
-    row([
+    row(
+      [
       !drafting && ctx.draw.button(`plan:${plan.id}:mode`, `Runs on ${AUTONOMY_INFO[plan.autonomy].label}${mixed ? ' (mixed)' : ''}`, () => ctx.go({ name: 'plan-mode', params: { id: plan.id } }), { plain: true, hotkey: 'u', dim: true }),
       plan.home.startsWith('ws:') && ctx.draw.button(`plan:${plan.id}:home`, 'Open the Conversation', () => openHome(ctx, plan), { plain: true, hotkey: 'c', dim: true }),
       !drafting && ctx.draw.button(`plan:${plan.id}:feed`, 'What Happened', () => ctx.go({ name: 'plan-feed', params: { id: plan.id } }), { plain: true, hotkey: 'h', dim: true }),
       ctx.draw.button(`plan:${plan.id}:more`, 'More', () => ctx.go({ name: 'plan-more', params: { id: plan.id } }), { plain: true, hotkey: MORE_KEY, dim: true }),
-    ]),
-    body?.goal ? written(body.goal) : undefined,
-    drafting ? draftingLine(ctx, plan) : outline(ctx, view),
+      ],
+      { gap: 2 },
+    ),
+    body?.goal ? section('Goal', [written(body.goal)]) : undefined,
+    drafting ? draftingLine(ctx, plan) : section('Milestones', [outline(ctx, view)], view.milestones.length),
   );
 }
 
@@ -373,7 +387,7 @@ export function planGatePage(ctx: Ctx, id: string, milestoneId: string): Node {
     ctx,
     'plans',
     planTitle(plan),
-    col([dim(`Milestone ${m.index + 1}`), title(m.milestone.title), line(span(info.label, toneStyle(info.tone)), span(`  ${m.finished}/${m.total} tasks finished`, { dim: true }))]),
+    card([dim(`Milestone ${m.index + 1}`), text(m.milestone.title, { weight: 'bold' }), meta(planPill(info.label, info.tone), `${m.finished}/${m.total} tasks finished`)], m.state === 'gate' ? { tone: 'warn' } : m.state === 'failed' ? { tone: 'error' } : {}),
     yours &&
       row([
         ctx.draw.button(`gate:${m.milestone.id}:pass`, m.state === 'failed' || m.state === 'checking' ? 'Pass Anyway' : failed ? 'Pass Again' : 'Pass Milestone', () => ctx.call('plans.pass', plan.id, m.milestone.id), { primary: true, hotkey: MAIN_KEY }),
@@ -395,12 +409,12 @@ export function planGatePage(ctx: Ctx, id: string, milestoneId: string): Node {
           ]),
       ]),
     failed && !m.run.passedAt && m.state !== 'merging' && col([text(`Couldn’t merge into ${plan.branch ?? 'the plan’s branch'}`, { color: 'error' }), dim(failed.reason), dim('Fix that, then pass it again: nothing was merged.')]),
-    m.milestone.goal ? col([text('Goal', { weight: 'semibold' }), written(m.milestone.goal)]) : undefined,
+    m.milestone.goal ? col([text('Goal', { weight: 'bold' }), written(m.milestone.goal)]) : undefined,
     col([
-      text('Passes when', { weight: 'semibold' }),
+      text('Passes when', { weight: 'bold' }),
       m.milestone.criteria.length ? col(m.milestone.criteria.map((c) => line(span(m.state === 'passed' ? '[x] ' : '[ ] ', { dim: true }), c))) : dim('No criteria: you pass it when its tasks are done.'),
     ]),
-    check && col([text(check.verdict === 'pass' ? 'The agent’s check: passes' : 'The agent’s check: not yet', { weight: 'semibold' }), written(check.notes)]),
+    check && col([text(check.verdict === 'pass' ? 'The agent’s check: passes' : 'The agent’s check: not yet', { weight: 'bold', color: check.verdict === 'pass' ? 'success' : 'error' }), written(check.notes)]),
     ctx.draw.button(`gate:${m.milestone.id}:runs`, `Runs on ${AUTONOMY_INFO[m.autonomy].label}`, () => ctx.go({ name: 'plan-mode', params: { id: plan.id, milestone: m.milestone.id } }), { plain: true, dim: true }),
     ctx.draw.input(`gate:${m.milestone.id}:rename`, (value) => (value?.trim() && value.trim() !== m.milestone.title ? editOp({ title: value.trim() }) : undefined), { label: 'Name', value: m.milestone.title, submitLabel: 'rename' }),
     ctx.draw.input(`gate:${m.milestone.id}:criteria`, (value) => editOp({ criteria: (value ?? '').split('\n').map((c) => c.trim()).filter(Boolean) }), { label: 'Passes when: one to a line', value: m.milestone.criteria.join('\n'), rows: 3, submitLabel: 'save' }),
@@ -451,24 +465,28 @@ export function planTaskPage(ctx: Ctx, id: string, taskId: string): Node {
     ctx,
     'plans',
     planTitle(plan),
-    col([dim(t.issue?.key ?? 'Task'), title(t.task.title), line(span(info.label, toneStyle(info.tone)), t.forYou ? span('  For you', { dim: true }) : undefined)]),
-    info.sub && t.pulse ? dim(t.pulse.kind === 'working' || t.pulse.kind === 'command' ? `Now: ${info.sub}` : info.sub) : t.step && t.state === 'running' ? dim(`Now: ${t.step}`) : undefined,
-    t.why && (t.state === 'blocked' || t.state === 'later') ? dim(t.why) : undefined,
+    card([
+      dim(t.issue?.key ?? 'Task'),
+      text(t.task.title, { weight: 'bold' }),
+      meta(planPill(info.label, info.tone), t.forYou && 'For you'),
+      info.sub && t.pulse ? dim(t.pulse.kind === 'working' || t.pulse.kind === 'command' ? `Now: ${info.sub}` : info.sub) : t.step && t.state === 'running' ? dim(`Now: ${t.step}`) : undefined,
+      t.why && (t.state === 'blocked' || t.state === 'later') ? dim(t.why) : undefined,
+    ]),
     main,
     row([
       canStart && !t.forYou && ctx.draw.button(`plan-task:${t.task.id}:start-with`, 'Start with Another Agent', () => ctx.go({ name: 'plan-task-with', params: { id: plan.id, task: t.task.id } }), { plain: true, dim: true }),
       worktree && t.state !== 'asking' && ctx.draw.button(`plan-task:${t.task.id}:open`, canResume ? 'Open Chat' : 'Open Worktree', () => openWorkspace(ctx, worktree), { plain: true }),
       t.issue && ctx.draw.button(`plan-task:${t.task.id}:board`, 'Open Task', () => ctx.go({ name: 'task', params: { id: t.issue?.id ?? '' } }), { plain: true, dim: true }),
     ]),
-    t.task.goal ? col([text('Goal', { weight: 'semibold' }), written(t.task.goal)]) : undefined,
+    t.task.goal ? col([text('Goal', { weight: 'bold' }), written(t.task.goal)]) : undefined,
     checks.length > 0 &&
       col([
-        text('Done when', { weight: 'semibold' }),
+        text('Done when', { weight: 'bold' }),
         ...checks.map((c) => line(span(c.state === 'done' ? '[x] ' : c.state === 'deferred' ? '[~] ' : c.state === 'not_done' ? '[-] ' : '[ ] ', { dim: true }), c.text, c.reason ? span(`  ${c.state === 'deferred' ? 'Deferred' : 'Not done'}: ${c.reason}`, { dim: true }) : undefined)),
       ]),
-    t.task.touches?.length ? col([text('Changes', { weight: 'semibold' }), dim(t.task.touches.join(', '))]) : undefined,
-    proof.length > 0 && col([text('Proof', { weight: 'semibold' }), proofList.earlier, ...proofList.rows.map((p) => (p.url ? webLink(p.url, p.title) : line(p.title))), proofList.more]),
-    t.task.context ? col([text('Context', { weight: 'semibold' }), written(t.task.context)]) : undefined,
+    t.task.touches?.length ? col([text('Changes', { weight: 'bold' }), dim(t.task.touches.join(', '))]) : undefined,
+    proof.length > 0 && col([text('Proof', { weight: 'bold' }), proofList.earlier, ...proofList.rows.map((p) => (p.url ? webLink(p.url, p.title) : line(p.title))), proofList.more]),
+    t.task.context ? col([text('Context', { weight: 'bold' }), written(t.task.context)]) : undefined,
     waits.length > 0 && field('Waits on', waitList.earlier, ...waitList.rows.map((x) => ctx.draw.button(`plan-task:${t.task.id}:waits:${x.id}`, `${t.task.blockedBy.includes(x.id) ? '[x]' : '[ ]'} ${x.title}`, () => edit([{ op: 'block', id: t.task.id, by: x.id, on: !t.task.blockedBy.includes(x.id) }]), { plain: true, ...(t.task.blockedBy.includes(x.id) ? {} : { dim: true }) })), waitList.more),
     others.length > 0 && field('Move to', row(others.map((m) => ctx.draw.button(`plan-task:${t.task.id}:move:${m.id}`, m.title, () => edit([{ op: 'move_task', id: t.task.id, milestone: m.id }]), { plain: true, dim: true })))),
     ctx.draw.input(`plan-task:${t.task.id}:rename`, (value) => (value?.trim() && value.trim() !== t.task.title ? edit([{ op: 'update_task', id: t.task.id, patch: { title: value.trim() } }]) : undefined), { label: 'Name', value: t.task.title, submitLabel: 'rename' }),
@@ -560,40 +578,51 @@ export function planMorePage(ctx: Ctx, id: string): Node {
     ctx,
     'plans',
     planTitle(plan),
-    title(planTitle(plan)),
     ctx.draw.input(`more:${plan.id}:rename`, (value) => (value?.trim() && value.trim() !== planTitle(plan) ? ctx.call('plans.edit', plan.id, [{ op: 'retitle', title: value.trim() }]) : undefined), { label: 'Name', value: planTitle(plan), submitLabel: 'rename' }),
-    plan.body && plan.status === 'active' && ctx.draw.button(`more:${plan.id}:pause`, plan.paused ? 'Resume' : 'Pause', () => ctx.call('plans.setPaused', plan.id, !plan.paused), { plain: true }),
-    next.kind === 'approve' && body?.milestones.length ? ctx.draw.button(`more:${plan.id}:approve-with`, 'Approve, Worked by Another Agent', () => ctx.go({ name: 'plan-agent', params: { id: plan.id, then: 'approve' } }), { plain: true }) : undefined,
-    field('Run at once', choices(ctx, `more:${plan.id}:parallel`, RUN_AT_ONCE.map((n) => ({ value: String(n), label: `${n}` })), String(plan.maxParallel), (n) => ctx.call('plans.setParallel', plan.id, Number(n)))),
-    plan.status !== 'done' && ctx.draw.button(`more:${plan.id}:agent`, `Agent for Its Work: ${plan.agent ? agentName(plan.agent, { model: true }) : `your agent (${who})`}`, () => ctx.go({ name: 'plan-agent', params: { id: plan.id } }), { plain: true }),
-    field(
-      'When to run tests',
-      choices(ctx, `more:${plan.id}:tests`, TESTS_AT.map((t) => ({ value: t, label: TESTS_AT_INFO[t].label })), plan.testsAt, async (t) => {
-        await ctx.call('plans.setTestsAt', plan.id, t);
-        ctx.effect({ toast: t === 'end' ? 'From now on, milestone checks skip the test suites; they all run once, in the final step' : 'From now on, each milestone’s check runs the full suites once, on its combined work' });
-      }),
-      dim(`${TESTS_AT_INFO[plan.testsAt].hint}.`),
+    card(
+      [
+        col(
+          [
+            plan.body && plan.status === 'active' && ctx.draw.button(`more:${plan.id}:pause`, plan.paused ? 'Resume' : 'Pause', () => ctx.call('plans.setPaused', plan.id, !plan.paused), { plain: true }),
+            next.kind === 'approve' && body?.milestones.length ? ctx.draw.button(`more:${plan.id}:approve-with`, 'Approve, Worked by Another Agent', () => ctx.go({ name: 'plan-agent', params: { id: plan.id, then: 'approve' } }), { plain: true }) : undefined,
+            field('Run at once', choices(ctx, `more:${plan.id}:parallel`, RUN_AT_ONCE.map((n) => ({ value: String(n), label: `${n}` })), String(plan.maxParallel), (n) => ctx.call('plans.setParallel', plan.id, Number(n)))),
+            plan.status !== 'done' && ctx.draw.button(`more:${plan.id}:agent`, `Agent for Its Work: ${plan.agent ? agentName(plan.agent, { model: true }) : `your agent (${who})`}`, () => ctx.go({ name: 'plan-agent', params: { id: plan.id } }), { plain: true }),
+            field(
+              'When to run tests',
+              choices(ctx, `more:${plan.id}:tests`, TESTS_AT.map((t) => ({ value: t, label: TESTS_AT_INFO[t].label })), plan.testsAt, async (t) => {
+                await ctx.call('plans.setTestsAt', plan.id, t);
+                ctx.effect({ toast: t === 'end' ? 'From now on, milestone checks skip the test suites; they all run once, in the final step' : 'From now on, each milestone’s check runs the full suites once, on its combined work' });
+              }),
+              dim(`${TESTS_AT_INFO[plan.testsAt].hint}.`),
+            ),
+          ],
+          { gap: 1 },
+        ),
+      ],
+      { title: 'How It Runs' },
     ),
-    next.kind === 'stalled' ? col(next.tasks.flatMap((t) => (t.worktree ? [ctx.draw.button(`more:${t.task.id}:chat`, `Open ${t.issue?.key ?? 'Its'} Chat`, () => openWorkspace(ctx, t.worktree ?? ''), { plain: true })] : []))) : undefined,
-    next.kind === 'pass' ? ctx.draw.button(`more:${plan.id}:not-yet`, 'Not Yet', () => ctx.go({ name: 'plan-send-back', params: { id: plan.id, milestone: next.milestone.milestone.id } }), { plain: true }) : undefined,
-    next.kind === 'failed' || next.kind === 'checking' ? ctx.draw.button(`more:${plan.id}:recheck`, 'Check Again', () => ctx.call('plans.recheck', plan.id, next.milestone.milestone.id), { plain: true }) : undefined,
-    next.kind === 'failed' || next.kind === 'checking' ? ctx.draw.button(`more:${plan.id}:pass-anyway`, 'Pass Anyway', () => ctx.call('plans.pass', plan.id, next.milestone.milestone.id), { plain: true }) : undefined,
-    ship?.kind === 'wait' && ctx.draw.button(`more:${plan.id}:merge-now`, 'Merge Now', merge, { plain: true }),
-    next.kind === 'ship' && next.pr?.state === 'OPEN' && !next.pr.conflicts && !plan.mainMerge ? ctx.draw.button(`more:${plan.id}:bring-main`, 'Bring Main In', () => step.run(`bring main into ${next.branch}`, 'Bringing Main In...', () => ctx.call('plans.bringInMain', plan.id), `Main is in ${next.branch}`), { plain: true }) : undefined,
-    next.kind === 'ship'
-      ? asking(ctx, `more:${plan.id}:merge-local`, {
-          label: 'Merge into Main Locally',
-          question: `Merge ${next.branch} into main here?`,
-          detail: 'The main folder must be on main with no uncommitted changes. The plan’s tasks go to Done.',
-          confirm: 'Merge',
-          run: () => step.run(`merge ${next.branch} into main here`, 'Merging...', () => ctx.call('plans.mergeLocal', plan.id), 'Merged into main: the plan’s tasks are Done'),
-        })
-      : undefined,
-    conflictWaits && ctx.draw.button(`more:${plan.id}:ask-again`, `Ask ${who} Again`, () => step.run(`ask ${who} to fix the conflict again`, `Asking ${who}...`, () => ctx.call('plans.retryConflicts', plan.id), `${who} is on the conflict again`), { plain: true }),
-    conflictHere && ctx.draw.button(`more:${plan.id}:show-conflict`, 'Show Conflict in Finder', () => ctx.call('plans.showConflict', plan.id), { plain: true }),
-    plan.body && !plan.draft && ctx.draw.button(`more:${plan.id}:branch`, plan.branch ?? 'Where the Work Goes', () => ctx.go({ name: 'plan-branch', params: { id: plan.id } }), { plain: true, ...(plan.branch ? { spans: [span('Where the Work Goes  ', {}), span(plan.branch, { dim: true })] } : {}) }),
-    ctx.draw.button(`more:${plan.id}:copy`, 'Copy as Markdown', () => ctx.effect({ copy: markdownOf(view), toast: 'Copied' }), { plain: true }),
-    ctx.draw.button(`more:${plan.id}:style`, 'Planning Style', () => ctx.go({ name: 'plan-style' }), { plain: true }),
+    card([
+      next.kind === 'stalled' ? col(next.tasks.flatMap((t) => (t.worktree ? [ctx.draw.button(`more:${t.task.id}:chat`, `Open ${t.issue?.key ?? 'Its'} Chat`, () => openWorkspace(ctx, t.worktree ?? ''), { plain: true })] : []))) : undefined,
+      next.kind === 'pass' ? ctx.draw.button(`more:${plan.id}:not-yet`, 'Not Yet', () => ctx.go({ name: 'plan-send-back', params: { id: plan.id, milestone: next.milestone.milestone.id } }), { plain: true }) : undefined,
+      next.kind === 'failed' || next.kind === 'checking' ? ctx.draw.button(`more:${plan.id}:recheck`, 'Check Again', () => ctx.call('plans.recheck', plan.id, next.milestone.milestone.id), { plain: true }) : undefined,
+      next.kind === 'failed' || next.kind === 'checking' ? ctx.draw.button(`more:${plan.id}:pass-anyway`, 'Pass Anyway', () => ctx.call('plans.pass', plan.id, next.milestone.milestone.id), { plain: true }) : undefined,
+      ship?.kind === 'wait' && ctx.draw.button(`more:${plan.id}:merge-now`, 'Merge Now', merge, { plain: true }),
+      next.kind === 'ship' && next.pr?.state === 'OPEN' && !next.pr.conflicts && !plan.mainMerge ? ctx.draw.button(`more:${plan.id}:bring-main`, 'Bring Main In', () => step.run(`bring main into ${next.branch}`, 'Bringing Main In...', () => ctx.call('plans.bringInMain', plan.id), `Main is in ${next.branch}`), { plain: true }) : undefined,
+      next.kind === 'ship'
+        ? asking(ctx, `more:${plan.id}:merge-local`, {
+            label: 'Merge into Main Locally',
+            question: `Merge ${next.branch} into main here?`,
+            detail: 'The main folder must be on main with no uncommitted changes. The plan’s tasks go to Done.',
+            confirm: 'Merge',
+            run: () => step.run(`merge ${next.branch} into main here`, 'Merging...', () => ctx.call('plans.mergeLocal', plan.id), 'Merged into main: the plan’s tasks are Done'),
+          })
+        : undefined,
+      conflictWaits && ctx.draw.button(`more:${plan.id}:ask-again`, `Ask ${who} Again`, () => step.run(`ask ${who} to fix the conflict again`, `Asking ${who}...`, () => ctx.call('plans.retryConflicts', plan.id), `${who} is on the conflict again`), { plain: true }),
+      conflictHere && ctx.draw.button(`more:${plan.id}:show-conflict`, 'Show Conflict in Finder', () => ctx.call('plans.showConflict', plan.id), { plain: true }),
+      plan.body && !plan.draft && ctx.draw.button(`more:${plan.id}:branch`, plan.branch ?? 'Where the Work Goes', () => ctx.go({ name: 'plan-branch', params: { id: plan.id } }), { plain: true, ...(plan.branch ? { spans: [span('Where the Work Goes  ', {}), span(plan.branch, { dim: true })] } : {}) }),
+      ctx.draw.button(`more:${plan.id}:copy`, 'Copy as Markdown', () => ctx.effect({ copy: markdownOf(view), toast: 'Copied' }), { plain: true }),
+      ctx.draw.button(`more:${plan.id}:style`, 'Planning Style', () => ctx.go({ name: 'plan-style' }), { plain: true }),
+    ]),
     plan.draft &&
       asking(ctx, `more:${plan.id}:discard`, {
         label: plan.body ? 'Discard Changes' : 'Discard Draft',
@@ -638,9 +667,12 @@ export function planFeedPage(ctx: Ctx, id: string): Node {
     planTitle(plan),
     title('What Happened'),
     items.length === 0 && empty('Nothing has happened yet. What the plan does shows here.'),
-    list.earlier,
-    ...list.rows.map((e) => line(span(actorName(e.by, self), { weight: 'semibold' }), ` ${e.text}`, e.count > 1 && e.texts.every((x) => x === e.texts[0]) ? span(` ×${e.count}`, { dim: true }) : undefined, span(`  ${ago(e.at)}`, { dim: true }))),
-    list.more,
+    items.length > 0 &&
+      card([
+        list.earlier,
+        ...list.rows.map((e) => line(span(actorName(e.by, self), { weight: 'bold' }), ` ${e.text}`, e.count > 1 && e.texts.every((x) => x === e.texts[0]) ? span(` ×${e.count}`, { dim: true }) : undefined, span(`  ${ago(e.at)}`, { dim: true }))),
+        list.more,
+      ]),
   );
 }
 
@@ -656,11 +688,16 @@ export function planBranchPage(ctx: Ctx, id: string): Node {
     'plans',
     planTitle(plan),
     col([title('Where the Work Goes'), dim(plan.branch ? `Each milestone merges into ${plan.branch} when it passes; at the end, one pull request takes it into main.` : 'Without a branch of its own, each task’s work goes to main on its own.')]),
-    ...branchFlow(view).map((s) =>
-      col([
-        line(span(s.label, { weight: 'semibold' }), span(`  ${FLOW_STATE[s.state]}`, s.state === 'done' ? { color: 'success' } : s.state === 'problem' ? { color: 'error' } : s.state === 'active' ? { color: 'claude' } : { dim: true })),
-        dim(s.detail),
-      ]),
+    card(
+      branchFlow(view).map((s, i) =>
+        col(
+          [
+            line(span(s.label, { weight: 'bold' }), span(`  ● ${FLOW_STATE[s.state]}`, s.state === 'done' ? { color: 'success' } : s.state === 'problem' ? { color: 'error' } : s.state === 'active' ? { color: 'claude' } : { dim: true })),
+            dim(s.detail),
+          ],
+          i ? { top: 1 } : {},
+        ),
+      ),
     ),
   );
 }
