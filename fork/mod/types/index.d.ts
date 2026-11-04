@@ -13,6 +13,7 @@ export type Span = {
   color?: string
   weight?: 'semibold' | 'bold'
   inverse?: boolean
+  size?: 'caption' | 'footnote' | 'body' | 'heading' | 'title'
 }
 
 /** A screen from the bridge, as data (engine/src/teamod/tree.ts). */

@@ -16,6 +16,8 @@ export interface Presentation {
   readonly keys: boolean;
   /** The columns the tree is drawn in. */
   readonly columns: number;
+  /** Where it's drawn (a desktop draws hotkeys as badges on every control). */
+  readonly surface?: string;
   /**
    * Lay the screen out from the right. Left out: as the language reads. An answer in the chat
    * follows its own words instead (each paragraph by its first letter), whatever the language.
@@ -29,14 +31,17 @@ export const ALWAYS_KEYED = new Set(['keys']);
 export function present(tree: Node, p: Presentation): Node {
   const rtl = p.layoutRtl ?? isRtlLang(p.lang);
   let out = localize(tree, p.lang);
-  if (!p.keys) out = hideKeys(out);
+  if (!p.keys) out = hideKeys(out, p.surface !== undefined && p.surface !== 'terminal');
   return arrange(out, { rtl, fix: p.fixRtl, width: p.columns, inRow: false });
 }
 
-/** Plain controls lose their `w:`; a press still works by pointer and by the focus. */
-function hideKeys(node: Node): Node {
-  if (node.k === 'box') return { ...node, children: node.children.map(hideKeys) };
-  if (node.k === 'button' && node.hotkey && node.plain && !ALWAYS_KEYED.has(node.key)) {
+/**
+ * Plain controls lose their `w:`; a press still works by pointer and by the focus. On a desktop,
+ * which badges every control's hotkey, all of them do.
+ */
+function hideKeys(node: Node, all = false): Node {
+  if (node.k === 'box') return { ...node, children: node.children.map((c) => hideKeys(c, all)) };
+  if (node.k === 'button' && node.hotkey && (node.plain || all) && !ALWAYS_KEYED.has(node.key)) {
     const { hotkey: _hotkey, ...rest } = node;
     return rest;
   }

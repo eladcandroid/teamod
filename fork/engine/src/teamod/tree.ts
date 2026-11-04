@@ -12,6 +12,8 @@ export interface Span {
   readonly weight?: 'semibold' | 'bold';
   /** Drawn with the colors swapped: the selected tab, a status pill. */
   readonly inverse?: boolean;
+  /** A step on the surface's type scale; the terminal has one size and ignores it. */
+  readonly size?: 'caption' | 'footnote' | 'body' | 'heading' | 'title';
 }
 
 export type Node =

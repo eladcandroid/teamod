@@ -26,33 +26,40 @@ export interface Place {
  * row under them, and the Keys switch that shows or hides every hotkey.
  */
 export function chrome(ctx: Ctx, places: readonly Place[] = [], here?: string): Node {
-  const tabs = SCREENS.map((s) =>
-    ctx.draw.button(`screen:${s.id}`, s.label, () => ctx.show(s.id), {
+  // The terminal draws a control's spans (icons, the marked tab); a desktop draws its own buttons
+  // from the label alone, and spaces them itself.
+  const terminal = ctx.surface === 'terminal';
+  const tabs = SCREENS.map((s) => {
+    const current = s.id === ctx.screen;
+    return ctx.draw.button(`screen:${s.id}`, s.label, () => ctx.show(s.id), {
       hotkey: s.hotkey,
       plain: true,
-      spans: s.id === ctx.screen ? [span(` ${s.icon} ${s.label} `, { inverse: true, weight: 'bold' })] : [span(`${s.icon} ${s.label}`, { dim: true })],
-    }),
-  );
-  const keys = ctx.draw.button('keys', ctx.prefs.keys ? 'Hide keys' : 'Keys', () => ctx.setPrefs({ keys: !ctx.prefs.keys }), { plain: true, hotkey: '0', dim: true });
-  return col([
-    row([row(tabs, { gap: 2 }), keys], { justify: 'space-between', wrap: false }),
+      ...(terminal
+        ? { spans: current ? [span(` ${s.icon} ${s.label} `, { inverse: true, weight: 'bold' })] : [span(`${s.icon} ${s.label}`, { dim: true })] }
+        : current ? {} : { dim: true }),
+    });
+  });
+  const placeRow =
     places.length > 0 &&
-      row(
-        places.map((p) =>
-          ctx.draw.button(`place:${p.id}`, p.label, () => ctx.go(p.route), {
-            hotkey: p.hotkey,
-            plain: true,
-            spans: p.id === here ? [span(p.label, { color: 'claude', weight: 'bold' })] : [span(p.label, { dim: true })],
-          }),
-        ),
-        { gap: 3, top: 1 },
+    row(
+      places.map((p) =>
+        ctx.draw.button(`place:${p.id}`, p.label, () => ctx.go(p.route), {
+          hotkey: p.hotkey,
+          plain: true,
+          ...(terminal ? { spans: p.id === here ? [span(p.label, { color: 'claude', weight: 'bold' })] : [span(p.label, { dim: true })] } : p.id === here ? {} : { dim: true }),
+        }),
       ),
-    rule(ctx),
-  ]);
+      terminal ? { gap: 3, top: 1 } : { gap: 0 },
+    );
+  if (!terminal) return col([row(tabs, { gap: 0 }), placeRow]);
+  const keys = ctx.draw.button('keys', ctx.prefs.keys ? 'Hide keys' : 'Keys', () => ctx.setPrefs({ keys: !ctx.prefs.keys }), { plain: true, hotkey: '0', dim: true });
+  return col([row([row(tabs, { gap: 2 }), keys], { justify: 'space-between', wrap: false }), placeRow, rule(ctx)]);
 }
 
 /** A hairline across the pane. */
-export const rule = (ctx: Ctx): Node => dim('─'.repeat(Math.max(8, Math.min(ctx.columns - 2, 200))));
+export const rule = (ctx: Ctx): Node =>
+  // A desktop wraps a row of characters wider than its pane: it gets space instead.
+  ctx.surface === 'terminal' ? dim('─'.repeat(Math.max(8, Math.min(ctx.columns - 2, 200)))) : col([], { top: 1 });
 
 export type Tone = 'ok' | 'warn' | 'error' | 'accent' | 'info' | 'quiet';
 // Only the theme's own status colors: they follow the person's theme, light or dark.
@@ -74,12 +81,12 @@ export const pill = (label: string, tone: Tone = 'quiet', icon = '●'): Span =>
 /** Small print after a name: parts joined by a dim dot. */
 export function meta(...parts: ReadonlyArray<string | Span | false | undefined | null>): Node {
   const kept = parts.filter((p): p is string | Span => Boolean(p));
-  return line(...kept.flatMap((p, i) => [...(i ? [span(' · ', { dim: true })] : []), typeof p === 'string' ? span(p, { dim: true }) : p]));
+  return line(...kept.flatMap((p, i) => [...(i ? [span(' · ', { dim: true, size: 'footnote' })] : []), typeof p === 'string' ? span(p, { dim: true, size: 'footnote' }) : { size: 'footnote' as const, ...p }]));
 }
 
 /** A labelled group of rows: its heading dim and bold, a count beside it if given. */
 export function section(title: string, children: ReadonlyArray<Node | false | undefined | null>, count?: number): Node {
-  return col([line(span(title, { weight: 'bold' }), count !== undefined && span(`  ${count}`, { dim: true })), ...children], { top: 1 });
+  return col([line(span(title, { weight: 'bold', size: 'heading' }), count !== undefined && span(`  ${count}`, { dim: true, size: 'heading' })), ...children], { top: 1 });
 }
 
 /** A label and its value on one row. */

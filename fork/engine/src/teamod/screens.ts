@@ -281,6 +281,7 @@ export class Screens {
       fixRtl: fixesRtl(prefs, viewport.surface),
       keys: prefs.keys,
       columns: viewport.columns,
+      surface: viewport.surface,
       ...(site && isRich(site) ? { layoutRtl: false } : {}),
     });
   }

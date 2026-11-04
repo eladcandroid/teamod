@@ -13,6 +13,7 @@ const asText = (Text: (props: never) => unknown, spans: readonly Span[]): unknow
       ...(s.color ? { color: s.color } : {}),
       ...(s.weight ? { weight: s.weight } : {}),
       ...(s.inverse ? { inverse: true } : {}),
+      ...(s.size ? { size: s.size } : {}),
     }
 
     return Text(props as never)
