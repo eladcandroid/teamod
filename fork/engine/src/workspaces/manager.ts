@@ -79,16 +79,15 @@ export const mainId = (root: string): string => `${projectId(root)}:main`;
 
 /** Chats that don't belong to any project live in this pseudo-project. */
 export const CHATS_PROJECT = 'chats';
-/** teamod's own branches: teamod/<name> by default (teamod/<name> from before the rename still count as its own). */
+/** teamod's own branches: teamod/<name> by default. */
 export const BRANCH_PREFIX = BRANCH_PREFIX_DEFAULT;
-export const LEGACY_BRANCH_PREFIX = 'teamod/';
 
 /**
- * A branch teamod made for a worktree named `name`: under a folder-like prefix of its own (yours, teamod/,
+ * A branch teamod made for a worktree named `name`: under a folder-like prefix of its own (yours, or
  * teamod/), else exactly the prefix and the worktree's name (-2, -3…), so a branch of yours is never renamed.
  */
 export function isOwnBranch(branch: string, name: string, prefix: string): boolean {
-  if ([prefix, BRANCH_PREFIX, LEGACY_BRANCH_PREFIX].some((p) => p.endsWith('/') && branch.startsWith(p))) return true;
+  if ([prefix, BRANCH_PREFIX].some((p) => p.endsWith('/') && branch.startsWith(p))) return true;
   const rest = branch.startsWith(prefix) ? branch.slice(prefix.length) : undefined;
   return rest === name || (rest?.startsWith(`${name}-`) === true && /^\d+$/.test(rest.slice(name.length + 1)));
 }

@@ -832,7 +832,7 @@ export function createMockBackend(bridge: RoomBridge, pace = 1): AgentBackend {
     // Plan mode, and questions back to you, work in the demo too.
     if (input.plan) return mockPlan(input, pace);
     // A friend's Claude answered after this conversation's turn ended: carry on with it.
-    if (/^\[(?:teamod|teamod)\] /.test(input.prompt)) {
+    if (/^\[teamod\] /.test(input.prompt)) {
       await sleep(500 * pace, input.signal);
       const result = readResult(input.prompt);
       return `Picking this back up: ${result?.summary ?? 'they answered.'}${tableOf(result?.data)}`;

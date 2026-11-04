@@ -13,13 +13,6 @@ describe('invite', () => {
     expect(encodeInvite({ url: 'ws://10.0.0.5:4000', secret })).toBe(`http://10.0.0.5:4000#${secret}`);
   });
 
-  it('still accepts legacy teamod: codes', () => {
-    const legacy = `teamod:${Buffer.from(JSON.stringify({ url: 'wss://x.ngrok.app', secret, room: 'r' })).toString('base64url')}`;
-    expect(decodeInvite(legacy)).toEqual({ url: 'wss://x.ngrok.app', secret, room: 'r' });
-    expect(() => decodeInvite("teamod:%%%")).toThrow(/corrupted/);
-    expect(() => decodeInvite(`teamod:${Buffer.from('{"url":"http://x"}').toString('base64url')}`)).toThrow(/invalid/);
-  });
-
   it('rejects garbage', () => {
     expect(() => decodeInvite('nope')).toThrow(/does not look like/);
     expect(() => decodeInvite('https://x.com#short')).toThrow(/invalid/);
@@ -29,7 +22,6 @@ describe('invite', () => {
 
   it('finds invites inside pasted text', () => {
     expect(findInvite(`hey join me: teamod join https://a-b.trycloudflare.com#${secret} !`)).toBe(`https://a-b.trycloudflare.com#${secret}`);
-    expect(findInvite("teamod join teamod:eyJ1cmwiOiJ3c3M6Ly94In0abc")).toBe("teamod:eyJ1cmwiOiJ3c3M6Ly94In0abc");
     expect(findInvite('nothing here')).toBeUndefined();
   });
 

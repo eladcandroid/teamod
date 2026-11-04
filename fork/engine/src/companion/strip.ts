@@ -32,7 +32,7 @@ export function blockKind(lang: string): 'view' | 'graph' | 'tasks' | undefined 
  * src/core/attachment-share.ts ATTACHMENT_SCHEME): the phone can't open that link, so only its
  * words stay ("📎 image 1 (png, 6K)"). Kept here, not imported, so this file stays runtime-free.
  */
-const ATTACHMENT_LINK = /\[([^\]\n]*)\]\((?:teamod|teamod)-attachment:[^)\s]*\)/g;
+const ATTACHMENT_LINK = /\[([^\]\n]*)\]\(teamod-attachment:[^)\s]*\)/g;
 
 /** Fences whose body may be a table Claude wrote as text (not a language: plain text, a table, Markdown). */
 const TEXT_FENCE = /^(|text|txt|plain|plaintext|table|md|markdown|console|output)$/;

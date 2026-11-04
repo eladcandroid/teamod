@@ -49,7 +49,6 @@ export const InvitationRecord = z.object({
 });
 export type InvitationRecord = z.infer<typeof InvitationRecord>;
 
-/** teamod's own network: a link of the app it was forked from (teamod://, teamod://) never opens here. */
 export const LINK_SCHEME = 'teamod://';
 
 export const formatCode = (code: string): string => (code.match(/.{1,4}/g) ?? []).join('-');
@@ -91,9 +90,8 @@ function readCode(typed: string): string | undefined {
 /** The code as a link (`teamod://add?code=K7QM-4XPA-R2TD`): clicking it is the same as typing it. */
 export const codeLinkOf = (r: Pick<InvitationRecord, 'kind' | 'code'>): string => `${LINK_SCHEME}${r.kind === 'friend' ? 'add' : 'join'}?code=${formatCode(r.code)}`;
 
-/** Read an invitation out of pasted text ("teamod://add#…", "teamod://add?code=…", the same with teamod:// from before the rename, "K7QM-4XPA-R2TD", "k7qm 4xpa r2td"…). */
+/** Read an invitation out of pasted text ("teamod://add#…", "teamod://add?code=…", "K7QM-4XPA-R2TD", "k7qm 4xpa r2td"…). */
 export function parseTicket(text: string): Ticket | undefined {
-  if (/(?:teamod|teamod):\/\//.test(text)) return undefined;
   const link = /teamod:\/\/(?:add|join)\/?#([\w-]{22})(?![\w-])/.exec(text);
   if (link) return { via: 'link', secret: link[1]! };
   const codeLink = /teamod:\/\/(?:add|join)\/?\?code=([0-9A-Za-z%+-]{12,40})/.exec(text);

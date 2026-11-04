@@ -76,18 +76,8 @@ export type Actor =
     }
   | { readonly kind: 'teamod' };
 
-/**
- * Saved boards and plans from before the rename say `{ kind: 'teamod' }` for teamod itself: read them as
- * `{ kind: 'teamod' }`, wherever they sit (activity, proof, revisions…). Only an object that is exactly
- * that one key counts, so other `kind` fields are never touched. Returns a copy; the input stays as is.
- */
-export function renamedActors(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(renamedActors);
-  if (!value || typeof value !== 'object') return value;
-  const entries = Object.entries(value);
-  if (entries.length === 1 && entries[0]![0] === 'kind' && entries[0]![1] === 'teamod') return { kind: 'teamod' };
-  return Object.fromEntries(entries.map(([k, v]) => [k, renamedActors(v)]));
-}
+/** Kept for callers that tidied saved boards across an old rename: there is nothing left to rename. */
+export const renamedActors = (value: unknown): unknown => value;
 
 /** Who a task is for: a person, never a Claude (ACME-278). Who works on it right now shows on its own. */
 export type Assignee = { readonly kind: 'person'; readonly id: string; readonly name: string };

@@ -74,7 +74,7 @@ describe('work', () => {
     expect(runs).toHaveLength(2);
     for (const r of runs) {
       expect(r.input.scope).toBe('folder');
-      expect(r.input.env).toMatchObject({ TEAMOD_WORKTREE: '/projects/app/.wt/fix-login', TEAMOD_WORKTREE: '/projects/app/.wt/fix-login' });
+      expect(r.input.env).toMatchObject({ TEAMOD_WORKTREE: '/projects/app/.wt/fix-login' });
       expect(r.input.vetTool?.('Edit', { file_path: '/projects/app/.wt/fix-login/src/login.ts' })).toBeUndefined();
       expect(r.input.vetTool?.('Write', { file_path: 'src/new.ts' })).toBeUndefined();
       expect(r.input.vetTool?.('Write', { file_path: '/projects/app/src/login.ts' })).toBe(WORK_OUTSIDE_REASON);

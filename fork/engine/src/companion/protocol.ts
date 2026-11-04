@@ -1409,7 +1409,7 @@ export const parseMacFrame = (raw: string): MacFrame | undefined => parse(MacFra
 
 /** What the pairing QR holds: `teamod://device#<22 chars>`; a code is typed as for friends. */
 /** `?r=` (additive): the Mac's relay, URL-encoded, so pairing works where the DHT doesn't. */
-export const DEVICE_LINK = /^(?:teamod|teamod):\/\/device#([\w-]{22})(?:\?r=([\w%.-]+))?$/;
+export const DEVICE_LINK = /^teamod:\/\/device#([\w-]{22})(?:\?r=([\w%.-]+))?$/;
 
 export const DeviceCert = z.object({
   v: z.literal(1),

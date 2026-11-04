@@ -88,7 +88,6 @@ const HOME_SECRETS = [
   '.bash_history',
   'Library/Keychains',
   '.teamod',
-  '.teamod',
 ];
 
 /** Secret files by name, denied anywhere in the run's folders. Codex's globs can only deny, so `.env` templates go too. */

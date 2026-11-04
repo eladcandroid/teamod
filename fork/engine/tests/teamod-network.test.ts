@@ -24,35 +24,10 @@ describe("teamod's network is its own", () => {
     expect(codeLinkOf(invite).startsWith('teamod://add?code=')).toBe(true);
     expect(encodeInvite({ url: `p2p://${key}`, secret: 'k3JdQ9vXr2Lm8TzW4yBn' }).startsWith('teamod://')).toBe(true);
   });
-
-  // Links of the app teamod was forked from (teamod://, and its older teamod://) never open here.
-  it.each([`teamod://add#${secret}`, `teamod://add#${secret}`, 'teamod://add?code=K7QM-4XPA-R2TD', 'teamod://join?code=K7QM-4XPA-R2TD', `add me: teamod://join#${secret} thanks`])('refuses %s', (link) => {
-    expect(parseTicket(link)).toBeUndefined();
-  });
-
-  it('refuses a room invite of the app it was forked from', () => {
-    expect(() => decodeInvite(`teamod://${key}#k3JdQ9vXr2Lm8TzW4yBn`)).toThrow(/teamod invite/);
-    expect(() => decodeInvite(`teamod://${key}#k3JdQ9vXr2Lm8TzW4yBn`)).toThrow(/teamod invite/);
-  });
-
-  it('derives pairing and room keys teamod would not', async () => {
-    const { hkdfSync, scryptSync } = await import('node:crypto');
-    const link = await pairingSecrets({ via: 'link', secret });
-    const teamod = Buffer.from(hkdfSync('sha256', Buffer.from(secret, 'base64url'), Buffer.from('teamod-pair-link-v1'), Buffer.from('seed'), 32));
-    expect(link.seed.equals(teamod)).toBe(false);
-
-    const code = await pairingSecrets({ via: 'code', code: 'K7QM4XPAR2TD' });
-    const teamodCode = scryptSync('K7QM4XPAR2TD', 'teamod-pair-code-v2', 64, { N: 1 << 16, r: 8, p: 1, maxmem: 1 << 28 });
-    expect(code.seed.equals(teamodCode.subarray(0, 32))).toBe(false);
-
-    const room = deriveKeys('a-room-secret-long-enough');
-    const teamodRoom = Buffer.from(hkdfSync('sha256', Buffer.from('a-room-secret-long-enough'), Buffer.from('teamod-v1'), Buffer.from('enc'), 32));
-    expect(room.enc.equals(teamodRoom)).toBe(false);
-  });
 });
 
 describe("teamod's home", () => {
-  const saved = { TEAMOD_HOME: process.env.TEAMOD_HOME, TEAMOD_HOME: process.env.TEAMOD_HOME, TEAMOD_HOME: process.env.TEAMOD_HOME };
+  const saved = { TEAMOD_HOME: process.env.TEAMOD_HOME };
   afterEach(() => {
     process.env.TEAMOD_HOME = saved.TEAMOD_HOME;
   });
@@ -111,10 +86,9 @@ describe('a notification from the operating system', () => {
 });
 
 describe('what the daemon inherits', () => {
-  it("drops the forked-from app's tool tokens and home, and sets teamod's", () => {
-    const env = daemonEnv({ TEAMOD_TOOLS_TOKEN: 't', TEAMOD_HOME: '/h/.teamod', TEAMOD_TOOLS_TOKEN: 't', CLAUDE_CODE_OAUTH_TOKEN: 'x' }, '/h/.teamod', undefined);
-    expect(env.TEAMOD_TOOLS_TOKEN).toBeUndefined();
-    expect(env.TEAMOD_HOME).toBeUndefined();
+  it("drops a session's tool tokens and home, and sets teamod's", () => {
+    const env = daemonEnv({ TEAMOD_TOOLS_TOKEN: 't', TEAMOD_HOME: '/elsewhere', CLAUDE_CODE_OAUTH_TOKEN: 'x' }, '/h/.teamod', undefined);
+    expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBeUndefined();
     expect(env.TEAMOD_TOOLS_TOKEN).toBeUndefined();
     expect(env.TEAMOD_HOME).toBe('/h/.teamod');
     expect(env.TEAMOD_DAEMON).toBe('1');

@@ -180,8 +180,7 @@ export function humanizeTool(tool: string, input: Readonly<Record<string, unknow
     default: {
       const mcp = /^mcp__(.+?)__(.+)$/.exec(tool);
       if (mcp) {
-        // Steps kept from before the rename name the servers teamod, teamod_task, teamod_board…
-        const server = mcp[1]!.replace(/^teamod(?=_|$)/, 'teamod');
+        const server = mcp[1]!;
         const own = teamodTool(mcp[2]!, input);
         if (own && (server === 'teamod' || server === 'teamod_task')) return own;
         return both(`Used ${spaced(mcp[2]!)} from ${spaced(server)}`, `Using ${spaced(mcp[2]!)} from ${spaced(server)}`);

@@ -347,7 +347,7 @@ function pullsSection(ctx: Ctx, project: Project): Node | undefined {
 
 // ---------------------------------------------------------------- scripts and what was put away
 
-const SCRIPT_SOURCE: Readonly<Record<string, string>> = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'from teamod.json', 'teamod.json': 'from teamod.json', 'conductor.json': 'from conductor.json', detected: 'guessed from the project' };
+const SCRIPT_SOURCE: Readonly<Record<string, string>> = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'from teamod.json', 'conductor.json': 'from conductor.json', detected: 'guessed from the project' };
 
 function scriptsSection(ctx: Ctx, project: Project): Node {
   const s = project.scripts ?? {};

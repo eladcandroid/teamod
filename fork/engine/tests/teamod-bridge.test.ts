@@ -133,7 +133,7 @@ describe('the bridge', () => {
 });
 
 describe('the daemon environment', () => {
-  it('leaves out Claude Code variables and the forked-from app’s, and marks lanes', () => {
+  it('leaves out Claude Code variables and teamod’s own, and marks lanes', () => {
     const env = daemonEnv({ HOME: '/h', CLAUDECODE: '1', CLAUDE_CODE_ENTRYPOINT: 'cli', TEAMOD_TOOLS_TOKEN: 'secret', TEAMOD_HOME: '/old', OTHER: 'kept' }, '/h/.teamod', '/bin');
     expect(env).toEqual({ HOME: '/h', OTHER: 'kept', TEAMOD_HOME: '/h/.teamod', TEAMOD_DAEMON: '1', PATH: '/bin' });
   });

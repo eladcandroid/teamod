@@ -48,7 +48,7 @@ const LIMIT_UNKNOWN_MS = 30 * 60_000;
 export const LIMIT_MARGIN_MS = 60_000;
 
 /** Steps that may take long without anything new: commands, and waiting on other people or Claudes. */
-const LONG_STEP = /^(Bash|BashOutput|Monitor|KillShell|wait_for|ask_agent|ask_person|run_on|run_on_peer|mcp__(?:teamod|teamod)_\w+__wait\w*)\b/;
+const LONG_STEP = /^(Bash|BashOutput|Monitor|KillShell|wait_for|ask_agent|ask_person|run_on|run_on_peer|mcp__teamod_\w+__wait\w*)\b/;
 /** Runs you stopped yourself: shown as stopped, never woken behind your back. */
 const BY_YOU = /stopped by owner|cancelled by owner|taken out of the queue/i;
 const TURN = new Set(['queued', 'awaiting_approval', 'started', 'answered']);

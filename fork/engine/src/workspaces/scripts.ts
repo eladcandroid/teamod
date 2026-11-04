@@ -15,8 +15,8 @@ export interface ProjectScripts {
   readonly byClaude?: ReadonlyArray<'setup' | 'run'>;
 }
 
-/** The project's own file: teamod.json, or teamod.json from before the rename (read, and kept up to date, where it's the one there). */
-export const PROJECT_FILES = ['teamod.json', 'teamod.json'] as const;
+/** The project's own file: teamod.json. */
+export const PROJECT_FILES = ['teamod.json'] as const;
 export type ProjectFileName = (typeof PROJECT_FILES)[number];
 
 export type ScriptSource = 'yours' | 'claude' | ProjectFileName | 'conductor.json' | 'detected';
@@ -220,7 +220,7 @@ export function saveProjectFile(root: string, scripts: ProjectScripts): ProjectF
   return name;
 }
 
-/** Environment for scripts, matching what Conductor provides so existing scripts work (and TEAMOD_*, from before the rename). */
+/** Environment for scripts, matching what Conductor provides so existing scripts work (and TEAMOD_*). */
 export function scriptEnv(ws: { path: string; name: string; projectRoot: string; branch?: string }): Record<string, string> {
   return {
     ...teamodEnvBoth('WORKSPACE_PATH', ws.path),

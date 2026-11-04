@@ -74,7 +74,7 @@ export const ALWAYS_ASK_YOU: ReadonlySet<string> = new Set(['mcp__teamod_sentine
  * templates (.env.example…) hold no secrets and are just files.
  */
 const DOTENV_IN_COMMAND = /(?<![\w.-])\.env(?!\.(?:example|sample|template|dist|defaults)(?![\w-]))(\.[\w-]+)?(?![\w-])/;
-const CREDENTIAL_IN_COMMAND = /(?<![\w.-])(\.(?:teamod|teamod)(?![\\/](?:workspaces|chats|outbox|tasks[\\/](?:work|files)|assistant[\\/]work)(?:[\\/]|\b))|id_(rsa|ed25519|ecdsa|dsa)|\.ssh|\.aws|\.gnupg|\.kube|\.docker|\.npmrc|\.netrc|\.git-credentials|credentials(\.json)?)(?![\w-])/;
+const CREDENTIAL_IN_COMMAND = /(?<![\w.-])(\.(?:teamod)(?![\\/](?:workspaces|chats|outbox|tasks[\\/](?:work|files)|assistant[\\/]work)(?:[\\/]|\b))|id_(rsa|ed25519|ecdsa|dsa)|\.ssh|\.aws|\.gnupg|\.kube|\.docker|\.npmrc|\.netrc|\.git-credentials|credentials(\.json)?)(?![\w-])/;
 export const SECRET_IN_COMMAND = new RegExp(`${DOTENV_IN_COMMAND.source}|${CREDENTIAL_IN_COMMAND.source}`);
 
 const mentions = (re: RegExp, command: string): boolean => re.test(command) || re.test(command.replace(/['"\\]/g, ''));

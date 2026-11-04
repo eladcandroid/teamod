@@ -9,8 +9,8 @@ import { z } from 'zod';
 
 export const GRAPH_FENCE = 'teamod-graph';
 
-/** A fence tag that holds a graph: `teamod-graph`, or `teamod-graph` from before the rename (older messages and peers). */
-export const isGraphFence = (lang: string | undefined): boolean => lang === GRAPH_FENCE || lang === 'teamod-graph';
+/** A fence tag that holds a graph: `teamod-graph`. */
+export const isGraphFence = (lang: string | undefined): boolean => lang === GRAPH_FENCE;
 
 export const NODE_KINDS = [
   'client',

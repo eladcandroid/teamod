@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { brandWords } from '../src/teamod/brand.js';
 import { launchAgent, systemdUnit } from '../src/teamod/service.js';
 
 const input = { home: '/h/.teamod', node: '/n/node', cli: '/e/dist/cli.js', path: '/usr/bin:/a&b' };
@@ -18,18 +17,5 @@ describe('running from login', () => {
   it('is started again if it dies, not if you stopped it', () => {
     expect(launchAgent(input)).toContain('<key>SuccessfulExit</key><false/>');
     expect(systemdUnit(input)).toContain('Restart=on-failure');
-  });
-});
-
-describe('the engine’s own words', () => {
-  it.each([
-    ['teamod could not reach it', 'teamod could not reach it'],
-    ['Open teamod, then try', 'Open teamod, then try'],
-    ['see `teamod` here', 'see `teamod` here'],
-    ['/x/teamod/y', '/x/teamod/y'],
-    ['teamod.app', 'teamod.app'],
-    ['teamod-view', 'teamod-view'],
-  ])('%s', (raw, want) => {
-    expect(brandWords(raw)).toBe(want);
   });
 });

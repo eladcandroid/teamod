@@ -116,7 +116,6 @@ export const SETTINGS: Catalog = {
   'set by you': 'הוגדר על ידך',
   'worked out by your agent': 'נקבע על ידי הסוכן שלך',
   'in teamod.json': 'ב־teamod.json',
-  'in teamod.json': 'ב־teamod.json',
   'in conductor.json': 'ב־conductor.json',
   'guessed from the project': 'הוסק מהפרויקט',
 

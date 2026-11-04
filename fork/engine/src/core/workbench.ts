@@ -1239,7 +1239,7 @@ export class Workbench {
       this.learnSetup(project.id, { command: fit.command }, `Setup for ${project.name} is now \`${fit.command}\`: ${fit.reason}`);
       return this.startSetup(ws, fit.command);
     }
-    const fromRepo = setup.source === 'teamod.json' || setup.source === 'teamod.json' || setup.source === 'conductor.json';
+    const fromRepo = setup.source === 'teamod.json' || setup.source === 'conductor.json';
     // Claude worked it out from what's in the repository, so it asks the same way.
     const byClaude = setup.source === 'claude';
     if (auto && (fromRepo || byClaude) && !this.manager.isScriptApproved(project.id, command)) {

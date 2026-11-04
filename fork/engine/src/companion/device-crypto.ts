@@ -42,7 +42,7 @@ export function readCode(typed: string): string | undefined {
 
 /** A pairing out of what was scanned, pasted or typed (`teamod://device#…`, `teamod://device?code=…`, `K7QM-4XPA-R2TD`). */
 export function parseDeviceTicket(text: string): DeviceTicket | undefined {
-  const link = /(?:teamod|teamod):\/\/device\/?#([\w-]{22})(?![\w-])(?:\?r=([\w%.-]+))?/.exec(text);
+  const link = /teamod:\/\/device\/?#([\w-]{22})(?![\w-])(?:\?r=([\w%.-]+))?/.exec(text);
   if (link) {
     let relay: string | undefined;
     try {
@@ -52,7 +52,7 @@ export function parseDeviceTicket(text: string): DeviceTicket | undefined {
     }
     return { via: 'link', secret: link[1]!, ...(relay && /^wss?:\/\//.test(relay) ? { relay } : {}) };
   }
-  const codeLink = /(?:teamod|teamod):\/\/device\/?\?code=([0-9A-Za-z%+-]{12,40})/.exec(text);
+  const codeLink = /teamod:\/\/device\/?\?code=([0-9A-Za-z%+-]{12,40})/.exec(text);
   const code = readCode(codeLink ? codeLink[1]!.replace(/%2D/gi, '-').replace(/\+/g, ' ') : text);
   return code ? { via: 'code', code } : undefined;
 }

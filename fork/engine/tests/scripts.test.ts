@@ -241,17 +241,6 @@ describe('saveProjectFile', () => {
     expect(read()).toEqual({ scripts: { run: 'go' } });
   });
 
-  it('keeps writing an old teamod.json while it is the only one there (teammates on teamod still read it)', () => {
-    touch('teamod.json', JSON.stringify({ prPrompt: 'p', scripts: { run: 'keep' } }));
-    expect(saveProjectFile(dir, { setup: 'new' })).toBe('teamod.json');
-    expect(JSON.parse(readFileSync(path.join(dir, 'teamod.json'), 'utf8'))).toEqual({ prPrompt: 'p', scripts: { setup: 'new', run: 'keep' } });
-    expect(existsSync(path.join(dir, 'teamod.json'))).toBe(false);
-    expect(resolveScripts(dir)).toEqual({ setup: { command: 'new', source: 'teamod.json' }, run: { command: 'keep', source: 'teamod.json' }, prPrompt: 'p' });
-    // Once a teamod.json is there, it wins.
-    touch('teamod.json', JSON.stringify({ scripts: { run: 'b-run' } }));
-    expect(resolveScripts(dir).run).toEqual({ command: 'b-run', source: 'teamod.json' });
-  });
-
   it('round-trips through resolveScripts', () => {
     saveProjectFile(dir, { setup: 's', run: 'r' });
     expect(resolveScripts(dir)).toEqual({ setup: { command: 's', source: 'teamod.json' }, run: { command: 'r', source: 'teamod.json' } });
@@ -265,11 +254,6 @@ describe('scriptEnv', () => {
       TEAMOD_WORKSPACE_NAME: 'tokyo',
       TEAMOD_ROOT_PATH: '/p',
       TEAMOD_BRANCH: 'feat/x',
-      // The names from before the rename, for scripts that still read them.
-      TEAMOD_WORKSPACE_PATH: '/w',
-      TEAMOD_WORKSPACE_NAME: 'tokyo',
-      TEAMOD_ROOT_PATH: '/p',
-      TEAMOD_BRANCH: 'feat/x',
       CONDUCTOR_WORKSPACE_PATH: '/w',
       CONDUCTOR_WORKSPACE_NAME: 'tokyo',
       CONDUCTOR_ROOT_PATH: '/p',
@@ -278,7 +262,7 @@ describe('scriptEnv', () => {
 
   it('omits TEAMOD_BRANCH without a branch', () => {
     expect(Object.keys(scriptEnv({ path: '/w', name: 'n', projectRoot: '/p' })).sort()).toEqual(
-      ['CONDUCTOR_ROOT_PATH', 'CONDUCTOR_WORKSPACE_NAME', 'CONDUCTOR_WORKSPACE_PATH', 'TEAMOD_ROOT_PATH', 'TEAMOD_WORKSPACE_NAME', 'TEAMOD_WORKSPACE_PATH', 'TEAMOD_ROOT_PATH', 'TEAMOD_WORKSPACE_NAME', 'TEAMOD_WORKSPACE_PATH'],
+      ['CONDUCTOR_ROOT_PATH', 'CONDUCTOR_WORKSPACE_NAME', 'CONDUCTOR_WORKSPACE_PATH', 'TEAMOD_ROOT_PATH', 'TEAMOD_WORKSPACE_NAME', 'TEAMOD_WORKSPACE_PATH'],
     );
   });
 });

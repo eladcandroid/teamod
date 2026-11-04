@@ -14,9 +14,6 @@ export function sessionBrief(): string {
     .filter((text) => !text.includes('mcp__teamod_view__'))
     .join('\n')
     .replaceAll('the teamod app', 'teamod')
-    .replaceAll('teamod', 'teamod')
-    .replaceAll('teamod_', 'teamod_')
-    .replace(/\/\.teamod\/scratch/g, '/.teamod/scratch')
     .trim();
 }
 

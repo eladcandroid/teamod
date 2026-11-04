@@ -238,7 +238,6 @@ export const WORK: Catalog = {
   'set by you': 'הוגדר על ידך',
   'worked out by your agent': 'נקבע על ידי הסוכן שלך',
   'from teamod.json': 'מתוך teamod.json',
-  'from teamod.json': 'מתוך teamod.json',
   'from conductor.json': 'מתוך conductor.json',
   'guessed from the project': 'נוחש מתוך הפרויקט',
   'Setup in new worktrees is off (Settings, Worktrees).': 'ההכנה בעותקי עבודה חדשים כבויה (הגדרות › עותקי עבודה).',

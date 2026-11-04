@@ -15,15 +15,14 @@ import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/** TEAMOD_<name>, else the TEAMOD_<name> from before the rename. */
-const teamodEnv = (name) => process.env[`TEAMOD_${name}`] ?? process.env[`TEAMOD_${name}`];
+/** TEAMOD_<name>. */
+const teamodEnv = (name) => process.env[`TEAMOD_${name}`];
 
-/** Where the machine-wide lock is kept: ~/.teamod/e2e (the old ~/.teamod/e2e while only that home exists). */
+/** Where the machine-wide lock is kept: ~/.teamod/e2e. */
 export function stateDir() {
   const fromEnv = teamodEnv('E2E_DIR');
   if (fromEnv) return fromEnv;
-  const [teamod, teamod] = ['.teamod', '.teamod'].map((name) => path.join(os.homedir(), name));
-  return path.join(!existsSync(teamod) && existsSync(teamod) ? teamod : teamod, 'e2e');
+  return path.join(os.homedir(), '.teamod', 'e2e');
 }
 export const lockFile = () => path.join(stateDir(), 'lock.json');
 
@@ -290,12 +289,12 @@ function psEnv() {
 
 /**
  * The processes a run can verify are its own: their environment carries its run tag
- * (TEAMOD_E2E_RUN=<id>, or TEAMOD_E2E_RUN from before the rename) and their command line or working folder is under its worktree. A pid
+ * (TEAMOD_E2E_RUN=<id>) and their command line or working folder is under its worktree. A pid
  * reused after a reboot can't have both, so nothing else is ever matched.
  */
 export function processesOf(run, rows = psEnv()) {
   if (!run?.id || !run.worktree) return [];
-  const tags = [` TEAMOD_E2E_RUN=${run.id}`, ` TEAMOD_E2E_RUN=${run.id}`];
+  const tags = [` TEAMOD_E2E_RUN=${run.id}`];
   const under = new RegExp(`${run.worktree.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/|\\s|$)`);
   const tagged = (line) => tags.some((tag) => line.includes(`${tag} `) || line.endsWith(tag));
   return rows.filter((r) => r.pid !== process.pid && tagged(r.line) && under.test(r.line)).map(({ pid, pgid }) => ({ pid, pgid }));
@@ -455,7 +454,7 @@ async function main(argv) {
     name: runName(worktree, branchOf(worktree)),
     worktree,
     port,
-    // Never an inherited TEAMOD_HOME (or TEAMOD_HOME): inside teamod that's your real data, and the demo home is wiped each run.
+    // Never an inherited TEAMOD_HOME: inside teamod that's your real data, and the demo home is wiped each run.
     home: teamodEnv('E2E_HOME') || homes.home,
     startedAt: Date.now(),
     groups: [],

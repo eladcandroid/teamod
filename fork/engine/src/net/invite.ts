@@ -2,14 +2,13 @@ import { z } from 'zod';
 
 /** Direct dial addresses look like `p2p://<z-base-32 public key>`. */
 export const P2P_SCHEME = 'p2p://';
-const LEGACY_PREFIX = 'teamod:';
-/** Invites are made as teamod://; teamod:// ones from before the rename still open. */
+/** Invites are made as teamod://. */
 export const DIRECT_PREFIX = 'teamod://';
 const DIRECT_PREFIXES = ['teamod://'];
 const Z32_KEY = '[ybndrfg8ejkmcpqxot1uwisza345h769]{52}';
 const WS_URL = /^wss?:\/\/[^\s#@]+$/;
 const P2P_URL = new RegExp(`^p2p://${Z32_KEY}$`);
-/** `teamod://<key>[?relay=<https url>]#<secret>` (or `teamod://…`); the relay may be percent-encoded or not. */
+/** `teamod://<key>[?relay=<https url>]#<secret>`; the relay may be percent-encoded or not. */
 const DIRECT_LINK = new RegExp(`^teamod://(${Z32_KEY})/?(?:\\?relay=([^\\s#]+))?#([\\w-]+)$`);
 const DIRECT_IN_TEXT = new RegExp(`teamod://${Z32_KEY}/?(?:\\?relay=[^\\s#]+)?#[\\w-]{16,256}`);
 const RELAY = /^(https?|wss?):\/\/([^\s#/@?]+)\/?$/;
@@ -69,23 +68,10 @@ function decodeDirect(code: string): Invite {
 export function decodeInvite(code: string): Invite {
   const trimmed = code.trim();
   if (DIRECT_PREFIXES.some((p) => trimmed.startsWith(p))) return decodeDirect(trimmed);
-  if (trimmed.startsWith(LEGACY_PREFIX)) return decodeLegacy(trimmed);
   const m = /^(https?|wss?):\/\/([^\s#/@]+)\/?#([\w-]+)$/.exec(trimmed);
   if (!m) throw new Error('That does not look like a teamod invite (expected https://…#secret)');
   const scheme = m[1] === 'https' || m[1] === 'wss' ? 'wss' : 'ws';
   const parsed = InvitePayload.safeParse({ url: `${scheme}://${m[2]}`, secret: m[3] });
-  if (!parsed.success) throw new Error('Invite code is invalid');
-  return parsed.data;
-}
-
-function decodeLegacy(code: string): Invite {
-  let json: unknown;
-  try {
-    json = JSON.parse(Buffer.from(code.slice(LEGACY_PREFIX.length), 'base64url').toString('utf8'));
-  } catch {
-    throw new Error('Invite code is corrupted');
-  }
-  const parsed = InvitePayload.safeParse(json);
   if (!parsed.success) throw new Error('Invite code is invalid');
   return parsed.data;
 }
@@ -96,6 +82,5 @@ export function findInvite(text: string): string | undefined {
   const direct = DIRECT_IN_TEXT.exec(text);
   if (direct) return direct[0];
   const link = /(https?|wss?):\/\/[^\s#/@]+\/?#[\w-]{16,256}/.exec(text);
-  if (link) return link[0];
-  return /teamod:[\w-]{20,}/.exec(text)?.[0];
+  return link?.[0];
 }

@@ -18,7 +18,7 @@ export type WorkMenuKind =
   | { readonly kind: 'ws_more'; readonly id: string; readonly actions: ReadonlyArray<{ readonly action: string; readonly label: string; readonly hint: string }> };
 
 const findWs = (state: AppState, id: string) => state.projects.flatMap((p) => p.workspaces).find((w) => w.id === id);
-const SOURCE = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'from teamod.json', 'teamod.json': 'from teamod.json', 'conductor.json': 'from conductor.json', detected: 'guessed from the project' } as const;
+const SOURCE = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'from teamod.json', 'conductor.json': 'from conductor.json', detected: 'guessed from the project' } as const;
 
 function prMenu(state: AppState, id: string): MenuSpec | undefined {
   const ws = findWs(state, id);

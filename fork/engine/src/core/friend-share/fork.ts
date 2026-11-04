@@ -93,7 +93,7 @@ async function copyTree(from: string, to: string, budget = { bytes: SCRATCH_MAX,
 async function snapshotWork(dir: string, tip: string): Promise<{ sha?: string; changed: number }> {
   const list = async (args: string[]): Promise<string[]> => (await git(dir, args).catch(() => '')).split('\0').filter(Boolean);
   const listed = [...(await list(['diff', '--name-only', '-z', 'HEAD'])), ...(await list(['ls-files', '--others', '--exclude-standard', '-z']))];
-  const files = [...new Set(listed)].filter((rel) => !isDenied(rel) && !/^\.(teamod|teamod)\//.test(rel));
+  const files = [...new Set(listed)].filter((rel) => !isDenied(rel) && !/^\.(teamod)\//.test(rel));
   if (!files.length) return { changed: 0 };
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'teamod-fork-index-'));
   const env = { ...WORK_ENV, GIT_INDEX_FILE: path.join(tmp, 'index') };

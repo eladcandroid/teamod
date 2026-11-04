@@ -16,7 +16,7 @@ const git = (cwd: string, ...args: string[]): string => execFileSync('git', args
 let dir: string;
 let work: string;
 let ghAnswer: string;
-const before = { TEAMOD_GH: process.env.TEAMOD_GH, TEAMOD_GH: process.env.TEAMOD_GH };
+const before = { TEAMOD_GH: process.env.TEAMOD_GH };
 
 beforeEach(() => {
   dir = mkdtempSync(path.join(os.tmpdir(), 'pr-push-'));
@@ -52,7 +52,6 @@ beforeEach(() => {
   writeFileSync(gh, `#!/bin/sh\ncat "${path.join(dir, 'gh.json')}"\n`);
   chmodSync(gh, 0o755);
   process.env.TEAMOD_GH = gh;
-  delete process.env.TEAMOD_GH;
   ghAnswer = path.join(dir, 'gh.json');
 });
 

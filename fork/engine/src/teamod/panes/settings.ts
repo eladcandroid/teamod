@@ -175,7 +175,7 @@ const worktrees = (ctx: Ctx): Node => {
   );
 };
 
-const SOURCES: Readonly<Record<string, string>> = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'in teamod.json', 'teamod.json': 'in teamod.json', 'conductor.json': 'in conductor.json', detected: 'guessed from the project' };
+const SOURCES: Readonly<Record<string, string>> = { yours: 'set by you', claude: 'worked out by your agent', 'teamod.json': 'in teamod.json', 'conductor.json': 'in conductor.json', detected: 'guessed from the project' };
 
 const sharable = (p: Project): boolean => [p.scripts?.setup, p.scripts?.run].some((s) => s?.source === 'yours' || s?.source === 'claude');
 

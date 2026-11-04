@@ -20,16 +20,14 @@ import { teamodEnv } from '../core/teamod-env.js';
 /** The machine-wide e2e lock (scripts/e2e-lock.mjs keeps it there). */
 export const e2eLockFile = (): string => path.join(teamodEnv('E2E_DIR') || e2eHomeDir(), 'lock.json');
 
-/** ~/.teamod/e2e, or the old ~/.teamod/e2e while only that home exists (same folder once it moved). */
+/** ~/.teamod/e2e. */
 function e2eHomeDir(): string {
-  const teamod = path.join(os.homedir(), '.teamod');
-  const teamod = path.join(os.homedir(), '.teamod');
-  return path.join(!existsSync(teamod) && existsSync(teamod) ? teamod : teamod, 'e2e');
+  return path.join(os.homedir(), '.teamod', 'e2e');
 }
 
 /** The line carries `<NAME>=<value>` in its environment, under the teamod name or the old teamod one. */
 const carries = (line: string, name: string, value: string): boolean =>
-  [`TEAMOD_${name}`, `TEAMOD_${name}`].some((key) => line.includes(` ${key}=${value} `) || line.endsWith(` ${key}=${value}`));
+  [`TEAMOD_${name}`].some((key) => line.includes(` ${key}=${value} `) || line.endsWith(` ${key}=${value}`));
 
 export interface ProcRow {
   readonly pid: number;
@@ -58,12 +56,12 @@ const inside = (child: string, dir: string): boolean => child === dir || child.s
  * away, so test runners installed in it go too, whoever started them.
  */
 export function testProcessesIn(rows: readonly ProcRow[], dir: string, leaving = false): number[] {
-  // Kept on purpose (TEAMOD_KEEP=1, or TEAMOD_KEEP=1 from before the rename; see keepsRunning) while the worktree
+  // Kept on purpose (TEAMOD_KEEP=1; see keepsRunning) while the worktree
   // stays: they, and the shells waiting on them. Never a test run or an e2e's processes (nor what runs under one), marked or not.
   const keep = new Set<number>();
   if (!leaving) {
     const byPid = new Map(rows.map((r) => [r.pid, r]));
-    const testRun = (r: ProcRow) => / (TEAMOD|TEAMOD)_E2E_RUN=/.test(r.line) || isTestRunner(r.line, dir);
+    const testRun = (r: ProcRow) => / TEAMOD_E2E_RUN=/.test(r.line) || isTestRunner(r.line, dir);
     for (const r of rows) {
       if (!carries(r.line, 'KEEP', '1')) continue;
       const chain: number[] = [];
@@ -79,7 +77,7 @@ export function testProcessesIn(rows: readonly ProcRow[], dir: string, leaving =
     if (r.pid === process.pid || keep.has(r.pid)) return false;
     const tagged = carries(r.line, 'WORKTREE', dir);
     const installed = leaving && r.line.includes(path.join(dir, 'node_modules') + path.sep);
-    const e2e = tagged && / (TEAMOD|TEAMOD)_E2E_RUN=/.test(r.line);
+    const e2e = tagged && / TEAMOD_E2E_RUN=/.test(r.line);
     // Left by a Bash command: its shell still running (run_in_background), or orphaned once the shell exited (`&`, nohup).
     const leftByBash = tagged && !CLAUDE.test(r.line) && (BASH_SHELL.test(r.line) || r.ppid === 1);
     return e2e || leftByBash || ((tagged || installed) && isTestRunner(r.line, dir)) || (installed && SERVER.test(r.line.split(dir).join('<worktree>')));
@@ -152,7 +150,7 @@ export function mayLeaveProcesses(command: unknown, background?: unknown): boole
 export const KEEP_MARK = 'TEAMOD_KEEP=1';
 
 /** Whether a Bash command asks to keep what it starts (`TEAMOD_KEEP=1 npm run dev &`; the old TEAMOD_KEEP=1 too). */
-export const keepsRunning = (command: unknown): boolean => typeof command === 'string' && /(^|[\s;&|(])(TEAMOD|TEAMOD)_KEEP=1(\s|$)/.test(command);
+export const keepsRunning = (command: unknown): boolean => typeof command === 'string' && /(^|[\s;&|(])TEAMOD_KEEP=1(\s|$)/.test(command);
 
 /**
  * A Bash call that asks to keep what it starts, made to: the mark exported, so whatever the command line runs

@@ -11,7 +11,7 @@ import path from 'node:path';
  */
 const ENV_FILE = /^(\.env(\..+)?|\.envrc|\.dev\.vars(\..+)?)$/;
 const ENV_DIRS = new Set(['.ssh', '.aws']);
-const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.teamod', '.teamod', '.teamod', '.next', 'vendor']);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.teamod', '.next', 'vendor']);
 const MAX_DEPTH = 3;
 const INCLUDE_FILE = '.worktreeinclude';
 

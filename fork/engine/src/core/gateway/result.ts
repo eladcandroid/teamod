@@ -14,8 +14,7 @@ import { validate } from './schema.js';
  */
 
 const RESULT_FENCE = 'teamod-result';
-/** The result block's tag, or `teamod-result` from before the rename. */
-const RESULT_FENCES = `(?:${RESULT_FENCE}|teamod-result)`;
+const RESULT_FENCES = RESULT_FENCE;
 
 const NEED_WORDS: Readonly<Record<string, string>> = {
   project: 'work in one of your projects',
