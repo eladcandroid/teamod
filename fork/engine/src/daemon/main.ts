@@ -133,11 +133,11 @@ export async function startDaemon(config: Config, opts: DaemonOptions): Promise<
 export async function runDaemon(config: Config, opts: DaemonOptions): Promise<void> {
   const log = (line: string): void => void process.stderr.write(`${new Date().toISOString()} ${line}\n`);
   // Once the terminal or pipe it was started from is gone (EIO, EPIPE), every write fails: drop those lines.
-  // Unheard, each failed write was an uncaught error whose log line failed again, spinning a core (ACME-365).
+  // Unheard, each failed write was an uncaught error whose log line failed again, spinning a core.
   process.stderr.on('error', () => {});
   const daemon = await startDaemon(config, { ...opts, log });
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, () => void daemon.stop(`Got ${signal}`));
-  // The Mac app's word that the Mac is about to sleep (ACME-277, src-tauri/src/power.rs): mail the
+  // The Mac app's word that the Mac is about to sleep (src-tauri/src/power.rs): mail the
   // outboxes, then say so in a file the app waits for before it lets the Mac sleep.
   // Windows has no SIGUSR2 (listening for it throws there); its app has no sleep hook yet.
   if (process.platform !== 'win32') process.on('SIGUSR2', () => {

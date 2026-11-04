@@ -1,2 +1,2 @@
-/** Moved to runtime/claude/ (ACME-441): Claude Code's live-run machinery. Kept so older imports still resolve. */
+/** Moved to runtime/claude/: Claude Code's live-run machinery. Kept so older imports still resolve. */
 export * from './runtime/claude/live-run.js';

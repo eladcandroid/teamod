@@ -8,7 +8,7 @@ export interface MentionTarget {
   readonly peerId: string;
   readonly agent: AgentRef;
   /**
-   * The words named this agent ("@codex", "@bob:codex", ACME-520): the ask carries it, so their Mac
+   * The words named this agent ("@codex", "@bob:codex"): the ask carries it, so their Mac
    * runs that one. Unset: "@bob", "@agents" and the old "@claude…" forms, answered by their default.
    */
   readonly named?: true;
@@ -52,7 +52,7 @@ const RUNTIME_WORDS = new Set(KNOWN_RUNTIMES.map((r) => r.id).filter((id) => id 
  *   @bob fix it       -> bob's default agent (runs on bob's machine, on bob's subscription)
  *   @bob:codex hi     -> bob's Codex
  *   @agents review    -> every person's default agent in the room
- *   @codex hi         -> your Codex (any runtime word: yours, when nobody here has that name; ACME-520)
+ *   @codex hi         -> your Codex (any runtime word: yours, when nobody here has that name)
  *   @claude, @claude:bob, @claudes -> your Claude, bob's Claude, every Claude (kept forever)
  *   anything else     -> group chat
  * "@claude" and the others are aliases first: a person named "claude" is "@claude:claude".

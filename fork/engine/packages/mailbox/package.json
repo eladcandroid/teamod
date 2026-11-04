@@ -1,7 +1,7 @@
 {
   "name": "teamod-mailbox",
   "private": true,
-  "description": "teamod's mailbox: a Cloudflare Worker that keeps sealed frames for friends who aren't online together (ACME-272).",
+  "description": "teamod's mailbox: a Cloudflare Worker that keeps sealed frames for friends who aren't online together.",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",

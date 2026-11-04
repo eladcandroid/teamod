@@ -90,9 +90,9 @@ export interface NewIssue {
   readonly plan?: IssuePlan;
   /** The GitHub issue it's made from. */
   readonly github?: IssueGitHub;
-  /** The agent that works it (ACME-497); none: your default. */
+  /** The agent that works it; none: your default. */
   readonly agent?: AgentRef;
-  /** Only you see it (ACME-501); a private parent's sub-tasks are private whatever this says. */
+  /** Only you see it; a private parent's sub-tasks are private whatever this says. */
   readonly private?: boolean;
 }
 
@@ -187,7 +187,7 @@ const SavedIssue = z
     createdAt: z.number(),
     updatedAt: z.number(),
     origin: z.enum(['manual', 'worktree', 'claude', 'plan', 'sync', 'github']).default('manual'),
-    // The agent that works it (ACME-497): one that doesn't read is let go (your default works it).
+    // The agent that works it: one that doesn't read is let go (your default works it).
     agent: AgentRef.optional().catch(undefined),
   })
   .passthrough();
@@ -338,7 +338,7 @@ export class Board {
       labels: this.allowedLabels(boardId, input.labels ?? [], [], by, origin),
       ...(input.estimate ? { estimate: input.estimate } : {}),
       ...(input.due && DAY.test(input.due) ? { due: input.due } : {}),
-      // A sub-task is for whoever has its parent, unless it's given to someone else (ACME-512).
+      // A sub-task is for whoever has its parent, unless it's given to someone else.
       ...(input.assignee ? { assignee: personOf(input.assignee as AnyAssignee) } : parent?.assignee ? { assignee: parent.assignee } : {}),
       ...(parent ? { parent: parent.id } : {}),
       ...(input.plan ? { plan: input.plan } : {}),
@@ -458,17 +458,17 @@ export class Board {
       return issue;
     }
     issue = this.change(issue, next, notes.map((n) => this.entry(by, n.kind, n.text, undefined, at, n.assignee, n.was !== undefined ? { was: n.was, now: n.now! } : undefined)));
-    // Under a private task now: private like the rest of it (ACME-501).
+    // Under a private task now: private like the rest of it.
     if (next.parent && !issue.private && this.get(next.parent)?.private) issue = this.setPrivate(issue.id, true, by);
     if ('assignee' in next) this.passAssignee(issue, before.assignee, by);
-    // Under an assigned task now, with no one of its own: its parent's person's (ACME-512).
+    // Under an assigned task now, with no one of its own: its parent's person's.
     const parent = next.parent ? this.get(next.parent) : undefined;
     if (parent?.assignee && !issue.assignee) issue = this.update(issue.id, { assignee: parent.assignee }, by);
     return issue;
   }
 
   /**
-   * A task given to someone else: its open sub-tasks, all the way down, go with it (ACME-512),
+   * A task given to someone else: its open sub-tasks, all the way down, go with it,
    * except one given to another person, which keeps them. Finished ones keep who did them.
    */
   private passAssignee(issue: Issue, was: Assignee | undefined, by: Actor): void {
@@ -542,7 +542,7 @@ export class Board {
   }
 
   /**
-   * The agent (and model) that works the task from its next start (ACME-498); undefined: your
+   * The agent (and model) that works the task from its next start; undefined: your
    * default agent. A worktree already working it keeps the agent it opened with.
    */
   setAgent(ref: string, agent: AgentRef | undefined, by: Actor): Issue {
@@ -729,7 +729,7 @@ export class Board {
   }
 
   /**
-   * Only you see it, or the team does again (ACME-501). Its sub-tasks go with it, all the way
+   * Only you see it, or the team does again. Its sub-tasks go with it, all the way
    * down, so a private epic is a board of your own inside the shared one. Making a shared task
    * private takes it back from teammates (team-board sync sends them a delete); sharing it sends
    * it as it is now. Another tracker (Linear) leaves a private task alone.

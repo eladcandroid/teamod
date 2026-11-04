@@ -1,5 +1,5 @@
 /**
- * Speaking instead of typing (the phone's Ask sheet, ACME-139): which models write down speech,
+ * Speaking instead of typing (the phone's Ask sheet): which models write down speech,
  * where they run (on the phone through whisper.rn, on the Mac through whisper.node on its GPU), the
  * presets Settings › Voice offers, and the one teamod suggests. Data only: the Mac's daemon and the
  * phone app both import it. No imports, runs anywhere.

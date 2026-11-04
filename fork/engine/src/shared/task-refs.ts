@@ -1,5 +1,5 @@
 /**
- * Tasks Claude shows in an answer (ACME-26): `task:ACME-12` in inline code is a small chip, and a
+ * Tasks Claude shows in an answer: `task:ACME-12` in inline code is a small chip, and a
  * fenced `teamod-tasks` block (keys one per line, or a JSON array) is a list of cards. Only keys:
  * the window reads each task from the live board, so what it says stays true. Browser-safe.
  */
@@ -102,7 +102,7 @@ export function splitTaskKeys(text: string, has: (key: string) => boolean, opts:
 }
 
 /**
- * Tasks named in a message (ACME-56): "@ACME-24" is a task the way "@mia" is a friend. Typing one
+ * Tasks named in a message: "@ACME-24" is a task the way "@mia" is a friend. Typing one
  * suggests tasks by key ("@ACME-2", and the near misses "@ACME24", "@acme-24", "@24") or by a word
  * of the title ("@login"); an exact key is the task even when it wasn't picked from the list.
  */
@@ -171,7 +171,7 @@ function rankOf(typed: string, task: TaskMention, strict = false): number | unde
 }
 
 /**
- * Which tasks come first in the "@" list (ACME-575): Ready ones (to start), then the ones under way
+ * Which tasks come first in the "@" list: Ready ones (to start), then the ones under way
  * (In Progress, In Review…), then the Backlog, then closed ones (Done, Canceled).
  */
 function statusOrder(task: TaskMention): number {
@@ -183,8 +183,8 @@ function statusOrder(task: TaskMention): number {
 
 /**
  * The tasks a typed "@…" (without the @) may mean, best first: the very key (and its near misses,
- * "ACME24", "24" → ACME-24), then the rest by status (Ready, under way, Backlog, closed), each of
- * those by how well it matches (keys it starts, "ACME-2" → ACME-21…, then title words) and number.
+ * "ACME24", "24" →), then the rest by status (Ready, under way, Backlog, closed), each of
+ * those by how well it matches (keys it starts, "ACME-2" →…, then title words) and number.
  */
 export function matchTasks(typed: string, tasks: readonly TaskMention[], max = MAX_TASK_SUGGESTIONS, { strict = false }: { readonly strict?: boolean } = {}): TaskMention[] {
   if (!typed) return [];

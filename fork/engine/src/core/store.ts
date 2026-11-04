@@ -321,9 +321,9 @@ export interface Transfer {
 /** What the main area shows. */
 export type View =
   | { readonly kind: 'room' }
-  /** "Your Mac" (core/assistant): your Claude for the whole Mac, the same as on the phone; one of its chats (tabs, ACME-102), the open one when unset. */
+  /** "Your Mac" (core/assistant): your Claude for the whole Mac, the same as on the phone; one of its chats (tabs), the open one when unset. */
   | { readonly kind: 'assistant'; readonly chat?: string }
-  /** "Your phone" (ACME-171): the live mirror of your paired Android phone and what Claude's done on it. Only when one is paired. */
+  /** "Your phone": the live mirror of your paired Android phone and what Claude's done on it. Only when one is paired. */
   | { readonly kind: 'phone' }
   | { readonly kind: 'files' }
   | { readonly kind: 'overview' }
@@ -483,7 +483,7 @@ export interface DomainState extends CollabState, WorkState, NetworkSlice, Earni
   readonly btw: Readonly<Record<string, Btw>>;
   /** Env changes found in a worktree that's about to be archived or deleted. */
   readonly envChanges: Readonly<Record<string, readonly EnvChange[]>>;
-  /** Worktrees whose env files changed and the main folder doesn't have it: copy it there, or keep it here (ACME-369). */
+  /** Worktrees whose env files changed and the main folder doesn't have it: copy it there, or keep it here. */
   readonly envAsks: Readonly<Record<string, readonly EnvChange[]>>;
   readonly hosting?: Hosting;
   readonly invite?: string;
@@ -518,7 +518,7 @@ export interface DomainState extends CollabState, WorkState, NetworkSlice, Earni
   /** Recent downloads (newest last). */
   readonly transfers: readonly Transfer[];
   readonly prefs: Prefs;
-  /** Your Mac's chats, as tabs (ACME-102, core/assistant): which there are and the one open. */
+  /** Your Mac's chats, as tabs (core/assistant): which there are and the one open. */
   readonly assistant: AssistantChats;
 }
 
@@ -583,7 +583,7 @@ export type Action =
   | { type: 'conflicts'; id: string; files: readonly string[] }
   | { type: 'review'; review?: ReviewDomain }
   | { type: 'history'; channel: string; items: readonly LogItem[] }
-  /** Items put into a conversation as they come (the agent's terminal turns, ACME-534): each replaces the one with its id, else goes at the end. */
+  /** Items put into a conversation as they come (the agent's terminal turns): each replaces the one with its id, else goes at the end. */
   | { type: 'log_upsert'; channel: string; items: readonly LogItem[] }
   /** teamod is stopping: `owner`'s runs that haven't ended (their end won't come now) are interrupted. */
   | { type: 'runs_interrupted'; owner: string }
@@ -1140,7 +1140,7 @@ export function reduceDomain(state: DomainState, action: Action): DomainState {
     case 'notice_unread':
     case 'notice_clear':
     case 'models':
-    // Which agents run here and their models (ACME-462: dropped before, so Codex stayed greyed in the picker).
+    // Which agents run here and their models (dropped before, so Codex stayed greyed in the picker).
     case 'runtimes':
     case 'disk':
     case 'archiving':
@@ -1260,7 +1260,7 @@ export function reduceDomain(state: DomainState, action: Action): DomainState {
 }
 
 /**
- * A plan's own conversation has no plan mode (ACME-66): one that had it on before it became a
+ * A plan's own conversation has no plan mode: one that had it on before it became a
  * plan's home (or when plans load) has it turned off, so its banner can't get stuck with no way out.
  */
 function offPlanHomes<S extends DomainState>(state: S): S {

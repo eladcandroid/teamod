@@ -327,7 +327,7 @@ export const RECIPES: readonly Recipe[] = [
     },
   },
   {
-    // The whole chain in one sentinel (ACME-352): fetch with a script of its own, Claude reads it in a worktree, a service gets the analysis, its answer is kept and you're told.
+    // The whole chain in one sentinel: fetch with a script of its own, Claude reads it in a worktree, a service gets the analysis, its answer is kept and you're told.
     id: 'fetch-analyse-send',
     name: 'Fetch, analyse, send',
     icon: 'graph',

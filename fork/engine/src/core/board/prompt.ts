@@ -139,7 +139,7 @@ export function reposPrompt(board: Pick<BoardState, 'projects'>, boardId: string
   ].join('\n');
 }
 
-/** One of an epic's other worktrees (ACME-561): its repo's name, folder, branch, and the sub-tasks it does. */
+/** One of an epic's other worktrees: its repo's name, folder, branch, and the sub-tasks it does. */
 export interface AlongWorktree {
   readonly repo: string;
   readonly path: string;
@@ -148,7 +148,7 @@ export interface AlongWorktree {
 }
 
 /**
- * A run in an epic's worktree whose sub-tasks run in other repos (ACME-561): those repos' worktrees,
+ * A run in an epic's worktree whose sub-tasks run in other repos: those repos' worktrees,
  * which it works in too, and how their work goes out. Empty when there are none.
  */
 export function alongPrompt(epicKey: string, along: readonly AlongWorktree[]): string {
@@ -162,7 +162,7 @@ export function alongPrompt(epicKey: string, along: readonly AlongWorktree[]): s
 }
 
 /**
- * What a project is about, as its people wrote it (ACME-298): runs in it read it before they write a
+ * What a project is about, as its people wrote it: runs in it read it before they write a
  * task there. Empty when no one has. A board of several repos may have its own words: they come first.
  */
 export function aboutPrompt(board: Pick<BoardState, 'projects'>, projectId: string, boardId = projectId): string {

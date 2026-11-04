@@ -74,7 +74,7 @@ function withListed(found: Set<string>, listed: readonly string[], included: rea
 
 const exists = (file: string): Promise<boolean> => stat(file).then(() => true, () => false);
 
-/** findEnvFiles without holding up the daemon (ACME-406): git's lists are made while the folders are walked. */
+/** findEnvFiles without holding up the daemon: git's lists are made while the folders are walked. */
 async function readEnvFiles(root: string): Promise<string[]> {
   const found = new Set<string>();
   const walk = async (dir: string, rel: string, depth: number): Promise<void> => {
@@ -112,7 +112,7 @@ const envScans = new Map<string, EnvScan>();
 
 /**
  * The same list as findEnvFiles, without blocking the daemon, and never two scans of one folder
- * at once (ACME-406): a call while one runs gets one more after it (what's running may have looked
+ * at once: a call while one runs gets one more after it (what's running may have looked
  * before the call's change), and every call meanwhile shares that one.
  */
 export function scanEnvFiles(root: string): Promise<string[]> {
@@ -209,7 +209,7 @@ function keyChange(file: string, mine: Map<string, string>, theirs: Map<string, 
 }
 
 /**
- * envChanges without blocking the daemon (ACME-406), for the checks that run on their own. `files`:
+ * envChanges without blocking the daemon, for the checks that run on their own. `files`:
  * the worktree's env files when they were just listed (else they're listed now). Same answer.
  */
 export async function envChangesAsync(
@@ -271,7 +271,7 @@ export function followMainEnv(worktree: string, main: string, snapshot: Readonly
   return { updated, snapshot: next };
 }
 
-/** followMainEnv without blocking the daemon (ACME-406): `mainFiles` as the main folder's scan listed them. Same result. */
+/** followMainEnv without blocking the daemon: `mainFiles` as the main folder's scan listed them. Same result. */
 export async function followMainEnvAsync(worktree: string, main: string, snapshot: Readonly<Record<string, string>>, mainFiles: readonly string[]): Promise<{ updated: string[]; snapshot: Record<string, string> }> {
   const next = { ...snapshot };
   const updated: string[] = [];

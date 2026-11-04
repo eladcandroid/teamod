@@ -1,5 +1,5 @@
 /**
- * What an agent runtime does instead where it can't do what Claude does (ACME-461): one reason per
+ * What an agent runtime does instead where it can't do what Claude does: one reason per
  * feature, said in the UI where that feature is (greyed with the reason, or the reason beside a
  * control that still works another way), never a dead control. docs/parity.md's "Agent runs, per
  * runtime" table names each one as `fallback:<id>`, and tests/parity.test.ts checks the two agree

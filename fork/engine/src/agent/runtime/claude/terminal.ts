@@ -115,7 +115,7 @@ function writeMcpConfig(servers: unknown, home: string = teamodHome()): { file: 
 }
 
 /**
- * Claude Code's own terminal app on a workspace's conversation (ACME-534), as a chat run would have
+ * Claude Code's own terminal app on a workspace's conversation, as a chat run would have
  * it: the same session, teamod's tools (served for it over the tool host, as Codex's are), teamod's
  * instructions with the terminal's (visuals as tokens), your user settings only (never a project's
  * .claude/), edits without asking in a worktree, and teamod's rules as a PreToolUse hook.
@@ -162,7 +162,7 @@ export async function claudeTerminal(input: AgentRunInput, sink: TerminalSink, o
       ...(autoEdit ? ['--permission-mode', 'acceptEdits'] : []),
       ...(model ? ['--model', model] : []),
       ...extraDirs.flatMap((d) => ['--add-dir', d]),
-      // The message you sent from the chat, as the terminal's first prompt (ACME-553); after `--`, so
+      // The message you sent from the chat, as the terminal's first prompt; after `--`, so
       // a list option before it (--add-dir) doesn't take it, and a leading "-" stays words.
       ...(input.prompt ? ['--', input.prompt] : []),
     ];

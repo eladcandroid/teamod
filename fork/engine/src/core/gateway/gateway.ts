@@ -39,7 +39,7 @@ export interface GatewayDeps {
   /** Where scratch folders go when `dir` is null. */
   readonly scratch?: string;
   readonly agent: () => AgentBackend | undefined;
-  /** Whether this Mac runs that agent now (a friend asked for one your card lists, ACME-503). Unset: only your default. */
+  /** Whether this Mac runs that agent now (a friend asked for one your card lists). Unset: only your default. */
   readonly runs?: (agent: AgentRef) => boolean;
   /** Ask you (today's approval cards, linked to the task they're about), with a way to take the question back. */
   readonly approve: (kind: 'request' | 'tool', title: string, detail: string, peer: string, task?: string, opts?: ApproveOpts) => Pending;
@@ -101,7 +101,7 @@ export interface AskInput {
   readonly answer?: string;
   /** A turn of a chaired dialogue (core/dialogues): only the chair sets it, never an agent's tools. */
   readonly dialogue?: DialogueEnvelope;
-  /** ask: which of their agents (their card lists it), ACME-503. Unset: their default. */
+  /** ask: which of their agents (their card lists it). Unset: their default. */
   readonly agent?: AgentRef;
 }
 
@@ -150,7 +150,7 @@ const TICK_MS = 10_000;
 const SILENT_MS = 24 * 3600_000;
 const DEFAULT_CONFIRM_MS = 10 * 60_000;
 const MAX_STEPS = 12;
-/** Requests one conversation's Claude may send the same person in a while (ACME-427: no asking on and on). */
+/** Requests one conversation's Claude may send the same person in a while (no asking on and on). */
 const MAX_AGENT_ASKS = 3;
 const AGENT_ASKS_WINDOW_MS = 10 * 60_000;
 
@@ -214,7 +214,7 @@ export class Gateway {
       access: { decide: (facts, trust) => this.rules.decide(facts, trust), remember: (facts, name, d) => this.rules.remember(facts, name, d), capabilities: () => this.rules.capabilities() },
       ...(deps.serveShell ? { serveShell: deps.serveShell } : {}),
       projectRoot: deps.projectRoot,
-      // The label is the agent that runs it (ACME-503): Settings' model is Claude's, never another agent's.
+      // The label is the agent that runs it: Settings' model is Claude's, never another agent's.
       agentRef: () => {
         const st = deps.store.getState();
         const ref = defaultAgentOf(st.self);
@@ -374,7 +374,7 @@ export class Gateway {
     if (unable) throw new Error(unable);
     // Your Claude asking the same person's Claude again and again from one conversation: it stops and tells you instead.
     // (Commands and files are one step each, asked about on their side: not counted.)
-    // A declared dialogue (ACME-468) is one unit: its own turn cap governs it, counted here once per
+    // A declared dialogue is one unit: its own turn cap governs it, counted here once per
     // turn, and its asks don't count toward the limit for undeclared ones.
     if (input.dialogue) {
       if (kind !== 'ask') throw new Error('A dialogue turn is an ask');
@@ -433,7 +433,7 @@ export class Gateway {
   }
 
   /**
-   * A dialogue stopped on this side (ACME-468): its turn in flight with them stops (sent: cancelled;
+   * A dialogue stopped on this side: its turn in flight with them stops (sent: cancelled;
    * received: halted), and their side hears so it ends there too, between turns as well. They hear
    * of the stop before the halted turn's result: read first, that result would end it there as a
    * failed turn instead (frames to one person arrive in order, but not always in one read).
@@ -457,7 +457,7 @@ export class Gateway {
   }
 
   /**
-   * Chaired dialogues (core/dialogues, ACME-468), plugged in once both are up: a friend's dialogue
+   * Chaired dialogues (core/dialogues), plugged in once both are up: a friend's dialogue
    * turn came in or ended here (this side's thread shows it), one was stopped on the other side,
    * and whether one was stopped here (its next turns are declined).
    */
@@ -740,7 +740,7 @@ export class Gateway {
   }
 
   /**
-   * Where both of you see a task's card (ACME-208): the channel it was asked from, when they're in it
+   * Where both of you see a task's card: the channel it was asked from, when they're in it
    * too, else your DM with them. Only between friends (the network carries the card).
    */
   private chatFor(task: TaskView): string | undefined {
@@ -1032,7 +1032,7 @@ export class Gateway {
     const note = state.gateway.note;
     const projects = this.deps.projects().slice(0, 60);
     const claude = Boolean(this.deps.agent());
-    // Your plan usage, for those you share it with (Settings › Friends; ACME-597).
+    // Your plan usage, for those you share it with (Settings › Friends).
     const usages = usagesOf(state.peers.find((p) => p.peerId === self) ?? state.self).slice(0, 8);
     for (const id of people) {
       if (!this.courier.reach(id)) continue;

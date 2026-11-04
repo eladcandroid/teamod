@@ -106,7 +106,7 @@ export function isSecretPath(p: string): boolean {
 const KEYCHAINS = /(^|[\\/])library[\\/]keychains([\\/]|$)/i;
 
 /**
- * A secret no approval sends (ACME-209): teamod's own private files in ~/.teamod (your identity,
+ * A secret no approval sends: teamod's own private files in ~/.teamod (your identity,
  * settings, rules, trust choices, history) and the keychains. Other secrets can go to a friend
  * when you approve that one request.
  */

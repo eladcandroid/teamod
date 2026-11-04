@@ -3,7 +3,7 @@ import type { McpServerRow, McpSignIn, McpTurned } from '../../../shared/mcp.js'
 import type { CodexConnection } from './app-server.js';
 
 /**
- * Your Codex MCP servers for Settings › Agent › MCP servers (ACME-518), through Codex's own
+ * Your Codex MCP servers for Settings › Agent › MCP servers, through Codex's own
  * app-server, so they're what your Codex runs get (they read ~/.codex/config.toml themselves):
  *  - the list: `mcpServerStatus/list` (each server tried, its tools and sign-in state), with
  *    `config/read` for which are turned off and where each is set (yours or a project's);

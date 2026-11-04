@@ -7,7 +7,7 @@ import { expandVisuals } from '../shared/term-visuals.js';
 import type { LogItem } from './store.js';
 
 /**
- * The agent's terminal turns, back into the chat (ACME-534). What you and Claude say in Claude
+ * The agent's terminal turns, back into the chat. What you and Claude say in Claude
  * Code's own terminal app is written by it to its transcript (~/.claude/projects/…/<session>.jsonl).
  * teamod reads what was added since the terminal opened and shows it as the chat's own turns,
  * visuals drawn where their tokens were.

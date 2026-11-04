@@ -6,7 +6,7 @@ import { placeOf } from './watch.js';
 
 /**
  * Codex sessions running outside teamod (the Codex app, `codex` in a terminal), for Activity like
- * Claude Code's (ACME-455). Codex writes each session to ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl;
+ * Claude Code's. Codex writes each session to ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl;
  * this reads the recent ones (only what was added since the last look) and never writes there.
  * teamod's own Codex runs (originator "teamod") show in their chats instead, so they're left out.
  */

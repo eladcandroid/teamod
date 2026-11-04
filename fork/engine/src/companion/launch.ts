@@ -46,7 +46,7 @@ class OutputCache {
     private readonly changed: () => void,
   ) {}
 
-  // Your Mac's chats share its folder, so its outputs (ACME-102).
+  // Your Mac's chats share its folder, so its outputs.
   get = (channel: string): readonly ConvOutput[] => this.cache.get(isAssistant(channel) ? ASSISTANT_CHANNEL : channel) ?? [];
 
   watch(channels: readonly string[], linked: boolean): void {
@@ -162,7 +162,7 @@ export function launchCompanion(opts: CompanionLaunch): () => Promise<void> {
     thumbsDir: path.join(dir, 'companion', 'thumbs'),
     macrosFile: path.join(dir, 'phone-macros.json'),
     outputs: outputs.get,
-    // A kept table's documents and storage objects, streamed to the phone from memory (ACME-386).
+    // A kept table's documents and storage objects, streamed to the phone from memory.
     documents: (d) => {
       const sn = needSentinel(opts.session);
       if (d.run !== undefined) return Promise.resolve(sn.runFileBytes(d.run, d.name));
@@ -182,7 +182,7 @@ export function launchCompanion(opts: CompanionLaunch): () => Promise<void> {
   });
   attachCompanion(opts.session, host);
   void host.start().catch((err: unknown) => opts.log?.(`companion: could not start: ${String(err)}`));
-  // A phone on this Mac's USB: set up by itself, or what to switch on said in Settings › Phone (ACME-190).
+  // A phone on this Mac's USB: set up by itself, or what to switch on said in Settings › Phone.
   if (!opts.demo) host.watchCable();
   return async () => {
     outputs.stop();

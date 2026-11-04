@@ -26,7 +26,7 @@ export interface TeamOffer {
   readonly repo: string;
   readonly state: TeamOfferState;
   readonly at: number;
-  /** Who's on their team already (their invite said so, ACME-510), or on yours (you'd bring them in). */
+  /** Who's on their team already (their invite said so), or on yours (you'd bring them in). */
   readonly team?: readonly string[];
 }
 
@@ -35,7 +35,7 @@ export interface Teammate {
   readonly name: string;
   readonly since: number;
   /**
-   * On the team through others (ACME-510): you two didn't team up yourselves, and may not be friends.
+   * On the team through others: you two didn't team up yourselves, and may not be friends.
    * Tasks and their changes reach them all the same; a chat or a worktree can only be shared with a friend.
    */
   readonly indirect?: true;
@@ -45,9 +45,9 @@ export interface Teammate {
 export interface ProjectTeam {
   readonly projectId: string;
   readonly repo: string;
-  /** Everyone on the team but you: those you teamed up with, and those on it through them (ACME-510). */
+  /** Everyone on the team but you: those you teamed up with, and those on it through them. */
   readonly mates: readonly Teammate[];
-  /** Friends of yours with the repository who aren't on the team: anyone on it can invite them (ACME-510). */
+  /** Friends of yours with the repository who aren't on the team: anyone on it can invite them. */
   readonly invitable?: ReadonlyArray<{ readonly peerId: string; readonly name: string; readonly state?: TeamOfferState }>;
 }
 
@@ -115,7 +115,7 @@ export interface TeamWaiting {
 }
 
 /**
- * A teammate knocking on one of your worktrees (ACME-416): they see you're on a task and ask to
+ * A teammate knocking on one of your worktrees: they see you're on a task and ask to
  * join the worktree doing it. You let them in as a viewer or an editor, or say not now.
  */
 export interface TeamKnock {
@@ -159,13 +159,13 @@ export interface TeamState {
   readonly teams: Readonly<Record<string, ProjectTeam>>;
   /** Task id → teammates working on it now ("Ata is working on this"); `running`: their Claude is at work there. */
   readonly working: Readonly<Record<string, ReadonlyArray<{ readonly peerId: string; readonly name: string; readonly running?: true }>>>;
-  /** Task id → teammates who don't have its latest change yet (ACME-273); a task everyone has isn't here. */
+  /** Task id → teammates who don't have its latest change yet; a task everyone has isn't here. */
   readonly waiting: Readonly<Record<string, readonly TeamWaiting[]>>;
   readonly assigned: readonly TeamAssignment[];
   readonly plans: readonly SharedPlan[];
   /** Plan id → who it's shared with and their reviews. */
   readonly planShares: Readonly<Record<string, MyPlanShare>>;
-  /** Teammates knocking on your worktrees, oldest first (ACME-416). */
+  /** Teammates knocking on your worktrees, oldest first. */
   readonly knocks?: readonly TeamKnock[];
   /** Your knocks on teammates' worktrees, newest first. */
   readonly myKnocks?: readonly MyKnock[];
@@ -195,7 +195,7 @@ export function reduceTeam(state: TeamSlice, action: TeamAction): TeamSlice {
 export const teammatesOf = (team: TeamState, projectId: string): readonly Teammate[] => team.teams[projectId]?.mates ?? [];
 
 /**
- * Whether a project's task can be given to someone (ACME-299): you, or a teammate on that project.
+ * Whether a project's task can be given to someone: you, or a teammate on that project.
  * Friends you haven't teamed up with on it can't have its tasks; no one (unassigned) always can.
  */
 export const canAssign = (team: TeamState, projectId: string, self: string, peerId: string | undefined): boolean => !peerId || peerId === self || teammatesOf(team, projectId).some((m) => m.peerId === peerId);
@@ -250,7 +250,7 @@ export interface TeammateOn {
   readonly words: string;
 }
 
-/** Who of your teammates is on a task (ACME-224): what an issue's row says, and what starting it asks about. */
+/** Who of your teammates is on a task: what an issue's row says, and what starting it asks about. */
 export function teammateOn(team: TeamState, issue: Pick<Issue, 'id' | 'projectId' | 'assignee' | 'github'>, self: string): TeammateOn | undefined {
   const mates = teammatesOf(team, issue.projectId);
   const what = issue.github ? `${issue.github.step === 'fix' ? 'fixing' : issue.github.step === 'investigate' ? 'investigating' : 'working on'} #${issue.github.number}` : 'working on this';
@@ -288,7 +288,7 @@ export function myKnockWords(k: Pick<MyKnock, 'name' | 'state' | 'role'>): strin
 export const knockWords = (k: Pick<TeamKnock, 'name' | 'worktree'>): string => `${k.name} is knocking: they’d like to join ${k.worktree}`;
 
 /**
- * A conversation's "Share with Team" (ACME-226): each teammate and whether this worktree is shared
+ * A conversation's "Share with Team": each teammate and whether this worktree is shared
  * with them now (friend-share's members). Conversations are private until you pick someone.
  */
 export function teamShareChoices(team: TeamState, members: Readonly<Record<string, unknown>> | undefined, projectId: string): { readonly mates: ReadonlyArray<Teammate & { readonly shared: boolean }>; readonly sharedWith: readonly string[] } {

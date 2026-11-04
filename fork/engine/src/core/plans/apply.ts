@@ -64,7 +64,7 @@ function applyInto(plan: Plan, board: Board, actors: ApplyActors, linked: Map<st
   for (const { task, milestone } of allTasks(draft)) {
     const link = { id: plan.id, milestone: milestone.id, task: task.id };
     const fresh = waiting.has(milestone.id) ? 'backlog' : 'todo';
-    // Yours is assigned to you; Claude's is no one's (a task is for a person, ACME-278): who's on it shows while it runs.
+    // Yours is assigned to you; Claude's is no one's (a task is for a person): who's on it shows while it runs.
     const assignee = task.assignee === 'me' ? actors.me : undefined;
     const existing = issueOf.get(task.id);
     if (!existing) {

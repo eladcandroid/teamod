@@ -66,7 +66,7 @@ export interface ChatAsk {
 }
 
 /**
- * A task between Claudes this message stands for (ACME-208): each side draws its card from its own
+ * A task between Claudes this message stands for: each side draws its card from its own
  * task book by `id` (the requester's and the receiver's both know it), so it updates as the task goes.
  */
 export interface ChatTaskRef {
@@ -156,7 +156,7 @@ export interface InvitationView {
 }
 
 /**
- * A friend request between two people in the same room (ACME-202): one they sent you (`in`,
+ * A friend request between two people in the same room: one they sent you (`in`,
  * Accept makes you friends), or one you sent them (`out`, waiting for them). The invitation
  * link itself stays in the daemon.
  */
@@ -166,7 +166,7 @@ export interface FriendOfferView {
   readonly dir: 'in' | 'out';
   readonly at: number;
   readonly expiresAt: number;
-  /** Asked through a team you're both on, not a room (ACME-510): its repository ("acme/api"). */
+  /** Asked through a team you're both on, not a room: its repository ("acme/api"). */
   readonly via?: string;
 }
 
@@ -216,7 +216,7 @@ export interface LiveClaude {
   /** The message it answers. */
   readonly for: string;
   readonly since: number;
-  /** Which agent (ACME-498: its mark); an older Mac's leaves it out: Claude. */
+  /** Which agent (its mark); an older Mac's leaves it out: Claude. */
   readonly agent?: AgentRef;
 }
 
@@ -229,7 +229,7 @@ export interface NetworkState extends NetworkSummary {
   readonly live?: Readonly<Record<string, readonly LiveClaude[]>>;
   /** Your main channel (a group with all your friends), once it exists. */
   readonly main?: string;
-  /** Friend requests with people in your room, both ways (ACME-202). */
+  /** Friend requests with people in your room, both ways. */
   readonly offers?: readonly FriendOfferView[];
 }
 

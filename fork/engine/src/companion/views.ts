@@ -182,8 +182,8 @@ interface Conversation {
 }
 
 /**
- * "Your Mac" (ACME-47, core/assistant): your Claude for the whole Mac, not in any project. Since
- * ACME-102 it has chats (the Mac's tabs): each its own conversation, named by its tab when there
+ * "Your Mac" (core/assistant): your Claude for the whole Mac, not in any project. Since
+ * it has chats (the Mac's tabs): each its own conversation, named by its tab when there
  * are more than one; the open one is Home's Ask your Mac.
  */
 function assistantConversations(state: DomainState): Conversation[] {
@@ -198,7 +198,7 @@ const openAssistant = (state: DomainState): Conversation => {
   return assistantConversations(state).find((c) => c.channel === channel) ?? { channel, title: ASSISTANT_TITLE, mine: true };
 };
 
-/** Your Mac's chats for the phone's list (1.14): in tab order, each titled by its tab; a sentinel run's are on its run (ACME-566). */
+/** Your Mac's chats for the phone's list (1.14): in tab order, each titled by its tab; a sentinel run's are on its run. */
 function macChatSummaries(state: DomainState, waiting: ReadonlySet<string>, ctx?: ViewContext): ConvSummary[] {
   return state.assistant.chats.filter((c) => !c.auto).slice(0, 40).flatMap((c) => summaryOf(state, { channel: c.channel, title: assistantChatTitle(c.channel, state.log, 60), mine: true }, waiting, ctx) ?? []);
 }
@@ -214,7 +214,7 @@ export function phoneChannel(state: DomainState, channel: string): string {
 
 /**
  * Every conversation the phone can open: Your Mac, your workspaces (not archived), the ones shared
- * with you, and the room's. A project's main checkout is none (ACME-70): its conversations are the
+ * with you, and the room's. A project's main checkout is none: its conversations are the
  * chats and worktrees you started (an old main conversation became one of its chats).
  */
 export function conversations(state: DomainState): Conversation[] {
@@ -327,7 +327,7 @@ function ccAgents(state: DomainState, channel: string): Map<string, CcAgent> {
 function subView(sub: SubAgent, outputs: readonly OutputView[], cc?: CcAgent): SubAgentView {
   const steps = sub.steps.filter((s) => !HIDDEN_STEP.test(s));
   const last = steps.at(-1);
-  // Still at work when Claude Code sees it working, though its run counted it done (ACME-110: its
+  // Still at work when Claude Code sees it working, though its run counted it done (its
   // turn ended while it works on in the background): the phone shouldn't say nothing happens.
   const status = sub.status === 'done' && cc?.status === 'running' ? 'running' : sub.status;
   // What it's doing now: Claude Code's own words for it when it's watched, else its last step.
@@ -412,9 +412,9 @@ function liveStep(item: AgentItem): string | undefined {
 }
 
 /**
- * A conversation's items with your steered messages as the Mac draws them (ACME-54): one Claude
+ * A conversation's items with your steered messages as the Mac draws them: one Claude
  * hasn't read yet says so on the message, and the note cards about them aren't turns. What waits
- * in the queue above the composer (queueOf) isn't a turn yet; once it runs, it's where it ran (ACME-317).
+ * in the queue above the composer (queueOf) isn't a turn yet; once it runs, it's where it ran.
  */
 function withSteers(state: DomainState, all: readonly LogItem[]): Array<{ item: LogItem; steer?: SteeredMessage }> {
   const me = myId(state);
@@ -423,7 +423,7 @@ function withSteers(state: DomainState, all: readonly LogItem[]): Array<{ item: 
   return items.flatMap((item) => (notes.has(item.id) ? [] : [{ item, ...(waiting.has(item.id) ? { steer: waiting.get(item.id)! } : {}) }]));
 }
 
-/** Your message, editable from the phone (ACME-387): in a worktree or chat of yours, its words whole as shown (no code taken out). */
+/** Your message, editable from the phone: in a worktree or chat of yours, its words whole as shown (no code taken out). */
 function editOf(state: DomainState, channel: string, text: string, prose: ProseView): TurnView['edit'] {
   if (!channel.startsWith('ws:') || prose.code.length || prose.text !== text) return undefined;
   const id = channel.slice(3);
@@ -441,7 +441,7 @@ function turnOf(state: DomainState, item: LogItem, outputs: readonly OutputView[
   }
   if (item.type === 'system') {
     // Earlier lines of a shared workspace's conversation ("bob: …") read as that person's turn.
-    // A dialogue's header (ACME-466): the card the Mac draws, in words, with Stop / Continue.
+    // A dialogue's header: the card the Mac draws, in words, with Stop / Continue.
     if (item.dialogue) {
       const d = state.dialogues[item.dialogue.id];
       if (!d) return undefined;
@@ -707,13 +707,13 @@ export function convView(state: DomainState, ctx: ViewContext, topic: Topic): Co
   };
 }
 
-/** The Mac's terminal view drives this conversation (ACME-534): who, so the phone can say so and take it back. */
+/** The Mac's terminal view drives this conversation: who, so the phone can say so and take it back. */
 function terminalOf(state: DomainState, channel: string): Pick<ConvView, 'terminal'> {
   const term = channel.startsWith('ws:') ? state.agentTerms[channel.slice(3)] : undefined;
   return term ? { terminal: { label: clip(term.label, 80) } } : {};
 }
 
-/** The room's agent tags for "@" (ACME-520): yours that run here, and each person's their card lists. */
+/** The room's agent tags for "@": yours that run here, and each person's their card lists. */
 function tagsOf(state: DomainState, channel: string): Pick<ConvView, 'tags'> {
   if (channel !== 'room') return {};
   const tags = roomAgentTags(state.peers, state.selfId, state.runtimes).slice(0, 40);
@@ -728,7 +728,7 @@ function pickerOf(state: DomainState, channel: string, mine: boolean): { agent?:
 }
 
 /**
- * 1.35 (ACME-498): the list a task's or a plan's agent is picked from: your default agent's runtime
+ * 1.35: the list a task's or a plan's agent is picked from: your default agent's runtime
  * first, `ref` (the task's or plan's own pick; none: your default) the one marked on.
  */
 function workPicker(state: DomainState, ref: AgentRef | undefined): AgentPickerView {
@@ -877,7 +877,7 @@ export function planPageView(state: DomainState, id: string): PlanView | undefin
       .filter((n) => n.topic === topic || (home && n.topic === home))
       .slice(0, 20),
 
-    // 1.35 (ACME-498): who works its milestones and tasks (none: your default), and the list to change it from.
+    // 1.35: who works its milestones and tasks (none: your default), and the list to change it from.
     ...(plan.agent ? { agent: agentRefView(plan.agent) } : {}),
     ...(plan.status !== 'done' ? { agents: workPicker(state, plan.agent) } : {}),
   };
@@ -888,7 +888,7 @@ export function planPageView(state: DomainState, id: string): PlanView | undefin
 /** The board's tasks the phone shows: not archived, of a project you have. */
 const boardIssues = (state: DomainState): Issue[] => (state.board.enabled ? state.board.issues.filter((i) => !isArchived(i) && state.projects.some((p) => p.id === i.projectId)) : []);
 
-/** "you", "Mia": who has it, from where you look (a task is for a person, ACME-278). */
+/** "you", "Mia": who has it, from where you look (a task is for a person). */
 const assigneeWords = (state: DomainState, i: Issue): string | undefined => {
   if (!i.assignee) return undefined;
   const name = assigneeName(i.assignee, myId(state));
@@ -968,7 +968,7 @@ export function tasksView(state: DomainState, ctx?: ViewContext): TasksView {
   // The board with the latest change first.
   const latest = (id: string): number => Math.max(0, ...issues.filter((i) => showsOn(i, id)).map((i) => i.updatedAt));
   const sorted = projects.sort((a, b) => latest(b.id) - latest(a.id)).slice(0, 100);
-  // Every other task by key, title and status (ACME-109): a key in Claude's words is a chip even when the list leaves it out.
+  // Every other task by key, title and status: a key in Claude's words is a chip even when the list leaves it out.
   const listed = new Set(sorted.flatMap((p) => p.groups.flatMap((g) => g.tasks.map((t) => t.id))));
   const others = issues
     .filter((i) => !listed.has(i.id) && taskTopic(i.id))
@@ -1006,7 +1006,7 @@ export function taskPageView(state: DomainState, id: string, ctx?: ViewContext):
       id: clip(a.id, 200),
       at: Math.round(a.at),
       who: clip(actorName(a.by, me), 80),
-      // An agent's line says which agent (ACME-498); an entry from before agents were named: Claude.
+      // An agent's line says which agent; an entry from before agents were named: Claude.
       ...(a.by.kind === 'claude' ? { agent: a.by.agent ?? CLAUDE_AGENT } : {}),
       text: clip(plainLine(activityText(a, me), 500), 500),
       ...(a.body ? { body: words(a.body, 8000) } : {}),
@@ -1015,7 +1015,7 @@ export function taskPageView(state: DomainState, id: string, ctx?: ViewContext):
     ...(worktree ? { worktree: clip(worktree, 200) } : {}),
     ...(i.pr ? { pr: { number: i.pr.number, state: i.pr.state, title: clip(plainLine(i.pr.title, 300), 300), checks: i.pr.checks } } : {}),
     moves: MOVES.filter((s) => s !== i.status).map((s) => ({ status: s, label: STATUS_INFO[s].label })),
-    // Who works it (ACME-498), shown only (ACME-569): with a worktree on it, the agent and model running
+    // Who works it, shown only: with a worktree on it, the agent and model running
     // there (changed in its conversation); else its own (none: your default). The list is for Start with….
     ...(live ? { agent: agentRefView(live) } : i.agent ? { agent: agentRefView(i.agent) } : {}),
     ...(isStartable(i) ? { agents: workPicker(state, i.agent) } : {}),
@@ -1150,7 +1150,7 @@ function tileView(s: SentinelState, d: Dashboard, t: Tile, ctx?: ViewContext): D
     return { ...base, output: { look, text: clip(text, 16_000), ...(o.cut || text.length > 16_000 ? { cut: true } : {}) }, ...(o.runId ? { runId: clip(o.runId, 200) } : {}), ...(o.at ? { at: Math.round(o.at) } : {}) };
   }
   if (t.kind === 'table' && m?.rows) {
-    // The tile's own order, headings and hidden columns (ACME-347); a storage chip's bucket and path columns stay out.
+    // The tile's own order, headings and hidden columns; a storage chip's bucket and path columns stay out.
     const present = m.columns?.length ? m.columns : Object.keys(m.rows[0] ?? {});
     const quiet = new Set(storageSources(m.columnTypes, present));
     const typedBy = new Map((m.columnTypes ?? []).map((c) => [c.key, c]));
@@ -1161,7 +1161,7 @@ function tileView(s: SentinelState, d: Dashboard, t: Tile, ctx?: ViewContext): D
       const ty = typedBy.get(c.key);
       if (!ty) return [];
       const values = rows.map((r) => (typeof r[c.key] === 'string' && r[c.key] ? clip(String(r[c.key]), 1200) : null));
-      // A document or storage object goes as a ref the phone streams; the Mac reads or fetches it when asked (ACME-386).
+      // A document or storage object goes as a ref the phone streams; the Mac reads or fetches it when asked.
       const refs = ctx?.refs;
       const docs = refs?.docRef && (isDocumentKind(ty.type) || ty.type === 'storage') ? values.map((v) => (v ? { ref: refs.docRef!({ sentinelId: m.sentinelId, metric: m.name, column: c.key, value: v }), name: clip(ty.type === 'storage' ? storageName(v) : v, 256), mime: documentMime(ty.type === 'storage' ? storageName(v) : v) } : null)) : undefined;
       return [{ col, key: clip(c.key, 80), kind: ty.type, values, ...(docs ? { docs } : {}), ...(ty.max !== undefined ? { max: ty.max } : {}), ...(ty.better ? { better: ty.better } : {}), ...(ty.button?.trim() ? { button: clip(ty.button.trim(), 60) } : {}) }];
@@ -1212,7 +1212,7 @@ function sentinelRunView(s: SentinelState, sn: Sentinel, r: RunSummary, ctx?: Vi
   const step = live && isLive(r.state) ? sn.steps.find((st) => st.id === live)?.name : undefined;
   const report = r.report ? ctx?.refs.output(r.report, r.endedAt !== undefined ? { ts: r.endedAt } : {}) : undefined;
   // Its Claude's conversation (the live one first): a workspace chat or Your Mac's, the ones the phone opens.
-  // A chat its sentinel put away (ACME-566) isn't offered; its worktree's always is.
+  // A chat its sentinel put away isn't offered; its worktree's always is.
   const chats = r.steps.filter((x) => x.channel && /^(ws:|mac:assistant)/.test(x.channel) && (!r.putAway || x.channel === `ws:${r.worktreeId}`));
   const chat = (chats.find((x) => x.state === 'running') ?? chats.at(-1))?.channel;
   return {
@@ -1316,14 +1316,14 @@ function messageView(state: DomainState, ctx: ViewContext, m: MessageView): Chat
   };
 }
 
-/** A task's card in a chat (ACME-208), from this Mac's task book; someone the task isn't between sees just the words. */
+/** A task's card in a chat, from this Mac's task book; someone the task isn't between sees just the words. */
 function chatTaskOf(state: DomainState, m: MessageView): ChatMessageView['task'] {
   const t = m.task ? state.gateway.tasks.find((x) => x.id === m.task?.id) : undefined;
   if (!t) return undefined;
   const title = t.direction === 'sent' ? `To ${targetLabel(t)}` : `From ${t.peerName}${t.by === 'agent' ? '’s agent' : ''}`;
   const summary = t.result?.summary ? plainLine(stripCode(t.result.summary).text, 600) : '';
   const files = (t.result?.files ?? []).map((f) => clip(f.name, 200)).slice(0, 8);
-  // Whose it is, as the Mac's chat heads it (ACME-210): "Your Claude · asked ata’s Claude", "mia’s Claude · asked your Mac".
+  // Whose it is, as the Mac's chat heads it: "Your Claude · asked ata’s Claude", "mia’s Claude · asked your Mac".
   const sent = t.direction === 'sent';
   const owner = t.by === 'agent' ? (sent ? 'Your agent' : `${t.peerName}’s agent`) : sent ? 'You' : t.peerName;
   const who = `${owner} · asked ${sent ? targetLabel(t) : t.kind === 'ask' ? 'your agent' : 'your Mac'}`;
@@ -1340,7 +1340,7 @@ function chatTaskOf(state: DomainState, m: MessageView): ChatMessageView['task']
   };
 }
 
-/** A friend's Claude, answering a message of yours, offers to do it on their Mac as a request (unless your Mac sent it already: ACME-353). */
+/** A friend's Claude, answering a message of yours, offers to do it on their Mac as a request (unless your Mac sent it already:). */
 function offerOf(state: DomainState, m: MessageView): ChatMessageView['offer'] {
   const request = m.claude?.request;
   if (!request || m.mine || !state.network.messages[m.conversation]?.some((x) => x.id === m.claude?.for && x.mine)) return undefined;
@@ -1382,7 +1382,7 @@ export function chatView(state: DomainState, ctx: ViewContext, topic: Topic): Ch
   };
 }
 
-/** Who's in a chat and what their Claudes do (ACME-210), as the Mac's header says it. */
+/** Who's in a chat and what their Claudes do, as the Mac's header says it. */
 function chatPeopleOf(state: DomainState, conversation: string, dm: PersonView | undefined, group: { members: readonly (PersonView & { self: boolean })[] } | undefined) {
   const net = state.network;
   const others = dm ? [dm] : (group?.members ?? []).filter((m) => !m.self);
@@ -1415,7 +1415,7 @@ export function peopleView(state: DomainState): PeopleView {
     people: state.network.friends.slice(0, 600).map((f) => {
       const peer = state.peers.find((p) => p.peerId === f.peerId);
       const card = state.gateway.cards[f.peerId];
-      // In your room: their room profile's; else what their card shares with you (ACME-597).
+      // In your room: their room profile's; else what their card shares with you.
       const inRoom = Boolean(peer?.usage || peer?.usages?.length);
       const usage = usageViews(inRoom ? peer : card?.usages?.length ? { usages: [...card.usages] } : undefined, defaultAgentOf(peer))[0];
       const chat = chatTopic(`dm:${f.peerId}`);
@@ -1435,7 +1435,7 @@ export function peopleView(state: DomainState): PeopleView {
 }
 
 /**
- * 1.26 (ACME-361): every board tile in words, for the phone's Home-screen widgets: the snapshot the
+ * 1.26: every board tile in words, for the phone's Home-screen widgets: the snapshot the
  * Mac's desktop widgets read (src/core/sentinel/widgets.ts), each project's icon as its checksum.
  */
 export function widgetsView(state: DomainState, ctx?: ViewContext): WidgetsView {

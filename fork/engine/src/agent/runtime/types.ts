@@ -126,7 +126,7 @@ export interface RuntimeOptions {
 }
 
 /**
- * A one-shot side call (ACME-441): name a worktree, draft a task, answer room chat, fix a setup.
+ * A one-shot side call: name a worktree, draft a task, answer room chat, fix a setup.
  * No conversation, no saved session, no settings files, few or no tools, one answer.
  */
 export interface CompletionRequest {
@@ -192,7 +192,7 @@ export type RunSafety =
 /**
  * The safety rule as code: no per-tool gating ⇒ sandbox required (its secrets, .env files
  * included, kept out by the sandbox, not by asking). A guest can't run at all without gating; a
- * friend's task (vetTool) only on a runtime whose sandbox confines every step (ACME-452: Codex's
+ * friend's task (vetTool) only on a runtime whose sandbox confines every step (Codex's
  * workspace-write, network off, secrets unreachable; see runtime/codex/sandbox.ts).
  */
 export function safetyFor(caps: RuntimeCapabilities, input?: Pick<AgentRunInput, 'vetTool' | 'guest'>): RunSafety {

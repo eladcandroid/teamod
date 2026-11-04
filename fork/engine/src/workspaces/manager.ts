@@ -116,7 +116,7 @@ export class WorkspaceManager {
   branchPrefix: () => string = () => BRANCH_PREFIX;
 
   constructor(readonly store: WorkspaceStore = new WorkspaceStore()) {
-    // No standing main conversation (ACME-70): one from before becomes a chat in its project, once.
+    // No standing main conversation: one from before becomes a chat in its project, once.
     this.records = migrateMainConversations(store, store.loadRecords()).records;
     this.config = store.loadConfig();
   }
@@ -776,7 +776,7 @@ export class WorkspaceManager {
 
   /**
    * A workspace just made, listed at once: no re-scan of every project on the way to its first
-   * message (that took seconds with many projects, ACME-531). The next full refresh lists it as it
+   * message (that took seconds with many projects). The next full refresh lists it as it
    * finds it; one that began before it was made keeps it here until then.
    */
   private adopt(project: Project, ws: Workspace): Workspace {
@@ -904,7 +904,7 @@ export class WorkspaceManager {
   }
 
   /**
-   * A new chat beside a chat (ACME-385): in the same project (or its own scratch folder), with
+   * A new chat beside a chat: in the same project (or its own scratch folder), with
    * `history` as its conversation and `session` as Claude's (null: Claude starts fresh).
    */
   async forkChat(id: string, name: string, opts: { session: string | null; history: readonly unknown[] }): Promise<Workspace> {
@@ -1009,7 +1009,7 @@ export class WorkspaceManager {
     if (ws.kind === 'main') throw new WorkspaceError("The main folder can't be deleted from teamod");
     // Only ever delete teamod's own scratch folders, never a folder you started a chat in.
     const scratch = ws.projectRoot === '' && real(ws.path).startsWith(real(this.chatsDir) + path.sep);
-    // Claude Code's sessions for a folder of ours that's gone for good (ACME-532): another tool's folder keeps its own.
+    // Claude Code's sessions for a folder of ours that's gone for good: another tool's folder keeps its own.
     // Resolved while the folder is still there, so it's filed under the same spelling Claude Code used.
     const sessionsDir = real(ws.path);
     const ours = scratch || (ws.kind === 'worktree' && !ws.external && sessionsDir.startsWith(real(this.store.workspacesDir) + path.sep));
@@ -1111,7 +1111,7 @@ export class WorkspaceManager {
     this.patchRecord(id, { agent: undefined, model: undefined, effort: undefined, ...agentFields(agent) });
   }
 
-  /** After a quiet switch, the agent it came from (ACME-592); undefined once its recent conversation went along. */
+  /** After a quiet switch, the agent it came from; undefined once its recent conversation went along. */
   setCarry(id: string, from: string | undefined): void {
     this.require(id);
     this.patchRecord(id, { carryFrom: from });
@@ -1343,7 +1343,7 @@ export class WorkspaceManager {
   }
 
   /**
-   * Only the keys a worktree added that the main folder's file doesn't have at all (ACME-369): what
+   * Only the keys a worktree added that the main folder's file doesn't have at all: what
    * the code there needs to run, so the next worktree has it too. Changed and removed ones stay
    * for you to decide. Files you kept in the worktree are left alone. → the keys added, by file.
    */

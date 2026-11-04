@@ -5,7 +5,7 @@ import { EDGE_KINDS, GRAPH_FENCE, NODE_KINDS, STATUSES } from '../shared/graph-s
  * beats prose. The Mac app draws these blocks as interactive diagrams (docs/graphs.md).
  */
 export function buildGraphAppend(terminal = false): string {
-  // In the agent's own terminal (ACME-555) a fence would print as raw JSON: the graph goes through
+  // In the agent's own terminal a fence would print as raw JSON: the graph goes through
   // the show tool there, so no fenced example to copy.
   const fence = (line: string): string[] => (terminal ? [] : [line]);
   return [

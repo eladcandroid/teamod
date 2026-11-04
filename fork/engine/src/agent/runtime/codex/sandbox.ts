@@ -5,7 +5,7 @@ import type { AgentRunInput } from '../../types.js';
 import type { AskForApproval } from './protocol.js';
 
 /**
- * How a Codex run is confined (ACME-454). Codex runs its own commands and edits without asking
+ * How a Codex run is confined. Codex runs its own commands and edits without asking
  * teamod first (canGateEveryTool false), so what policy.ts would refuse per call, Codex's sandbox
  * makes unreachable instead: a permissions profile (Codex's `[permissions.<id>]`, macOS seatbelt)
  * that writes only to the run's folders, denies `.env` files, keys and credential stores outright,

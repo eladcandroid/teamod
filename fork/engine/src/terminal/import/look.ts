@@ -1,5 +1,5 @@
 /**
- * Bringing your terminal's look into teamod (ACME-212): what another terminal's settings come to,
+ * Bringing your terminal's look into teamod: what another terminal's settings come to,
  * in the terms teamod's own terminal has. Pure (the Mac app imports these types too).
  */
 
@@ -50,7 +50,7 @@ export interface TerminalLook {
   readonly scrollback?: number;
   /** Option (Alt) sends Meta (Esc+), instead of typing special characters. */
   readonly optionMeta?: boolean;
-  /** Its keys (new tab, splits, keys that type something), in teamod's terms (keys.ts, ACME-537). */
+  /** Its keys (new tab, splits, keys that type something), in teamod's terms (keys.ts). */
   readonly keys?: readonly import('./keys.js').ImportedKey[];
 }
 

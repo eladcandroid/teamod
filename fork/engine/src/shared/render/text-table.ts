@@ -1,5 +1,5 @@
 /**
- * Tables Claude writes as text (ACME-71): drawn with box characters (┌─┬─┐ │ ├─┼─┤ └─┴─┘), as a
+ * Tables Claude writes as text: drawn with box characters (┌─┬─┐ │ ├─┼─┤ └─┴─┘), as a
  * `+---+---+` grid with `|` rows, as pipe columns with a header rule (`a | b` over `--|--`), or as
  * columns lined up with spaces over a rule of dashes (`-----  -----`). Read into a heading and
  * rows, so a screen draws them with its table (the same one as Markdown tables and views); one

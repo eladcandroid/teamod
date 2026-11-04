@@ -13,11 +13,11 @@ import { hhmm } from '../../shared/clock.js';
 
 /**
  * Messages before the one to answer that are shown, and how many characters of them at most: a
- * short recent window (ACME-428). Claude reads further back itself (read_earlier) only when it needs to.
+ * short recent window. Claude reads further back itself (read_earlier) only when it needs to.
  */
 export const HISTORY_MESSAGES = 12;
 export const HISTORY_CHARS = 8_000;
-/** A turn with its tools (ACME-207) has no read_earlier: it gets the longer window it always had. */
+/** A turn with its tools has no read_earlier: it gets the longer window it always had. */
 export const ACT_HISTORY = { messages: 60, chars: 30_000 } as const;
 /** Messages written after the ask that are shown (the newest ones). */
 export const SINCE_MESSAGES = 20;
@@ -76,7 +76,7 @@ export interface ChatScene {
   /** Who asked, and whose Claudes they asked. */
   readonly asker: string;
   readonly askedAll: boolean;
-  /** The owner asked their own Claude, which has its tools here (ACME-207: a real turn, not a toolless answer). */
+  /** The owner asked their own Claude, which has its tools here (a real turn, not a toolless answer). */
   readonly tools?: boolean;
   /** Which agent answers (default: Claude): the prompt names it. */
   readonly agent?: AgentRef;

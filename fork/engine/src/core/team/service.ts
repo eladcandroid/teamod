@@ -18,13 +18,13 @@ import { type Member, TeamRosters } from './roster.js';
  * briefs, status, comments, who's on which issue), and plan drafts can be shared for review.
  * Chats and worktrees never travel (a conversation can be shared on purpose: friend-share).
  *
- * This part finds teammates and keeps who's in a team (ACME-221):
+ * This part finds teammates and keeps who's in a team:
  * - On every link to a friend, each side sends fingerprints of its GitHub projects keyed for that
  *   pair (fingerprint.ts). A match is an offer on both Macs ("Ata also works on acme/api").
  * - Saying yes sends an invite; the team forms only when both said yes (an `accept`, or two
  *   invites crossing, which settle on the smaller link id). Either can leave; Not Now hides the
  *   offer until they ask.
- * - Teaming up is done in pairs, but a team is the group those pairs join (ACME-510): a friend of
+ * - Teaming up is done in pairs, but a team is the group those pairs join: a friend of
  *   Ata's who teams up with Ata is on your team too. Every Mac keeps the group's roster
  *   (roster.ts, passed on over the links like the board), so anyone on the team sees everyone,
  *   any of them can invite a friend with the repository, and Leave Team leaves it for everyone.
@@ -44,12 +44,12 @@ export interface TeamMesh {
   sendTeam(peerId: string, payload: unknown): boolean;
   /** Mail what still waits before this Mac leaves the network. */
   onLeaving?(fn: () => Promise<unknown>): () => void;
-  /** Leave a frame in their mailbox (ACME-272; none: no mailbox). */
+  /** Leave a frame in their mailbox (none: no mailbox). */
   mail?(peerId: string, t: 'team', payload: unknown): Promise<boolean>;
   /** How long a frame waits for their link before it's mailed (undefined: no mailbox). */
   readonly mailAfterMs?: number | undefined;
   offer(features: readonly Feature[], on: boolean): void;
-  /** A one-time friend invitation only `for` can use (a friend request to a teammate, ACME-510). */
+  /** A one-time friend invitation only `for` can use (a friend request to a teammate). */
   createInvite?(opts: { ttlMs?: number; for?: string }): Promise<{ readonly id: string; readonly link: string; readonly expiresAt: number }>;
   on(event: 'team', fn: (from: string, payload: unknown) => void): unknown;
   on(event: 'link', fn: (peerId: string) => void): unknown;
@@ -66,7 +66,7 @@ export interface TeamDeps {
   readonly repoOf: (projectId: string) => Promise<GitHubRepo | undefined>;
   readonly notify?: (e: NoticeEvent) => void;
   readonly toast?: (text: string, level: 'info' | 'success' | 'warn' | 'error') => void;
-  /** Someone on a team of yours asked to be friends (ACME-510): shown like a friend request from a room. */
+  /** Someone on a team of yours asked to be friends: shown like a friend request from a room. */
   readonly onFriendAsk?: (ask: { readonly from: string; readonly name: string; readonly link: string; readonly expiresAt: number; readonly via: string }) => void;
   readonly now?: () => number;
 }
@@ -136,7 +136,7 @@ export class TeamBoards {
   private readonly befriended = new Set<string>();
   private stopped = false;
   readonly now: () => number;
-  /** Who's on each team (ACME-510). */
+  /** Who's on each team. */
   readonly rosters: TeamRosters;
 
   constructor(readonly deps: TeamDeps) {
@@ -146,7 +146,7 @@ export class TeamBoards {
     this.courier = new Courier<TeamMsg>(
       { isLinked: (p) => mesh.isLinked(p), send: (p, payload) => mesh.sendTeam(p, payload), parse: parseTeamFrame, mail: (p, payload) => mesh.mail?.(p, 'team', payload) ?? Promise.resolve(false), mailAfterMs: () => mesh.mailAfterMs },
       deps.dir ? path.join(deps.dir, 'team-outbox.json') : undefined,
-      // Who has which change shows on the tasks (ACME-273).
+      // Who has which change shows on the tasks.
       () => this.publish(),
     );
     this.courier.onMailed = () => this.publish();
@@ -292,7 +292,7 @@ export class TeamBoards {
   leave(projectId: string, peerId?: string): void {
     const gone = this.linksOf(projectId).filter((l) => !peerId || l.peerId === peerId);
     if (!gone.length) return;
-    // All of them (or the last ones you had): you're off the team for everyone, not only off these links (ACME-510).
+    // All of them (or the last ones you had): you're off the team for everyone, not only off these links.
     const all = gone.length === this.linksOf(projectId).length;
     for (const link of gone) {
       this.send(link.peerId, { k: 'leave', link: link.id, ...(all ? { all: true as const } : {}) });
@@ -306,7 +306,7 @@ export class TeamBoards {
   }
 
   /**
-   * Ask someone on a project's team who isn't your friend to be friends (ACME-510): a one-time
+   * Ask someone on a project's team who isn't your friend to be friends: a one-time
    * invitation only they can use, passed on by teammates until it reaches them. Nothing changes
    * unless they accept.
    */
@@ -358,7 +358,7 @@ export class TeamBoards {
     this.publish();
   }
 
-  // ------------------------------------------------------------------ the roster (ACME-510)
+  // ------------------------------------------------------------------ the roster
 
   /** A link is there: me and them on the roster (if not already), and the group's roster to everyone. */
   private onRoster(link: TeamLink, at: number): void {
@@ -521,7 +521,7 @@ export class TeamBoards {
         if (!prints.has(fingerprint(key, repo.key))) continue;
         if (this.linksOf(projectId).some((l) => l.peerId === peerId)) continue;
         // Friends who are on the team already (through others): linked without asking, so knocking
-        // and sharing a chat work between them too (ACME-510).
+        // and sharing a chat work between them too.
         if (this.rosters.of(projectId)[peerId]?.on && this.linksOf(projectId).length) {
           const rec = this.offers[keyOf(peerId, projectId)];
           if (rec?.state === 'asked' && rec.auto) continue;
@@ -560,7 +560,7 @@ export class TeamBoards {
       this.join(from, projectId, id, theirProject, rec.auto);
       return;
     }
-    // A friend already on this team with me (through others): yes without asking (ACME-510).
+    // A friend already on this team with me (through others): yes without asking.
     if (this.rosters.of(projectId)[from]?.on && this.linksOf(projectId).length) {
       this.send(from, { k: 'accept', print, link, project: this.projectName(projectId) });
       this.join(from, projectId, link, theirProject, true);
@@ -652,7 +652,7 @@ export class TeamBoards {
         const team = o.state === 'invited' ? o.team : this.teamNames(o.projectId);
         return { peerId: o.peerId, name: mesh.nameFor(o.peerId), projectId: o.projectId, repo: this.repos.get(o.projectId)!.label, state: o.state, at: o.at, ...(team?.length ? { team } : {}) };
       });
-    // A team is the whole group (ACME-510): your own links, and whoever the roster says is on it through them.
+    // A team is the whole group: your own links, and whoever the roster says is on it through them.
     const teams: Record<string, ProjectTeam> = {};
     for (const link of this.allLinks()) {
       const t = teams[link.projectId] ?? { projectId: link.projectId, repo: this.repos.get(link.projectId)?.label ?? this.projectName(link.projectId), mates: [] };

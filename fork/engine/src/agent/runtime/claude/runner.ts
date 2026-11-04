@@ -156,14 +156,14 @@ export function createClaudeBackend(opts: ClaudeBackendOptions): AgentBackend {
 
   return {
     async run(input: AgentRunInput): Promise<string> {
-      // The Mac app downloads Claude Code on first launch (ACME-384): a run that comes first waits for it.
+      // The Mac app downloads Claude Code on first launch: a run that comes first waits for it.
       await claudeCodeReady(({ got, total }) => input.onEvent('progress', `Getting Claude Code ready, one time: ${total ? `${Math.round((got / total) * 100)}%` : `${Math.round(got / 1e6)} MB`}`)).catch((err: unknown) => {
         throw new Error(`Couldn’t get Claude Code ready (${err instanceof Error ? err.message : String(err)}). Send your message again to try once more.`);
       });
       const abortController = new AbortController();
       // Several conversations run at once: this run's room tools post to its own.
       const bridge = input.channel && opts.bridge.inChannel ? opts.bridge.inChannel(input.channel) : opts.bridge;
-      // Stopped while Claude Code was getting ready: an aborted signal never fires again (ACME-402).
+      // Stopped while Claude Code was getting ready: an aborted signal never fires again.
       if (input.signal.aborted) throw new Error('aborted');
       input.signal.addEventListener('abort', () => abortController.abort(), { once: true });
       // A workspace brings its own folder and conversation; otherwise use the room's.
@@ -447,7 +447,7 @@ export function createClaudeBackend(opts: ClaudeBackendOptions): AgentBackend {
           background.observe(msg as Parameters<BackgroundAgents['observe']>[0]);
           watchQuiet();
           if (msg.type === 'system' && msg.subtype === 'init') remember(msg.session_id);
-          // Claude Code retrying the API (busy, a limit, no network): said on the working line, not a silent "Starting" (ACME-403).
+          // Claude Code retrying the API (busy, a limit, no network): said on the working line, not a silent "Starting".
           if (msg.type === 'system' && msg.subtype === 'api_retry') input.onEvent('progress', retryWords(msg.error_status, msg.attempt, msg.max_retries, Boolean(msg.no_response)));
           if (msg.type === 'rate_limit_event') {
             const update = fromRateLimitEvent(msg.rate_limit_info);
@@ -556,13 +556,13 @@ export function createClaudeBackend(opts: ClaudeBackendOptions): AgentBackend {
     },
 
     // Side calls (naming, drafting, chat answers…) through the same one-shot call any runtime offers.
-    // Claude Code's own terminal app on a conversation (ACME-534).
+    // Claude Code's own terminal app on a conversation.
     sessionTools: (input) => claudeSessionTools(input, { bridge: opts.bridge }),
     terminal: (input, sink) => claudeTerminal(input, sink, { bridge: opts.bridge, ...(opts.claudePath ? { claudePath: opts.claudePath } : {}), ...(opts.model ? { model: opts.model } : {}), ...(opts.agentOf ? { agentOf: opts.agentOf } : {}) }),
     ...sideCalls((req) => claudeComplete(req, opts.claudePath), opts.cwd, opts.model),
     btw: (req) => askBtw(req, { ...(opts.claudePath ? { claudePath: opts.claudePath } : {}) }),
 
-    // Your MCP servers (ACME-251): the room's folder first, where Claude Code starts, then your projects'.
+    // Your MCP servers: the room's folder first, where Claude Code starts, then your projects'.
     mcpServers: (projects) => mcp.list([opts.cwd, ...projects]),
     mcpSignIn: (projects, name) => mcp.signIn([opts.cwd, ...projects], name),
     mcpSignedIn: (name) => mcp.signedIn(name),

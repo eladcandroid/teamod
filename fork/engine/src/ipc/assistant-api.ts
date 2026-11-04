@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { CHAT_ID } from '../shared/assistant.js';
 
 /**
- * Your Mac's chats (ACME-102, core/assistant): several at once, tabs on the Mac. Which there are
+ * Your Mac's chats (core/assistant): several at once, tabs on the Mac. Which there are
  * and the one open are in the shared state's `assistant`. Browser-safe: zod only.
  */
 

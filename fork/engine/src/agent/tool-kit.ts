@@ -2,7 +2,7 @@ import type { CallToolResult, ToolAnnotations } from '@modelcontextprotocol/sdk/
 import type { z } from 'zod';
 
 /**
- * teamod's tools as plain definitions, apart from how they reach an agent (ACME-442): one registry,
+ * teamod's tools as plain definitions, apart from how they reach an agent: one registry,
  * two mounts. Claude mounts a suite in-process (agent/runtime/claude/sdk-mount.ts); any other
  * runtime mounts it over stdio (agent/tool-host.ts, `teamod mcp-serve`). Same tools, same schemas.
  */

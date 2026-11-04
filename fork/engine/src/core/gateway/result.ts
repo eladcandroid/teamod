@@ -127,7 +127,7 @@ export async function readResultFiles(paths: readonly string[], opts: { roots: r
     const abs = path.resolve(expand(raw, home));
     const real = await fs.realpath(abs).catch(() => abs);
     const name = path.basename(abs);
-    // A secret only when its owner approved this very file (a file request, ACME-209); teamod's own files and the keychains never.
+    // A secret only when its owner approved this very file (a file request); teamod's own files and the keychains never.
     const secret = opts.secretApproved ? isNeverSent(abs) || isNeverSent(real) : isSecretPath(abs) || isSecretPath(real);
     if (!path.isAbsolute(expand(raw, home)) || secret) {
       skipped.push(`${name} (not allowed)`);

@@ -3,7 +3,7 @@ import { visualToken } from '../shared/term-visuals.js';
 import { VIEW_FENCE } from '../shared/view-spec.js';
 
 /**
- * The agent's own terminal in teamod (ACME-534): the conversation is the same, but what Claude
+ * The agent's own terminal in teamod: the conversation is the same, but what Claude
  * writes shows as text in a terminal, not drawn in the chat. Visuals go through the `show` tool,
  * whose token becomes a link that opens the real thing beside the terminal (shared/term-visuals.ts).
  */
@@ -25,7 +25,7 @@ export function buildTerminalAppend(): string {
     '  the chat; write the token it returns on a line of its own. The user opens it drawn exactly as the chat draws it.',
     '- For a table, add its first few rows as a small Markdown table under the token when they help, so the',
     '  terminal shows them at a glance; the link has all of them, with sorting and filters.',
-    '- Task keys (ACME-12, task:ACME-12) and absolute paths to pictures become links on their own; plain',
+    '- Task keys (task:ACME-12) and absolute paths to pictures become links on their own; plain',
     '  Markdown, code blocks and tables read fine as they are.',
   ].join('\n');
 }

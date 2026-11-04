@@ -13,7 +13,7 @@ export const FEATURE_NAMES = {
   'task.run': 'commands',
   'task.file': 'file requests',
   'task.question': "their Claude's questions",
-  /** A file request for a secret gets its own approval (ACME-209); before, a secret was declined at once. */
+  /** A file request for a secret gets its own approval; before, a secret was declined at once. */
   'task.secret': 'secrets',
   'share.project': 'shared projects',
   'share.folder': 'shared folders',
@@ -23,15 +23,15 @@ export const FEATURE_NAMES = {
   'share.history': 'whole conversations',
   /** Packs a shared worktree (its changes, Scratch, conversation) for a friend's own fork of it (core/friend-share/fork.ts). */
   'share.fork': 'forks of worktrees',
-  /** Takes a worktree handed over by a friend outside the room: its note, branch bundle and chat (core/friend-share, ACME-341). */
+  /** Takes a worktree handed over by a friend outside the room: its note, branch bundle and chat (core/friend-share). */
   'share.handoff': 'handoffs',
   /** Team boards (core/team): friends on the same GitHub repo find each other and keep one board. */
   'team.board': 'team boards',
   /** Plan drafts shared with teammates to review (core/team). */
   'team.plans': 'shared plans',
-  /** A teamed project's About This Project, for Claude writing its tasks (core/team, ACME-298). */
+  /** A teamed project's About This Project, for Claude writing its tasks (core/team). */
   'team.context': 'project context',
-  /** Knocks on a teammate's worktree, let in as a viewer or an editor (core/team/knock.ts, ACME-416). */
+  /** Knocks on a teammate's worktree, let in as a viewer or an editor (core/team/knock.ts). */
   'team.knock': 'knocks on worktrees',
   /** Profile pictures, sent once per change and kept by the Macs that see them (net/mesh/avatars.ts). */
   'profile.avatar': 'profile pictures',

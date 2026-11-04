@@ -9,7 +9,7 @@ import { teamodHome } from './home.js';
 import { ASSISTANT_TITLE } from '../shared/assistant.js';
 
 /**
- * Your Mac writes down what you said (ACME-140, ACME-144): on the phone (it `put`s the WAV and calls
+ * Your Mac writes down what you said: on the phone (it `put`s the WAV and calls
  * companion.transcribe) or in the Mac app (voice.transcribe); the Mac runs Whisper Turbo or Parakeet on its GPU (whisper.cpp
  * through @fugood/whisper.node) and gives the words back. The audio is deleted once it's written
  * down, and goes nowhere else. A model comes the first time the phone asks for it, into
@@ -145,7 +145,7 @@ export class MacVoice {
         const ctx = await this.context(a.model);
         try {
           // Parakeet tells the language itself; Whisper takes one ('auto': it tells), and the words
-          // before this phrase as its prompt (ACME-160), so names and style carry across phrases.
+          // before this phrase as its prompt, so names and style carry across phrases.
           const r = await ctx.transcribe(audio, m.kind === 'whisper' ? { language: a.language, ...(a.prompt ? { prompt: a.prompt } : {}) } : {}).promise;
           return { text: r.result.trim(), ...(r.language ? { language: r.language } : {}), ms: Date.now() - t };
         } finally {

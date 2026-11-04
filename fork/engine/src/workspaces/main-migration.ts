@@ -4,7 +4,7 @@ import type { WorkspaceStore } from './store.js';
 import type { WorkspaceRecord } from './types.js';
 
 /**
- * No standing "main" conversation per project (ACME-70). A project's conversations are the chats
+ * No standing "main" conversation per project. A project's conversations are the chats
  * and worktrees you start; its main checkout is the project's home, not a conversation. This runs
  * once at startup: a main checkout's conversation from before (saved messages, or a Claude
  * session) becomes an ordinary chat in its project, with its history, Claude session, model and

@@ -125,7 +125,7 @@ const DROPPED_ENV = [
   'CLAUDECODE',
   'CLAUDE_CODE_ENTRYPOINT',
   // A Claude Code session's own markers (when teamod itself runs under one): a `claude` started in
-  // a terminal here is a session of its own, not a child that keeps no transcript (ACME-534).
+  // a terminal here is a session of its own, not a child that keeps no transcript.
   'CLAUDE_CODE_CHILD_SESSION',
   'CLAUDE_CODE_SESSION_ID',
   'CLAUDE_CODE_SESSION_ATTENDED',

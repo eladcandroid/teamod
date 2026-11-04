@@ -28,9 +28,9 @@ export interface SharedWorkspace {
   readonly via?: 'mesh';
   /** Over the network: the owner's project it belongs to. */
   readonly projectId?: string;
-  /** Over the network: there's earlier conversation to scroll back to (ACME-259). */
+  /** Over the network: there's earlier conversation to scroll back to. */
   readonly earlier?: boolean;
-  /** The owner's agent that runs there (ACME-448): theirs, never yours. Unset: an older Mac's, Claude. */
+  /** The owner's agent that runs there: theirs, never yours. Unset: an older Mac's, Claude. */
   readonly agent?: AgentRef;
 }
 

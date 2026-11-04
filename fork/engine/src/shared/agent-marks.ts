@@ -1,7 +1,7 @@
 import type { AgentRef } from '../protocol.js';
 
 /**
- * The marks agents and models are known by (ACME-497): one per runtime (Claude Code, Codex, a
+ * The marks agents and models are known by: one per runtime (Claude Code, Codex, a
  * local model) and one per model maker (Anthropic, OpenAI). The makers' own logos, from LobeHub's
  * icon set (@lobehub/icons-static-svg, MIT): solid shapes on a 24×24 grid, in the text's colour
  * unless the brand has its own (Claude Code's orange). Pickers, chips and avatars show the mark

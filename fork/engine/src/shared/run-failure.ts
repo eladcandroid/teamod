@@ -120,7 +120,7 @@ export function resetFromText(text: string, now = Date.now()): number | undefine
 }
 
 /**
- * Codex's limit words (ACME-503): "…try again at 3:15 PM.", "…try again at Oct 24th, 2025 3:15 PM.",
+ * Codex's limit words: "…try again at 3:15 PM.", "…try again at Oct 24th, 2025 3:15 PM.",
  * or "Try again in 2 days 3 hours 5 minutes." The time it names, after `now`.
  */
 function codexRetryAt(text: string, now: number): number | undefined {

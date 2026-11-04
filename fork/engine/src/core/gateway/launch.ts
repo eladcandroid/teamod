@@ -107,7 +107,7 @@ export function launchGateway(host: GatewayHost): () => void {
     // The demo never looks at your real screen.
     ...(host.demo ? { system: pretendSystem() } : {}),
     resume: (channel, prompt) => {
-      // Your Claude asked from a friends' chat (ACME-207): it carries on there, and answers in the chat.
+      // Your Claude asked from a friends' chat: it carries on there, and answers in the chat.
       const chat = /^(dm|group):/.test(channel) ? chatIn(session) : undefined;
       if (chat?.claude.acts()) return chat.claude.continueWith(channel, prompt);
       const name = /^\[teamod\] (.+?) \(task/.exec(prompt)?.[1] ?? 'A reply came';

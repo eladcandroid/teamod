@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /**
- * A new worktree's npm installs, copied instead (ACME-366): when another checkout of the project
+ * A new worktree's npm installs, copied instead: when another checkout of the project
  * (the main folder or a sibling worktree) has the same package-lock.json and installed exactly
  * that, its node_modules is cloned (APFS copy-on-write: seconds, no extra disk) instead of
  * `npm ci` fetching and unpacking it all again, three times over in a repo with sub-packages. If the

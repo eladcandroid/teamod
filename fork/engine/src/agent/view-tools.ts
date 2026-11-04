@@ -112,7 +112,7 @@ function preview(page: ViewPage): string {
 const MAX_BLOCK = 60_000;
 
 /**
- * The terminal's `show_block` (ACME-535): anything else the chat draws, kept like a view, so it opens
+ * The terminal's `show_block`: anything else the chat draws, kept like a view, so it opens
  * beside the terminal exactly as the chat draws it. Only in the agent's terminal.
  */
 const blockTool = (shelf: ViewShelf) =>
@@ -232,7 +232,7 @@ export async function showView(shelf: ViewShelf, cwd: string, raw: Record<string
 }
 
 /**
- * The views of the agent's own terminal (ACME-535): each kept by the daemon (`sink`), and its token
+ * The views of the agent's own terminal: each kept by the daemon (`sink`), and its token
  * `[[visual:N]]` is what Claude writes; the Mac draws a link over it (shared/term-visuals.ts).
  */
 export class TerminalShelf extends ViewShelf {

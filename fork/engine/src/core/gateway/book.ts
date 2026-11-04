@@ -22,7 +22,7 @@ export interface Outgoing {
   readonly expiresAt: number;
   /** When it was last handed to a link or the room (resent if no ack comes). */
   readonly sentAt?: number;
-  /** When it went to their mailbox (ACME-272: they and you weren't online together). */
+  /** When it went to their mailbox (they and you weren't online together). */
   readonly mailedAt?: number;
 }
 

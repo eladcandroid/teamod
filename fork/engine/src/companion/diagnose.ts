@@ -16,7 +16,7 @@ export type Problem =
   | 'no-path'
   /**
    * The Mac was found but couldn't be reached directly, and its relay didn't answer (or it had none
-   * yet): it's restarting it by itself (ACME-126), so the phone keeps trying without being asked.
+   * yet): it's restarting it by itself, so the phone keeps trying without being asked.
    */
   | 'relay-down'
   /** The Mac isn't online: asleep, teamod closed, or its network is off. */

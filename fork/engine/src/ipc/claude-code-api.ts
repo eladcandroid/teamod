@@ -11,7 +11,7 @@ const agentId = z.string().regex(/^[\w-]{1,64}$/);
 const seq = z.number().int().min(0);
 const filePath = z.string().min(2).max(4096).refine((p) => p.startsWith('/') && !p.includes('\0'), 'a full path');
 const mcpName = z.string().min(1).max(200);
-/** Whose MCP servers (ACME-518): a runtime's id ('claude', 'codex'); unset: your agent's. */
+/** Whose MCP servers: a runtime's id ('claude', 'codex'); unset: your agent's. */
 const mcpRuntime = z.string().regex(/^[a-z][\w-]{0,31}$/).optional();
 const Page = z.object({ before: seq.optional(), after: seq.optional(), limit: z.number().int().min(1).max(200).optional() }).strict();
 

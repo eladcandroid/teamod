@@ -11,7 +11,7 @@ import { git } from '../../workspaces/git.js';
 import { isDenied } from '../shares.js';
 
 /**
- * Forking a friend's worktree to your own Mac (ACME-312): a worktree of yours that starts where
+ * Forking a friend's worktree to your own Mac: a worktree of yours that starts where
  * theirs is now, with their uncommitted work, its Scratch and its conversation (Claude's own
  * session too, so your Claude remembers it). Their worktree stays as it is.
  *

@@ -3,7 +3,7 @@ export { formatBytes } from '../shared/format.js';
 
 /**
  * Bytes used by a folder (du), or undefined when it can't be measured in time. du runs at the
- * lowest CPU priority (ACME-407), so it never takes the computer from you or Claude; same number.
+ * lowest CPU priority, so it never takes the computer from you or Claude; same number.
  */
 export function folderSize(dir: string, timeoutMs = 30_000): Promise<number | undefined> {
   const run = (cmd: string, args: readonly string[]): Promise<{ missing: boolean; size: number | undefined }> =>

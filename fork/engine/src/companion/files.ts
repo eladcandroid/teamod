@@ -19,7 +19,7 @@ import { COMPANION_PIECE, type OutputView } from './protocol.js';
  * ~/.teamod/companion/thumbs), `full` (the bytes), `text` (a text output, secrets redacted). Each
  * answer is one piece of at most COMPANION_PIECE bytes from `off`; the phone asks for the next.
  *
- * A kept table's document or storage object (ACME-386) is a ref too (`docRef`): it names the cell,
+ * A kept table's document or storage object is a ref too (`docRef`): it names the cell,
  * never a path, and its bytes come from Sentinel when it's fetched (a storage object fetched then
  * through a link signed on the Mac, held in memory a moment for its pieces). Text goes redacted.
  */
@@ -29,7 +29,7 @@ const MAX_REFS = 5_000;
 
 /**
  * What a document ref names: a typed cell of a kept table (a sentinel's metric, its column and the
- * cell's value), a run's file (ACME-392: its report, a step's output, a document), or a metric's whole
+ * cell's value), a run's file (its report, a step's output, a document), or a metric's whole
  * history as CSV, made when it's fetched.
  */
 export type DocKey =
@@ -233,7 +233,7 @@ export class FileServer {
       const text = redactSecrets(bytes.toString('utf8'));
       return { off, b64: Buffer.from(text, 'utf8').toString('base64').slice(0, Math.ceil(COMPANION_PIECE / 3) * 4), eof: off + bytes.length >= size, size, mime: mimeOf(entry.path) };
     }
-    // A text output only ever leaves redacted (`text`): never its raw bytes, which a save would keep (ACME-123).
+    // A text output only ever leaves redacted (`text`): never its raw bytes, which a save would keep.
     if (kind === 'text' || kind === 'json' || kind === 'markdown') throw new Error('Text files come redacted: ask for its text');
     const { bytes, size } = await readPiece(entry.path, off, COMPANION_PIECE);
     return { off, b64: bytes.toString('base64'), eof: off + bytes.length >= size, size, mime: mimeOf(entry.path) };

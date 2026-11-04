@@ -34,7 +34,7 @@ export type Answer = 'yes' | 'no' | 'always';
 /** How an approval is asked: `once` offers only Allow once / Decline (a secret: nothing covers it next time). */
 export interface ApproveOpts {
   readonly once?: boolean;
-  /** The chat the request is in (its card is there, ACME-207): the approval and its notification point at it. */
+  /** The chat the request is in (its card is there): the approval and its notification point at it. */
   readonly conversation?: string;
 }
 
@@ -90,7 +90,7 @@ export interface ServeContext {
   readonly model: () => { model?: string; effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' };
   /** The agent that answers friends' asks here: your default, with your default model (you choose it, never the asker). */
   readonly agentRef?: () => AgentRef;
-  /** The agents your card lists (an asker may pick one of those, ACME-503). */
+  /** The agents your card lists (an asker may pick one of those). */
   readonly agents?: () => readonly AgentRef[];
   /** Whether this Mac can run that agent now (its runtime is here). Unset: only your default. */
   readonly runs?: (agent: AgentRef) => boolean;
@@ -107,9 +107,9 @@ export interface ServeContext {
   readonly questionWaitMs?: number;
   /** How long a friend's task may run in all (default 20 minutes; sooner if its deadline is). */
   readonly runLimitMs?: number;
-  /** Chaired dialogues (ACME-468): a turn came in or ended, and whether one was stopped here. */
+  /** Chaired dialogues: a turn came in or ended, and whether one was stopped here. */
   readonly dialogues?: import('./gateway.js').GatewayDialogues;
-  /** The chat its card is in here (ACME-208): the channel it names if you're both in it, else your DM with them (friends only). */
+  /** The chat its card is in here: the channel it names if you're both in it, else your DM with them (friends only). */
   readonly chatOf?: (from: string, chat: string | undefined) => string | undefined;
 }
 
@@ -119,13 +119,13 @@ const MAX_OPEN_PER_PERSON = 5;
 const MAX_RUNNING = 2;
 const MAX_STEPS = 12;
 const STEP_EVERY_MS = 400;
-/** Screenshots one task may take, with the screenshot tool or a command (ACME-427). */
+/** Screenshots one task may take, with the screenshot tool or a command. */
 const MAX_SCREENSHOTS = 4;
 const QUESTION_WAIT_MS = 15 * 60_000;
-/** A friend's task stops after this many turns, or this long, whichever comes first (ACME-427). */
+/** A friend's task stops after this many turns, or this long, whichever comes first. */
 const MAX_TURNS = 50;
 const RUN_LIMIT_MS = 20 * 60_000;
-/** Times one task may ask you to approve a step, and declines in a row that stop it (ACME-427). */
+/** Times one task may ask you to approve a step, and declines in a row that stop it. */
 const MAX_TOOL_ASKS = 8;
 const MAX_DECLINES = 2;
 
@@ -148,7 +148,7 @@ const toolNeeds = (tool: string, input: Record<string, unknown>): Need[] => {
 const errorText = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 /**
- * The agent a friend's ask runs on here (ACME-503): the one they asked for when your card lists it
+ * The agent a friend's ask runs on here: the one they asked for when your card lists it
  * (same runtime, and model when they named one) and it runs here, with your own pick of its model;
  * else your default, with a note saying so.
  */
@@ -278,7 +278,7 @@ export class TaskServer {
     const file = req.kind === 'file' ? this.expand(req.path ?? '') : '';
     const really = req.kind === 'file' && facts.folder ? path.join(facts.folder, path.basename(file)) : file;
     if (req.kind === 'file' && (isNeverSent(file) || isNeverSent(really))) return this.finish(task, 'declined', `${path.basename(file)}: not allowed (teamod never sends its own private files or your keychains)`);
-    // Any other secret file is asked about on its own, every time (ACME-209).
+    // Any other secret file is asked about on its own, every time.
     const kind = req.kind === 'file' ? (secretKindOf(file) ?? secretKindOf(really)) : undefined;
     const secret = kind ? { kind, label: secretLabel(kind, path.basename(file)) } : undefined;
     if (secret) this.update(task.id, { secret });
@@ -498,7 +498,7 @@ export class TaskServer {
     if (!agent) return this.finish(task, 'failed', `${ctx.selfName()}'s agent isn't running`);
     const found = this.place(task, req);
     const { where, folders } = found;
-    // On the agent its card says (your default), or the one they asked for when it runs here (ACME-503).
+    // On the agent its card says (your default), or the one they asked for when it runs here.
     const picked = ctx.agentRef ? agentForAsk(req.agent, ctx.agentRef(), ctx.agents?.() ?? [], ctx.runs) : undefined;
     if (picked) this.ranOn.set(task.id, picked.agent);
     // A talk (or cross-reference) dialogue's turn changes nothing, on any agent: no edits, even in a scratch folder.
@@ -670,7 +670,7 @@ export class TaskServer {
     if (full) return true;
     // Commands are allowed for this person (their trust level's setting, or a rule): no need to ask.
     if (tool === 'Bash' && access?.decided.verdict === 'allow') return true;
-    // A file that runs code later (a git hook, npm scripts…; ACME-413): asked each time, once.
+    // A file that runs code later (a git hook, npm scripts…): asked each time, once.
     if (writesCode(tool, input, cwd)) {
       const file = String(input.file_path ?? input.notebook_path);
       return (await this.askTool(task, `Your agent (working on ${task.peerName}'s request) wants to change ${path.basename(file)}, a file that can run commands on your Mac`, file, { once: true })) !== 'no';
@@ -684,7 +684,7 @@ export class TaskServer {
   }
 
   /**
-   * Ask you to approve one step of a friend's task. A task that keeps asking stops (ACME-427):
+   * Ask you to approve one step of a friend's task. A task that keeps asking stops:
    * after MAX_TOOL_ASKS approvals, or when you decline MAX_DECLINES in a row; the requester hears why.
    */
   private async askTool(task: TaskView, title: string, detail: string, opts: ApproveOpts = {}): Promise<Decision['answer']> {

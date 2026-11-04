@@ -2,7 +2,7 @@ import type { DomainState } from '../core/store.js';
 import { FIRST_CHAT, assistantChatOf } from '../shared/assistant.js';
 
 /**
- * Which of the phone's conversations are no longer on the Mac (ACME-124), so the files the phone
+ * Which of the phone's conversations are no longer on the Mac, so the files the phone
  * saved from them can go: a worktree or chat folder of yours that's archived, one that's deleted
  * (neither yours nor shared with you any more), or one of Your Mac's chats that was deleted.
  * Everything else stays (the room, tasks you asked of friends, plans): the phone keeps what it

@@ -60,7 +60,7 @@ export function peopleHere(state: HereState, wsId: string): PersonHere[] {
 
 /**
  * What the message box says while a friend's worktree can't hear you (undefined when it can): the
- * Mac app locks the box then (ACME-259), so nobody talks to a Claude that isn't there.
+ * Mac app locks the box then, so nobody talks to a Claude that isn't there.
  */
 export function waitingNote(state: HereState, wsId: string): string | undefined {
   const shared = state.shared.find((w) => w.id === wsId && w.via === 'mesh');

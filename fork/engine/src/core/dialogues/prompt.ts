@@ -26,7 +26,7 @@ export function speakerName(d: Dialogue, i: number): string {
 const turnLabel = (d: Dialogue, by: number | 'person', name?: string): string => (by === 'person' ? `${name ?? 'A person'} (a person in the room)` : speakerName(d, by));
 
 /**
- * Cross-reference's fixed template (ACME-467), by turn: A answers, B critiques with sources, A
+ * Cross-reference's fixed template, by turn: A answers, B critiques with sources, A
  * reconciles into the final answer.
  */
 export function crossReferenceRole(turn: number, others: string): string {

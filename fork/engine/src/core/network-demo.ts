@@ -92,7 +92,7 @@ export async function startDemoNetwork(store: Store, name: string): Promise<Netw
   const responders = { bob: demoResponder(bob, 'bob', meId, base), mia: demoResponder(mia, 'mia', meId, base) };
   store.dispatch({ type: 'remembered', people: { ...store.getState().remembered, [bob.peerId]: { name: 'bob', trust: 'trusted' } } });
 
-  // TEAMOD_DEMO_SCENE=people (screenshots of ACME-210): a channel with someone offline and a secret waiting on you.
+  // TEAMOD_DEMO_SCENE=people (screenshots of): a channel with someone offline and a secret waiting on you.
   let ata: Mesh | undefined;
   if (teamodEnv('DEMO_SCENE') === 'people') {
     void (async () => {
@@ -123,7 +123,7 @@ export async function startDemoNetwork(store: Store, name: string): Promise<Netw
     })().catch(() => undefined);
   }
 
-  // TEAMOD_DEMO_SCENE=team (ACME-417): bob teams up on bob-api, works on a task and knocks on your worktree.
+  // TEAMOD_DEMO_SCENE=team: bob teams up on bob-api, works on a task and knocks on your worktree.
   let stopTeam: (() => void) | undefined;
   if (teamodEnv('DEMO_SCENE') === 'team') void import('./team/demo.js').then(async (m) => (stopTeam = await m.startDemoTeam(bob, meId, path.join(base, 'bob')))).catch(() => undefined);
 

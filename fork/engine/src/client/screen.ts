@@ -44,9 +44,9 @@ export const initialScreen: ScreenState = { view: { kind: 'room' }, tabs: [], aw
 const clamp = (n: number, max: number): number => Math.min(Math.max(0, max), Math.max(0, n));
 
 /**
- * A project's main checkout is no conversation (ACME-70): going to it goes to the chat its old
+ * A project's main checkout is no conversation: going to it goes to the chat its old
  * conversation became, else to the project's home. Your Mac without a chat named goes to the one
- * open (its tabs, ACME-102), and a chat that was deleted to that one too. Anything else as it is.
+ * open (its tabs), and a chat that was deleted to that one too. Anything else as it is.
  */
 export function viewFor(view: View, domain: Pick<DomainState, 'projects'> & Partial<Pick<DomainState, 'assistant'>>): View {
   if (view.kind === 'assistant') {

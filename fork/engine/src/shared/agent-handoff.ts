@@ -1,7 +1,7 @@
 import { type RunFailure, decodeFailure } from './run-failure.js';
 
 /**
- * Moving a live conversation to another runtime (ACME-447, ACME-592), the parts both the daemon and
+ * Moving a live conversation to another runtime, the parts both the daemon and
  * the screens need. Browser-safe.
  */
 
@@ -13,7 +13,7 @@ import { type RunFailure, decodeFailure } from './run-failure.js';
 export const HANDOFF_MODES = ['quiet', 'note'] as const;
 export type HandoffMode = (typeof HANDOFF_MODES)[number];
 
-/** The runtime a stored session id belongs to when none was recorded: everything before ACME-445 was Claude's. */
+/** The runtime a stored session id belongs to when none was recorded: everything was Claude's. */
 export const SESSION_RUNTIME_DEFAULT = 'claude';
 
 /**

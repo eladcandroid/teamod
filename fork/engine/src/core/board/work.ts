@@ -74,7 +74,7 @@ export class BoardWork {
   constructor(private readonly deps: BoardWorkDeps) {
     this.board = deps.board;
     if (deps.controller) this.offs.push(deps.controller.onWorktree((e) => this.onWorktree(e)));
-    // An epic's worktree works in its sub-tasks' worktrees in other repos too (ACME-561).
+    // An epic's worktree works in its sub-tasks' worktrees in other repos too.
     if (deps.controller?.setAlsoIn) this.offs.push(deps.controller.setAlsoIn((id) => this.alsoIn(id).map((w) => w.path)));
     // Proof made in a worktree outlives it: kept before its folder goes (proof-files.ts).
     if (deps.controller?.onWorktreeGoing) this.offs.push(deps.controller.onWorktreeGoing((ws) => void this.board.keepProofs(ws.path)));
@@ -165,7 +165,7 @@ export class BoardWork {
   }
 
   /**
-   * Who works a task (ACME-498): `agent`, or your default (null). It takes effect at the task's next
+   * Who works a task: `agent`, or your default (null). It takes effect at the task's next
    * start; a worktree already working it keeps the agent it opened with (switching an agent mid-run
    * would lose its session). → what happened, in words, for the screen to show.
    */
@@ -178,7 +178,7 @@ export class BoardWork {
   }
 
   /**
-   * Your agent, as the board records it (ACME-498: its activity shows the real agent's mark): the
+   * Your agent, as the board records it (its activity shows the real agent's mark): the
    * one picked for `channel`'s conversation (`ws:<id>`), else your default.
    */
   myClaude(channel?: string): Actor {
@@ -209,7 +209,7 @@ export class BoardWork {
     const title = firstLineTitle(text);
     const plain: TaskDraft = { title, goal: text, acceptance: [], labels: [] };
     if (!this.deps.draftTask) return plain;
-    // `several` (a phone that shows them all, ACME-322): the words may ask for several tasks, an epic, and who does each.
+    // `several` (a phone that shows them all): the words may ask for several tasks, an epic, and who does each.
     return (await this.deps.draftTask(text, this.draftContext(projectId, text, undefined, opts.several, board)).catch(() => undefined)) ?? plain;
   }
 
@@ -225,9 +225,9 @@ export class BoardWork {
   }
 
   /**
-   * What the describer knows besides the words: the project's name, what it's about (ACME-298), and
-   * its labels; with `several` (ACME-319), who on its team a task can be for (you first); and who
-   * the words' "@mia"s are, teammates and friends (ACME-342).
+   * What the describer knows besides the words: the project's name, what it's about, and
+   * its labels; with `several`, who on its team a task can be for (you first); and who
+   * the words' "@mia"s are, teammates and friends.
    */
   private draftContext(projectId: string, text: string, look?: string, several = false, boardId = projectId): DraftContext {
     const labels = labelsFor(this.board.state(), boardId).map((l) => l.name);
@@ -254,7 +254,7 @@ export class BoardWork {
     return personMentions(text, [...team.map((m) => ({ peerId: m.id, name: m.name })), ...friends]).map((p) => ({ handle: handleOf(p.name), name: p.name, team: onTeam.has(p.peerId) }));
   }
 
-  /** Who a project's task can be for: you, then its teammates (ACME-299). */
+  /** Who a project's task can be for: you, then its teammates. */
   private people(projectId: string): Assignee[] {
     const mates = teammatesOf(this.deps.store.getState().team, projectId).map((m): Assignee => ({ kind: 'person', id: m.peerId, name: m.name }));
     return [this.me(), ...mates.filter((m) => m.id !== this.deps.selfId())];
@@ -263,7 +263,7 @@ export class BoardWork {
   /**
    * A draft (from draft, maybe changed) added as a task: its title, goal, criteria, labels and
    * priority, for whoever it names on the team; with `more`, those too (under it when `epic`). → the first (or the epic), then the rest.
-   * `agent` (ACME-498): who works them when they start (none: your default).
+   * `agent`: who works them when they start (none: your default).
    */
   addDraft(place: string, d: TaskDraft, agent?: AgentRef): Issue[] {
     const { projectId, board } = this.placeOf(place);
@@ -280,7 +280,7 @@ export class BoardWork {
   /**
    * `look`: a folder Claude may read first (the project's main folder), so the task also says where
    * the code is and what's likely behind it; it takes a minute or two rather than seconds.
-   * `several` (New Task, ACME-319): the words may ask for several tasks, or an epic with its
+   * `several` (New Task): the words may ask for several tasks, or an epic with its
    * sub-tasks, and say who each is for. The first (or the epic) fills in this task; the rest are
    * added beside it (or under it), in its column, each for whoever the words gave it to.
    */
@@ -307,7 +307,7 @@ export class BoardWork {
     return issue;
   }
 
-  /** The tasks after the first that one New Task message asked for, and who each is for (ACME-319). */
+  /** The tasks after the first that one New Task message asked for, and who each is for. */
   private addTheRest(first: Issue, input: Omit<NewIssue, 'title' | 'brief' | 'drafting'>, d: TaskDraft): void {
     const now = this.board.need(first.id);
     // Words naming someone beat the sheet's Assignee; one changed by hand meanwhile stays.
@@ -335,7 +335,7 @@ export class BoardWork {
           ...(d.epic ? { parent: first.id } : input.parent ? { parent: input.parent } : {}),
           // One New Task message, one agent for all it made.
           ...(input.agent ? { agent: input.agent } : {}),
-          // Asked for as private, the rest of them are too (ACME-501).
+          // Asked for as private, the rest of them are too.
           ...(first.private ? { private: true } : {}),
           brief: draftBrief(m),
         },
@@ -347,7 +347,7 @@ export class BoardWork {
   /**
    * Start a worktree for a task (from the latest origin, or `base`), named after it, and open it;
    * with `claude`, your Claude starts on the task there with its brief. → the workspace's id.
-   * The worktree runs `opts.agent`, else the task's own agent, else your default (ACME-497).
+   * The worktree runs `opts.agent`, else the task's own agent, else your default.
    */
   async start(ref: string, opts: { readonly claude?: boolean; readonly base?: string; readonly quiet?: boolean; readonly agent?: AgentRef; /** What your Claude is told instead of working the task through (it implies `claude`), and the line the conversation shows for it. */ readonly prompt?: (issue: Issue, ws: Workspace) => string; readonly shown?: string } = {}): Promise<string> {
     const controller = this.deps.controller;
@@ -392,7 +392,7 @@ export class BoardWork {
   }
 
   /**
-   * An epic across repos (ACME-561): for each other repo its unfinished sub-tasks run in, a worktree
+   * An epic across repos: for each other repo its unfinished sub-tasks run in, a worktree
    * there under the same name (quietly), linked to those sub-tasks, so its pull request moves them.
    * The epic's worktree works in them too (`alsoIn`). A repo whose worktree can't be made is said
    * and left out. → the worktrees made.
@@ -424,7 +424,7 @@ export class BoardWork {
     return made;
   }
 
-  /** What a run in an epic's worktree is told about its other repos' worktrees (ACME-561). */
+  /** What a run in an epic's worktree is told about its other repos' worktrees. */
   private alongNote(workspaceId: string, epic: Issue): string {
     const kids = childrenOf(this.board.state(), epic);
     return alongPrompt(
@@ -434,7 +434,7 @@ export class BoardWork {
   }
 
   /**
-   * The other worktrees a worktree works in too (ACME-561): it does an epic, and these do its
+   * The other worktrees a worktree works in too: it does an epic, and these do its
    * unfinished sub-tasks in other repos.
    */
   alsoIn(workspaceId: string): Workspace[] {
@@ -449,7 +449,7 @@ export class BoardWork {
    * One worktree for several tasks (a plan milestone's one Claude does them in order): named
    * `name`, from the latest origin or `base`, linked to every task (the first goes In Progress,
    * all are your Claude's). Nobody is asked anything: the caller sends the brief. → the workspace.
-   * `agent`: the agent it runs (a plan's own, ACME-497); none: your default.
+   * `agent`: the agent it runs (a plan's own); none: your default.
    */
   async startShared(refs: readonly string[], name: string, opts: { readonly base?: string; readonly quiet?: boolean; readonly agent?: AgentRef } = {}): Promise<Workspace> {
     const controller = this.deps.controller;
@@ -647,7 +647,7 @@ export class BoardWork {
   }
 
   /**
-   * A project's first worktree here, and no one has written what it's about (ACME-298): your Claude
+   * A project's first worktree here, and no one has written what it's about: your Claude
    * takes a quick look at its folder in the background and writes it. Never over one someone
    * wrote or cleared (a teammate's arriving meanwhile wins), and tried once per project per run.
    */
@@ -743,7 +743,7 @@ export class BoardWork {
       const dropped = unknown.filter((l) => !had.includes(l));
       return dropped.length ? `. Left out ${dropped.join(', ')}: labels come from the board's set (${set.map((l) => l.name).join(', ')}); people add new ones` : '';
     };
-    // A task is for a person (ACME-278): "claude" (an older tool call) means the user's.
+    // A task is for a person: "claude" (an older tool call) means the user's.
     const assign = (to: 'me' | 'claude' | 'nobody' | undefined): Assignee | null | undefined => (to === 'me' || to === 'claude' ? this.me() : to === 'nobody' ? null : undefined);
     const where = (issue: Issue): string | undefined => {
       const w = issue.worktrees.at(-1);

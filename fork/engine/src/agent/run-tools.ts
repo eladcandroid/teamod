@@ -31,7 +31,7 @@ export function runToolSuites(input: AgentRunInput, bridge: RoomBridge, shelf: V
     ...(input.planTools ? { teamod_plan: createPlanTools(input.planTools) } : {}),
     // "Your Mac" gets its own tools (core/assistant).
     ...(input.macTools ? { teamod_mac: createMacTools(input.macTools) } : {}),
-    // Your own runs can drive your phone (core/phone, ACME-150).
+    // Your own runs can drive your phone (core/phone).
     ...(input.phoneTools ? { teamod_phone: createPhoneTools(input.phoneTools) } : {}),
     teamod_view: createViewTools(shelf, cwd),
   };

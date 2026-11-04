@@ -7,7 +7,7 @@ import { formatMetric, metricWords } from './metrics.js';
 import type { SentinelState } from './model.js';
 
 /**
- * Board tiles as macOS widgets (ACME-309), and the phone's Home-screen widgets (ACME-361: the same
+ * Board tiles as macOS widgets, and the phone's Home-screen widgets (the same
  * snapshot goes to it as the `widgets` view, src/companion/views.ts). The daemon keeps a small snapshot of every tile in
  * ~/.teamod/widgets/tiles.json, already in words (the widget only reads and draws), and each
  * project's icon beside it. The widget is sandboxed and may read only that folder; teamod's window
@@ -20,7 +20,7 @@ export const WIDGETS_VERSION = 1;
 export interface WidgetTile {
   /** "<dashboardId>/<tileId>". */
   readonly id: string;
-  /** Its board and its own id there (the phone's widget opens it: ACME-361). */
+  /** Its board and its own id there (the phone's widget opens it:). */
   readonly dashboard: string;
   readonly tile: string;
   readonly board: string;

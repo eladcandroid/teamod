@@ -180,7 +180,7 @@ export class StepBook {
   }
 
   /**
-   * Write a run while it goes on (ACME-407): without holding up the daemon, one write per run at a
+   * Write a run while it goes on: without holding up the daemon, one write per run at a
    * time (changes meanwhile are written right after it), and not at all when nothing changed.
    */
   private saveLater(run: Run): void {
@@ -247,7 +247,7 @@ export class StepBook {
     }
   }
 
-  /** Clear out the oldest runs' files, at most once a minute (ACME-407), off the daemon's thread. */
+  /** Clear out the oldest runs' files, at most once a minute, off the daemon's thread. */
   private pruneSoon(): void {
     if (!this.dir || Date.now() - this.prunedAt < PRUNE_EVERY_MS) return;
     this.prunedAt = Date.now();

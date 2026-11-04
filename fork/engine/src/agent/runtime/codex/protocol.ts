@@ -21,7 +21,7 @@ export type UserInput =
 export interface Thread {
   readonly id: string;
   readonly cwd?: string;
-  /** Set only on a sub-agent's thread: the thread that spawned it (multi_agent, ACME-519; codex-cli 0.166). */
+  /** Set only on a sub-agent's thread: the thread that spawned it (multi_agent; codex-cli 0.166). */
   readonly parentThreadId?: string | null;
   /** A spawned sub-agent's random nickname, and the role it was given (agent_role). */
   readonly agentNickname?: string | null;

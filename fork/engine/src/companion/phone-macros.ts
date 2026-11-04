@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { readJson, writeJson } from '../net/mesh/files.js';
 
 /**
- * Saved phone flows (ACME-175): "do this on the phone" turned into a named, repeatable macro. A
+ * Saved phone flows: "do this on the phone" turned into a named, repeatable macro. A
  * macro is an ordered list of small steps; where it can, it acts on an element by the text it shows
  * (steady across runs) rather than raw pixels, so "open Strava and screenshot my stats" keeps
  * working when things move a little. Kept in ~/.teamod/phone-macros.json.

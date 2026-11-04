@@ -35,7 +35,7 @@ const realOf = (p: string): string | undefined => {
 const off = (p: string, real: string): boolean => [p, real].some((x) => isSecretPath(x) || CLAUDE_OWN.test(x));
 
 const MIME: Readonly<Record<string, string>> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp' };
-/** What the Mac's web view plays (ACME-100); a codec it lacks shows the fallback there. */
+/** What the Mac's web view plays; a codec it lacks shows the fallback there. */
 const VIDEO_MIME: Readonly<Record<string, string>> = { '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm' };
 
 /** A sub-agent's own scratch folder, from where its session runs and the call that started it. */

@@ -211,7 +211,7 @@ function envHint(state: AppState): string {
 
 /** Pick the model for one conversation (or the default for new ones). */
 /**
- * /model (ACME-446): the agent picker as a menu. Your default agent's models, then each other
+ * /model: the agent picker as a menu. Your default agent's models, then each other
  * runtime with its own, or greyed with what's missing. A model of the same runtime switches models
  * (`model:<value>`); one of another runtime switches agent (`agent:<runtime>:<value>`).
  */

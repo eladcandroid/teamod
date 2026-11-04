@@ -38,7 +38,7 @@ describe('which tasks a typed "@…" may mean', () => {
     expect(keys('acme24')[0]).toBe('ACME-24');
     // The number alone: every project's task with that number (Ready ones first), then longer numbers.
     expect(keys('24')).toEqual(['OPS-24', 'ACME-24', 'ACME-240']);
-    expect(keys('bl24')[0]).toBe('ACME-24');
+    expect(keys('ac24')[0]).toBe('ACME-24');
   });
 
   it('a project prefix lists its tasks, Ready ones first, each group by number', () => {
@@ -94,7 +94,7 @@ describe('the "@" list offers tasks', () => {
     const list = suggest('look at @ACME-2', ctx);
     expect(list.map((s) => s.label)).toEqual(['@ACME-2', '@ACME-240', '@ACME-24', '@ACME-20']);
     expect(list[2]).toMatchObject({ value: 'look at @ACME-24 ', hint: 'Fix the login redirect', task: { key: 'ACME-24', status: 'in_progress' } });
-    expect(suggest('@bl24', ctx)[0]).toMatchObject({ value: '@ACME-24 ' });
+    expect(suggest('@ac24', ctx)[0]).toMatchObject({ value: '@ACME-24 ' });
     const mixed = suggest('@mi', { ...ctx, tasks: [t('ACME-3', 'Mirror the menu')] });
     expect(mixed.map((s) => [s.label, Boolean(s.task)])).toEqual([['@mia', false], ['@claude:mia', false], ['@ACME-3', true]]);
   });
@@ -110,13 +110,13 @@ describe('the "@" list offers tasks', () => {
 });
 
 describe('another project’s tasks in the "@" list (ACME-397)', () => {
-  const away = (task: TaskMention): TaskMention => ({ ...task, elsewhere: 'Acme' });
+  const away = (task: TaskMention): TaskMention => ({ ...task, elsewhere: 'Ratio' });
   const board = [t('ACME-24', 'Fix the login redirect'), t('ACME-25', 'Login page polish'), away(t('RAT-4', 'Login with Google')), away(t('RAT-12', 'Billing page')), away(t('RAT-240', 'Rate limits'))];
-  const ctx = { peers: [], selfId: 'me', tasks: board, projects: [{ name: 'Acme' }] };
+  const ctx = { peers: [], selfId: 'me', tasks: board, projects: [{ name: 'Ratio' }] };
   const labels = (typed: string): string[] => suggest(typed, ctx).map((s) => s.label);
 
   it('not for the first couple of letters, nor for a number alone', () => {
-    expect(labels('@ra')).toEqual(['@Acme']);
+    expect(labels('@ra')).toEqual(['@Ratio']);
     expect(labels('@lo')).toEqual(['@ACME-24', '@ACME-25']);
     expect(labels('@log')).toEqual(['@ACME-24', '@ACME-25']);
     expect(labels('@4')).toEqual([]);
@@ -126,9 +126,9 @@ describe('another project’s tasks in the "@" list (ACME-397)', () => {
   it('its whole prefix, or four letters of a word of the title, offers it, always last', () => {
     expect(labels('@RAT-4')).toEqual(['@RAT-4']);
     expect(labels('@rat12')).toEqual(['@RAT-12']);
-    expect(labels('@RAT')).toEqual(['@Acme', '@RAT-4', '@RAT-12', '@RAT-240']);
+    expect(labels('@RAT')).toEqual(['@Ratio', '@RAT-4', '@RAT-12', '@RAT-240']);
     expect(labels('@login')).toEqual(['@ACME-24', '@ACME-25', '@RAT-4']);
-    expect(suggest('@login', ctx).at(-1)).toMatchObject({ task: { key: 'RAT-4', elsewhere: 'Acme' } });
+    expect(suggest('@login', ctx).at(-1)).toMatchObject({ task: { key: 'RAT-4', elsewhere: 'Ratio' } });
   });
 
   it('only a few of them, below this project’s', () => {
@@ -199,7 +199,7 @@ describe('bare task keys in an answer', () => {
   });
 
   it('leaves unknown keys, look-alikes and lower case alone', () => {
-    expect(linkTaskKeys('ACME-99, UTF-8, acme-72, XBLG-72, ACME-720', has)).toBe('ACME-99, UTF-8, acme-72, XBLG-72, ACME-720');
+    expect(linkTaskKeys('ACME-99, UTF-8, acme-72, XACME-72, ACME-720', has)).toBe('ACME-99, UTF-8, acme-72, XACME-72, ACME-720');
   });
 
   it('leaves code, links, paths, URLs and task: alone', () => {
@@ -221,8 +221,8 @@ describe('bare task keys in an answer', () => {
   });
 
   it('leaves fenced code alone', () => {
-    const md = 'ACME-72\n```\nBLG-72\n```\n~~~\n@ACME-73\n~~~';
-    expect(linkTaskKeys(md, has, { mentions: true })).toBe(`${link('ACME-72')}\n\`\`\`\nBLG-72\n\`\`\`\n~~~\n@ACME-73\n~~~`);
+    const md = 'ACME-72\n```\nACME-72\n```\n~~~\n@ACME-73\n~~~';
+    expect(linkTaskKeys(md, has, { mentions: true })).toBe(`${link('ACME-72')}\n\`\`\`\nACME-72\n\`\`\`\n~~~\n@ACME-73\n~~~`);
   });
 });
 
@@ -245,7 +245,7 @@ describe('splitTaskKeys', () => {
   });
 
   it('stripCode keeps `task:KEY` in a sentence for the phone to draw, and folds keys inside code blocks away', () => {
-    const prose = stripCode('Fixed `task:ACME-98` and ACME-12.\n\n```ts\nconst k = "ACME-12";\n```\n\n```teamod-tasks\nBLG-98\n```');
+    const prose = stripCode('Fixed `task:ACME-98` and ACME-12.\n\n```ts\nconst k = "ACME-12";\n```\n\n```teamod-tasks\nACME-98\n```');
     expect(prose.text.split('\n')[0]).toBe('Fixed `task:ACME-98` and ACME-12.');
     expect(prose.code[0]).toEqual({ lang: 'ts', lines: 1 });
     expect(prose.code[1]).toEqual({ lang: 'teamod-tasks', lines: 1, block: { kind: 'tasks', text: 'ACME-98' } });

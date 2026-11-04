@@ -7,7 +7,7 @@ import { contextWindowFor } from '../../../shared/context-usage.js';
 import type { FileUpdateChange, ThreadItem, ThreadTokenUsage, TokenUsageBreakdown } from './protocol.js';
 
 /**
- * A Codex turn as teamod's transcript and steps (ACME-453). Codex's items become the tool calls
+ * A Codex turn as teamod's transcript and steps. Codex's items become the tool calls
  * teamod already draws: a command is a `Bash` step, a file change an `Edit` (or `Write` for a new
  * file), an MCP call `mcp__<server>__<tool>`, a web search `WebSearch`, reasoning a thinking step.
  * They go through the same StepRecorder as Claude's (shaped as its tool_use / tool_result blocks),

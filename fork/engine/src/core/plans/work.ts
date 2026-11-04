@@ -76,7 +76,7 @@ export class PlansWork {
       // Each milestone's check: a conversation of its own in the project (folded into the plan), archived once it passed.
       ...(deps.controller
         ? {
-            // On the plan's agent (ACME-503), like its workers; none picked: the project's.
+            // On the plan's agent, like its workers; none picked: the project's.
             checkerChat: async (plan, milestone) => {
               const ws = await deps.controller!.newChat(plan.projectId, `Check: ${milestone.title}`.slice(0, 40), undefined, { quiet: true });
               if (ws && plan.agent) deps.controller!.manager.setAgent(ws.id, plan.agent);
@@ -225,7 +225,7 @@ export class PlansWork {
   }
 
   /**
-   * Who works the plan's milestones and tasks (ACME-498): `agent`, or your default (null). Work that
+   * Who works the plan's milestones and tasks: `agent`, or your default (null). Work that
    * starts from now on gets it; milestones and tasks already at work keep the agent they opened with
    * (switching mid-run would lose their sessions). A task's own agent still beats it. → in words.
    */
@@ -291,7 +291,7 @@ export class PlansWork {
     return this.pilot.bringInMain(id);
   }
 
-  /** `agent` (Start with…, ACME-506): who works it this once; none: the task's own, the plan's, or your default. */
+  /** `agent` (Start with…): who works it this once; none: the task's own, the plan's, or your default. */
   startTask(id: string, task: string, agent?: AgentRef): Promise<string> {
     return this.pilot.startNow(id, task, this.me(), agent);
   }

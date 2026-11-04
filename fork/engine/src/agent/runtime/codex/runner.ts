@@ -120,7 +120,7 @@ export function mcpConfig(servers: Readonly<Record<string, StdioServerConfig>>):
 export const RUN_FEATURES_OFF = { 'features.multi_agent': false } as const;
 
 /**
- * Codex's multi-agent for a run (ACME-519): on for your own runs, its sub-agents shown as Claude's
+ * Codex's multi-agent for a run: on for your own runs, its sub-agents shown as Claude's
  * are (subagents.ts); off for a friend's task (the trust table's "your Codex tools", sandbox.ts).
  */
 export const runFeatures = (yourTools: boolean): Record<string, boolean> => ({ 'features.multi_agent': yourTools });
@@ -146,7 +146,7 @@ const deferred = <T>() => {
 };
 
 /**
- * Runs turns on Codex through `codex app-server` (ACME-453): one app-server per run, one thread per
+ * Runs turns on Codex through `codex app-server`: one app-server per run, one thread per
  * place (its id is the place's session, so the conversation resumes), each request a turn, its
  * items streamed into onEvent/onStep the way Claude's are. teamod's tools reach it as stdio MCP
  * servers (agent/tool-host.ts), gated per call like Claude's. Codex's own steps are confined by
@@ -156,7 +156,7 @@ export function createCodexBackend(opts: CodexBackendOptions): AgentBackend {
   let sessionId: string | undefined;
   const connect = opts.connect ?? spawnAppServer;
   const host = (): ToolHost => opts.toolHost ?? toolHost();
-  // Your Codex MCP servers for Settings (ACME-518): asked of an app-server of their own, started where
+  // Your Codex MCP servers for Settings: asked of an app-server of their own, started where
   // Claude's list starts (Codex has no per-request folder for the list, so a project's own
   // .codex/config.toml servers show only for that folder: the room's, here).
   const mcp = new CodexMcp((cwd) => connect({ cwd, ...(opts.codexPath ? { bin: opts.codexPath } : {}) }));
@@ -201,7 +201,7 @@ export function createCodexBackend(opts: CodexBackendOptions): AgentBackend {
       // teamod's tools, served for this run alone and gated per call (vetTool, policy, you).
       const mounted = await host().mount(runToolSuites(input, bridge, shelf, cwd), (name, args) => gateTool(name, args, input, policy));
       let conn: CodexConnection | undefined;
-      // Codex's sub-agents (ACME-519): rows and steps on the request's card, as Claude's are.
+      // Codex's sub-agents: rows and steps on the request's card, as Claude's are.
       const subAgents = new CodexSubAgents(cwd, { onSub: (e) => input.onEvent('sub', JSON.stringify(e)), ...(input.onStep ? { onStep: input.onStep } : {}), onFileTouched: input.onFileTouched });
       const events = new CodexEvents(cwd, { onEvent: input.onEvent, ...(input.onStep ? { onStep: input.onStep } : {}) }, { onFileTouched: input.onFileTouched, expand: (t) => shelf.expand(t), onTokens, subAgents });
       let failed = true;
@@ -230,7 +230,7 @@ export function createCodexBackend(opts: CodexBackendOptions): AgentBackend {
           stopped = gone;
           rpc.onNotification((method, params) => {
             events.handle(method, params);
-            // Codex's plan windows as they move (ACME-474): filed under Codex, never Claude.
+            // Codex's plan windows as they move: filed under Codex, never Claude.
             if (method === 'account/rateLimits/updated') reportLimits(bridge, params.rateLimits as CodexRateLimits);
             // A sub-agent's turns are its own (subagents.ts), never the run's.
             if (typeof params.threadId === 'string' && subAgents.lead && params.threadId !== subAgents.lead) return;
@@ -293,7 +293,7 @@ export function createCodexBackend(opts: CodexBackendOptions): AgentBackend {
         let approval: AskForApproval = 'never';
         let settled = false;
         // A fork can't branch a Codex thread (canFork: false): resuming it would write into the source's
-        // own conversation, so a fork starts a new one, and says so (ACME-461).
+        // own conversation, so a fork starts a new one, and says so.
         const forked = Boolean(place?.forkSession && place.resume);
         if (forked) input.onEvent('progress', fallbackFor('codex', 'fork')!);
         let threadId = await open(Boolean(input.plan), place ? (forked ? undefined : place.resume) : sessionId);

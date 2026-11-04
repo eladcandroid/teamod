@@ -32,7 +32,7 @@ export function claudeMcpSession(claudePath?: string): OpenMcpSession {
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms).unref());
 
 /**
- * Your MCP servers for Settings › Claude (ACME-251): how each is (connected, needs you to sign in,
+ * Your MCP servers for Settings › Claude: how each is (connected, needs you to sign in,
  * failed), and signing in to one, the way `/mcp` does in Claude Code. The tokens go where Claude
  * Code keeps them, so a server signed in here is signed in for your runs and for Claude Code.
  */

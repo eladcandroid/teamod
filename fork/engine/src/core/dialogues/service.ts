@@ -22,7 +22,7 @@ export interface DialoguesDeps {
   readonly toast: (text: string, level?: 'info' | 'warn' | 'error') => void;
   /** The worktree a conversation is (its folder), for work mode; undefined anywhere else. */
   readonly worktreeOf?: (channel: string) => string | undefined;
-  /** Friends' agents (ACME-468): who `@bob:codex` is, and the gateway their turns go through. */
+  /** Friends' agents: who `@bob:codex` is, and the gateway their turns go through. */
   readonly friendAgent?: FriendAgent;
   readonly gateway?: () => DialogueGateway | undefined;
 }
@@ -46,7 +46,7 @@ function overLine(d: Dialogue): string {
 }
 
 /**
- * Dialogues for the daemon (ACME-466): the chair (chair.ts) plus the room thread. Each change is put
+ * Dialogues for the daemon: the chair (chair.ts) plus the room thread. Each change is put
  * in the store (the header card draws from it), each new turn becomes a chat line labeled with its
  * agent, and the end gets a line saying why. What you type into a conversation with a dialogue
  * going on lands in it as an interjection.
@@ -204,7 +204,7 @@ export class Dialogues {
         type: 'chat',
         id: randomUUID(),
         channel,
-        // Your agents speak as you (labeled with which agent); a friend's (ACME-468) as them; people's words as whoever chairs.
+        // Your agents speak as you (labeled with which agent); a friend's as them; people's words as whoever chairs.
         from: agent?.peer ?? (t.by === 'person' && d.remoteChair && t.name !== this.deps.selfName() ? d.remoteChair.peer : this.deps.selfId()),
         text: t.text || '(no answer)',
         ts: t.at,

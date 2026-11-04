@@ -9,7 +9,7 @@ const ANSWER_TIMEOUT_MS = 4 * 60_000;
 const EARLIER_TURNS = 6;
 
 /**
- * read_earlier (ACME-428): earlier messages of the one conversation the answer is for, a page at a
+ * read_earlier: earlier messages of the one conversation the answer is for, a page at a
  * time. It reads only what `req.earlier` gives (core/chat/claude.ts: that conversation, up to the
  * ask, nothing locked); nothing else on this Mac.
  */

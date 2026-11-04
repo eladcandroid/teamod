@@ -12,7 +12,7 @@ import type { MetricSeries, OutputFormat, SentinelState, StepOutput, StepKind } 
 /** number · series (over time, or a kept array) · table · output (a step's export) · text · divider. */
 export const TILE_KINDS = ['number', 'series', 'table', 'output', 'text', 'divider'] as const;
 export type TileKind = (typeof TILE_KINDS)[number];
-/** What a series tile was called before ACME-246 (read as `series`). */
+/** What a series tile was called (read as `series`). */
 export const LEGACY_TILE_KINDS: Readonly<Record<string, TileKind>> = { chart: 'series' };
 export const CHART_TILE_KINDS = ['line', 'area', 'bar'] as const;
 export type ChartTileKind = (typeof CHART_TILE_KINDS)[number];
@@ -72,7 +72,7 @@ export interface Tile {
   readonly text?: 'headline' | 'report';
   /** Its own compare, pinned (none: the dashboard's). */
   readonly compare?: Compare;
-  /** A table's columns as it shows them (ACME-347): in this order first, renamed or hidden; the rest after, as they come. */
+  /** A table's columns as it shows them: in this order first, renamed or hidden; the rest after, as they come. */
   readonly columns?: readonly TileColumn[];
 }
 

@@ -24,7 +24,7 @@ export async function otherRuntimes(): Promise<Array<{ readonly id: RuntimeId; r
 }
 
 /**
- * Every runtime that can say whether it's ready here, Claude Code included (ACME-507: signed in?),
+ * Every runtime that can say whether it's ready here, Claude Code included (signed in?),
  * asked all at once. One that fails to answer is left out (it keeps what it said before).
  */
 export async function runtimeStatuses(deps: { readonly claude?: () => Promise<RuntimeStatus>; readonly others?: typeof otherRuntimes } = {}): Promise<Array<{ readonly id: RuntimeId } & RuntimeStatus>> {

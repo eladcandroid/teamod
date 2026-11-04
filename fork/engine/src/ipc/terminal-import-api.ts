@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Bringing your terminal's look into teamod (ACME-212): which other terminals are on this Mac
+ * Bringing your terminal's look into teamod: which other terminals are on this Mac
  * (Ghostty, iTerm2, Terminal, Alacritty, kitty, WezTerm, Warp) and what their colours, font and
  * cursor come to. Read-only: the Mac app applies what you pick to its own terminal settings.
  * Browser-safe: zod only.

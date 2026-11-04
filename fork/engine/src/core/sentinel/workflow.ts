@@ -5,7 +5,7 @@ import { type RunSummary, type Sentinel, type Step, type StepKind, type StepStat
 import { ASSISTANT_TITLE } from '../../shared/assistant.js';
 
 /**
- * A sentinel's workflow as a graph (ACME-352): what starts it, its steps in order with what moves
+ * A sentinel's workflow as a graph: what starts it, its steps in order with what moves
  * between them, where its results land (dashboards, the sentinels a step or a table's button runs),
  * and the sentinels that run after it. Given its last run, each step shows how it went. The same
  * graph on the sentinel's page and the phone. Browser-safe: pure.

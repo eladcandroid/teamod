@@ -32,7 +32,7 @@ export interface SentinelChatDeps {
   readonly codexDir?: string;
 }
 
-/** A chat's agent session: its id and the agent it is of (none: Claude's, from before ACME-571). */
+/** A chat's agent session: its id and the agent it is of (none: Claude's, from before). */
 interface Saved {
   readonly sessionId?: string;
   readonly runtime?: string;

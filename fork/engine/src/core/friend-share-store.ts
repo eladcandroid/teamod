@@ -13,7 +13,7 @@ export interface SharedWorktree {
   readonly id: string;
   readonly name: string;
   readonly branch?: string;
-  /** The owner's agent that runs it (ACME-448). */
+  /** The owner's agent that runs it. */
   readonly agent?: AgentRef;
 }
 
@@ -30,7 +30,7 @@ export interface SharedProject {
   /** The others it's shared with (and their role), as the owner said. */
   readonly members: ReadonlyArray<{ readonly peerId: string; readonly name: string; readonly role: WsRole }>;
   readonly updatedAt: number;
-  /** Shared whole: your own copy of it (ACME-258), while it's made and once it's in your Projects. */
+  /** Shared whole: your own copy of it, while it's made and once it's in your Projects. */
   readonly copy?: SharedCopy;
 }
 
@@ -45,7 +45,7 @@ export interface SharedCopy {
 }
 
 /**
- * Your fork of a friend's worktree on this Mac (ACME-312): asked for, coming over, made (`wsId`,
+ * Your fork of a friend's worktree on this Mac: asked for, coming over, made (`wsId`,
  * the worktree of yours it became), or it failed (why).
  */
 export interface SharedFork {

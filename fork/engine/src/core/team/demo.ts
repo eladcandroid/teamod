@@ -8,7 +8,7 @@ import { TeamKnocks } from './knock.js';
 import { TeamBoards } from './service.js';
 
 /**
- * TEAMOD_DEMO_SCENE=team (ACME-417): bob's Mac runs team boards of its own for the demo's bob-api,
+ * TEAMOD_DEMO_SCENE=team: bob's Mac runs team boards of its own for the demo's bob-api,
  * so knocking can be seen and tested end to end. bob asks to team up (Team Up on your Tasks); once
  * you're a team he works on "Rate-limit the login endpoint" in a worktree of his (Knock to Join on
  * its page; he lets you in as an editor), and knocks on your worktree doing "Idempotent webhook

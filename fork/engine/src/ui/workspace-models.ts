@@ -568,7 +568,7 @@ export function overviewModel(state: AppState, frame: number, width: number, now
  */
 /** "Share" (or "Shared · 2") opens who's in this workspace and lets you invite or remove people. */
 function sharedButton(state: AppState, wsId: string): WorkspaceButton {
-  // Friends it's shared with over the network count too, not only the room's members (ACME-340).
+  // Friends it's shared with over the network count too, not only the room's members.
   const count = worktreeShareRows(state, wsId).filter((r) => r.access !== 'none').length;
   return {
     label: count ? `Shared · ${count}` : 'Share',
@@ -606,9 +606,9 @@ export function workspaceButtons(state: AppState, ws: Workspace): WorkspaceButto
   const conflict = Boolean(state.conflicts[ws.id]?.length);
   const pr = state.prs[ws.id];
   const scripts = project?.scripts;
-  // In your room with their Claude, or a friend over the network (ACME-341).
+  // In your room with their Claude, or a friend over the network.
   const friends = handoffPeople(state).length > 0;
-  // What its runtime does instead (ACME-461): Compact greyed with why, Fork saying what comes along.
+  // What its runtime does instead: Compact greyed with why, Fork saying what comes along.
   const runtime = runtimeHere(ws.agent, state.self);
   const noCompact = fallbackFor(runtime, 'compact');
   const all: WorkspaceButton[] = ws.archived

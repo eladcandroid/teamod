@@ -10,7 +10,7 @@ import { DEMO_CUSTOMERS } from './mock-views.js';
 import type { AgentRunInput, TerminalLaunch, TerminalSink } from './types.js';
 
 /**
- * The demo's agent terminal (ACME-534): a small stand-in for Claude Code's terminal app, so the
+ * The demo's agent terminal: a small stand-in for Claude Code's terminal app, so the
  * terminal view runs without Claude (e2e, GIFs). It answers like the demo's Claude does, shows a
  * graph and a table as links, and writes a transcript the way Claude Code does, in the demo's own
  * folder (never your ~/.claude), so its turns come back to the chat.
@@ -82,7 +82,7 @@ proc.stdin.on('data', (data) => {
     }
   }
 });
-// A message sent from the chat comes as the first prompt, as Claude Code's does (ACME-553).
+// A message sent from the chat comes as the first prompt, as Claude Code's does.
 const first = process.env.DEMO_FIRST || '';
 if (first) {
   out(copper('> ') + first + '\r\n');

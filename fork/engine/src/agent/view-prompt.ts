@@ -9,7 +9,7 @@ import { PR_COMMENTS_FENCE } from '../shared/pr-comments-ref.js';
  * sortable table. The `show` tool is for when the user will want to look around in the data.
  */
 export function buildViewAppend(terminal = false): string {
-  // In the agent's own terminal (ACME-555) teamod's fenced blocks print as raw text: each goes
+  // In the agent's own terminal teamod's fenced blocks print as raw text: each goes
   // through show_block there, and a view never as a fence.
   const via = terminal ? ' passed to mcp__teamod_view__show_block (write the token it returns)' : '';
   return [

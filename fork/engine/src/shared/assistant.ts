@@ -1,6 +1,6 @@
 /**
- * "Your Mac" (ACME-47): your own Claude that isn't tied to any project or worktree, the same on the
- * phone and the Mac (core/assistant). Since ACME-102 it holds several chats, shown as tabs on the
+ * "Your Mac": your own Claude that isn't tied to any project or worktree, the same on the
+ * phone and the Mac (core/assistant). Since it holds several chats, shown as tabs on the
  * Mac: each its own conversation (channel) and Claude session, deletable for good. Browser-safe:
  * the screens, the phone's views and the daemon all name them by these channels.
  */
@@ -32,7 +32,7 @@ export const ASSISTANT_TITLE = assistantTitleFor(COMPUTER);
 /** The computer in a sentence: "this Mac", "this PC", "this computer". */
 export const THIS_COMPUTER = COMPUTER === 'windows' ? 'this PC' : COMPUTER === 'linux' ? 'this computer' : 'this Mac';
 
-/** The first chat: the one conversation there was before ACME-102, keeping its channel `mac:assistant`. */
+/** The first chat: the one conversation there was, keeping its channel `mac:assistant`. */
 export const FIRST_CHAT = 'main';
 
 /** A chat's id: short, lowercase letters and digits (it's part of the channel and of a folder's name). */
@@ -56,7 +56,7 @@ export interface AssistantChat {
   readonly id: string;
   readonly channel: string;
   readonly createdAt: number;
-  /** teamod's own (ACME-568: a sentinel's run or ask): found from its run, not a tab of yours (ACME-566), not counted in Open chats. */
+  /** teamod's own (a sentinel's run or ask): found from its run, not a tab of yours, not counted in Open chats. */
   readonly auto?: true;
 }
 

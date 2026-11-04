@@ -153,7 +153,7 @@ export interface Template {
   readonly builtIn?: boolean;
 }
 
-/** Who drives a conversation from its terminal (ACME-534). */
+/** Who drives a conversation from its terminal. */
 export interface AgentTermState {
   /** 'claude', 'codex' or 'local'. */
   readonly runtime: string;
@@ -168,7 +168,7 @@ export const MAX_TERM_VISUALS = 300;
 export interface WorkState {
   readonly inbox: readonly Notice[];
   readonly models: readonly ModelChoice[];
-  /** The agent picker's runtimes (ACME-446): which run on this Mac, and why the others don't. */
+  /** The agent picker's runtimes: which run on this Mac, and why the others don't. */
   readonly runtimes: readonly RuntimeChoice[];
   /** Folder size in bytes per workspace (worktrees and chats). */
   readonly disk: Readonly<Record<string, number>>;
@@ -186,7 +186,7 @@ export interface WorkState {
   readonly termNames: Readonly<Record<string, string>>;
   /** Running terminals that started before you changed their variables (Settings › Environment): a restart gives them the new ones. */
   readonly termEnvStale: readonly string[];
-  /** Conversations the agent's own terminal is driving now (workspace id → which agent, since when), ACME-534. */
+  /** Conversations the agent's own terminal is driving now (workspace id → which agent, since when). */
   readonly agentTerms: Readonly<Record<string, AgentTermState>>;
   /** The visuals each workspace's terminal showed (links in it open them), newest last. */
   readonly termVisuals: Readonly<Record<string, readonly TermVisual[]>>;

@@ -2,13 +2,14 @@
 
 A worktree and an agent per task, shared task boards and plans, teammates' agents asking each other for help, and automations, in panes beside your Claude Code session.
 
-teamod is a fork of [teamod](https://github.com/eladcandroid/teamod)'s engine with a Claude Code mod as its screen. You don't need teamod installed, and the two networks are separate: everyone on a team needs teamod.
+teamod is an engine with a Claude Code mod as its screen. Everyone on a team installs teamod.
 
 ## Install
 
 At the prompt of a Claude Code terminal session, with the repository you were given:
 
-    /plugin install teamod --marketplace <owner>/<repo>
+    /plugin marketplace add eladcandroid/teamod
+    /plugin install teamod@teamod
 
 Then:
 

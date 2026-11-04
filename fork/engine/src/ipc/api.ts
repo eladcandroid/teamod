@@ -68,7 +68,7 @@ export const PrefsPatch = z
     // null: back to the default (JSON can't carry undefined, so "unset" travels as null).
     model: z.string().max(80).nullable().optional(),
     effort: z.enum(EFFORTS).nullable().optional(),
-    // Who answers "@you" (null: back to Claude), and per-project ones by project name (ACME-444).
+    // Who answers "@you" (null: back to Claude), and per-project ones by project name.
     defaultAgent: AgentRef.nullable().optional(),
     projectAgents: z.record(z.string().min(1).max(80), AgentRef),
     autoSetup: bool,
@@ -106,7 +106,7 @@ const TermSize = z.object({ cols: z.number().int().min(1).max(1000), rows: z.num
 
 export const API = {
   // ---- the room, chat and your preferences
-  // `terminal`: the conversation is seen as its agent's terminal and hasn't had a turn yet: that opens on the message (ACME-553).
+  // `terminal`: the conversation is seen as its agent's terminal and hasn't had a turn yet: that opens on the message.
   'session.submit': args(str, opt(z.object({ channel: opt(channel), urgent: opt(bool), id: opt(id), terminal: opt(bool) }))),
   'session.copyInvite': args(),
   'session.copyLastAnswer': args(),
@@ -142,7 +142,7 @@ export const API = {
   'host.promote': args(id),
   // Send a waiting message next, never interrupting (Send Now).
   'host.sendNext': args(id),
-  // Send now a message steered into the running turn that Claude hasn't read yet: its step stops, your message is next (ACME-54).
+  // Send now a message steered into the running turn that Claude hasn't read yet: its step stops, your message is next.
   'host.steerNow': args(id),
   // Stop your Claude in one conversation: → { stopped, returned: your queued prompts, in order }.
   'host.stopRun': args(channel),
@@ -230,7 +230,7 @@ export const API = {
   'workspaces.refresh': args(),
   'workspaces.newWorktree': args(id, z.string().max(200), opt(z.object({ base: opt(z.string().min(1).max(250)), agent: opt(AgentRef) }))),
   'workspaces.newChat': args(id, z.string().max(200), opt(path)),
-  // `terminal`: you see it as its agent's terminal, so that opens on the message (ACME-553).
+  // `terminal`: you see it as its agent's terminal, so that opens on the message.
   'workspaces.startChat': args(id, str, opt(path.nullable()), opt(z.object({ terminal: opt(bool), plan: opt(bool) }))),
   // → the new worktree's id. `plan`: its Claude plans first. `quiet`: started from the phone, the Mac's window stays put.
   'workspaces.startWorktree': args(id, str, opt(z.object({ base: opt(z.string().min(1).max(250)), name: opt(z.string().max(200)), plan: opt(bool), quiet: opt(bool), agent: opt(AgentRef), terminal: opt(bool) }))),
@@ -240,7 +240,7 @@ export const API = {
   // Edit a message you sent (workspace, message id, its new words, how): 'here' rewinds this conversation to it (files too), 'fork' goes on in a new worktree or chat → the conversation it went on in.
   'workspaces.editPrompt': args(id, id, str, z.enum(['here', 'fork'])),
   // Carry a conversation (an ask chat in a main folder, or any chat) into a new worktree and go on there → the new workspace's id.
-  // `agent` (ACME-506): who goes on there; unset: the conversation's own. One that can't resume the conversation starts fresh, handed it.
+  // `agent`: who goes on there; unset: the conversation's own. One that can't resume the conversation starts fresh, handed it.
   'workspaces.continueInWorktree': args(id, opt(z.object({ task: opt(str), base: opt(z.string().min(1).max(250)), name: opt(z.string().max(200)), agent: opt(AgentRef) }).strict())),
   'workspaces.archive': args(id, opt(bool)),
   'workspaces.restore': args(id),
@@ -253,7 +253,7 @@ export const API = {
   'workspaces.merge': args(id),
   'workspaces.prepareRemoval': args(id),
   'workspaces.applyEnvBack': args(id),
-  // A worktree's env changes stay there: not asked about again until they change (ACME-369).
+  // A worktree's env changes stay there: not asked about again until they change.
   'workspaces.keepEnvHere': args(id),
   // Save a worktree's env changes as the project's own variables in teamod (every worktree gets them; the main .env is left alone).
   'workspaces.saveEnvInTeamod': args(id),
@@ -281,7 +281,7 @@ export const API = {
   'workspaces.otherActivity': args(id),
   'workspaces.worktreeInfo': args(id),
   'workspaces.showConversation': args(id, z.string().min(1).max(100)),
-  // Claude Code conversations from outside teamod in a project's folder (or `path`), and going on with one in a new worktree (ACME-321).
+  // Claude Code conversations from outside teamod in a project's folder (or `path`), and going on with one in a new worktree.
   'workspaces.outsideConversations': args(id, opt(path)),
   'workspaces.importOutside': args(id, path, z.string().regex(/^[\w-]{1,100}$/), opt(z.string().max(120))),
   'workspaces.removeOther': args(id, opt(bool)),
@@ -303,17 +303,17 @@ export const API = {
   'workbench.shareScripts': args(id),
   'workbench.setModel': args(opt(channel), z.string().max(80)),
   /**
-   * A conversation's agent (ACME-446): its runtime and model; null goes back to your default agent (nullish: over the socket a null arrives as undefined, see daemon/dispatch.ts).
-   * Then, when the new agent can't read the session (ACME-592): 'quiet' switches now and sends the recent conversation with your next message; 'note' (left out) has the old agent write a handoff note first.
+   * A conversation's agent: its runtime and model; null goes back to your default agent (nullish: over the socket a null arrives as undefined, see daemon/dispatch.ts).
+   * Then, when the new agent can't read the session: 'quiet' switches now and sends the recent conversation with your next message; 'note' (left out) has the old agent write a handoff note first.
    */
   'workbench.setAgent': args(channel, AgentRef.nullish(), opt(z.enum(HANDOFF_MODES))),
   'workbench.createPr': args(id, opt(str)),
   // Create PR without Claude: commit what's left, push, open it titled from the commits → { ok, message, trouble? }.
   // https: push this once over HTTPS with gh's login (the SSH key isn't working; origin stays as it is).
   'workbench.quickPr': args(id, opt(z.object({ draft: opt(bool), https: opt(bool) }).strict())),
-  // Merge into its base with no PR (ACME-265): commit what's left, land the branch on origin/<base> and push it there → { ok, message, trouble? }.
+  // Merge into its base with no PR: commit what's left, land the branch on origin/<base> and push it there → { ok, message, trouble? }.
   'workbench.mergeToBase': args(id, opt(z.object({ https: opt(bool) }).strict())),
-  // A fix from a GitHub trouble card (ACME-213), then Create PR again ('pr', 'pr_draft'), Merge into its base ('merge_base') or nothing ('none') → { ok, message, trouble? }.
+  // A fix from a GitHub trouble card, then Create PR again ('pr', 'pr_draft'), Merge into its base ('merge_base') or nothing ('none') → { ok, message, trouble? }.
   'workbench.gitFix': args(id, z.enum(['push_https', 'use_https', 'install_gh', 'gh_login', 'add_ssh_key', 'check_host', 'retry']), opt(z.enum(['pr', 'pr_draft', 'merge_base', 'none']))),
   // A failed run's card when Claude Code isn't signed in: `claude auth login` in your shell `id` (shell:N), then Claude goes on in `channel` → { ok, message }.
   // How: 'claudeai' (a Claude subscription, the default) or 'console' (an Anthropic Console account, API billing).
@@ -326,7 +326,7 @@ export const API = {
   'workbench.mergePr': args(id, z.object({ method: z.enum(['squash', 'merge', 'rebase']), auto: opt(bool), deleteBranch: opt(bool), admin: opt(bool) }).strict()),
   // A PR's one-click step on GitHub: bring its base in ('update_branch') or mark a draft ready ('ready') → { ok, message }.
   'workbench.prStep': args(id, z.enum(['update_branch', 'ready'])),
-  // A worktree's PR conversation: comments, reviews and threads on lines (ACME-514).
+  // A worktree's PR conversation: comments, reviews and threads on lines.
   'workbench.prConversation': args(id),
   'workbench.prPost': args(id, z.discriminatedUnion('kind', [z.object({ kind: z.literal('comment'), body: z.string().min(1).max(60_000) }).strict(), z.object({ kind: z.literal('reply'), thread: z.string().min(1).max(200), body: z.string().min(1).max(60_000) }).strict(), z.object({ kind: z.enum(['resolve', 'unresolve']), thread: z.string().min(1).max(200) }).strict()])),
   'workbench.addressPrComments': args(id, opt(z.string().min(1).max(200))),
@@ -341,7 +341,7 @@ export const API = {
   'workbench.editPrPrompt': args(),
   'workbench.resetPrPrompt': args(),
   'workbench.measureDisk': args(),
-  // Check Again (ACME-507): every agent asked now (Claude Code signed in? Codex installed and signed in?) → RuntimeChoice[].
+  // Check Again: every agent asked now (Claude Code signed in? Codex installed and signed in?) → RuntimeChoice[].
   'workbench.checkAgents': args(),
   // An agent's own sign-in (claude auth login, codex login), opened in Terminal → true when it opened.
   'workbench.agentSignIn': args(z.string().regex(/^[a-z][\w-]{0,31}$/)),
@@ -369,7 +369,7 @@ export const API = {
   'env.importDotenv': args(id),
   // Keys a worktree adds go into the project's main .env on their own (on by default).
   'env.newKeysBack': args(id, bool),
-  // Local and bring-your-own endpoints (ACME-449): → each with its URL and models, never its key (hasKey).
+  // Local and bring-your-own endpoints: → each with its URL and models, never its key (hasKey).
   'env.endpoints': args(),
   // Add (no id) or change one; key unset keeps it, '' removes it → its id.
   'env.saveEndpoint': args(z.object({ id: opt(z.string().max(20)), label: z.string().min(1).max(40), baseUrl: z.string().min(1).max(500), key: opt(z.string().max(4000)), models: opt(z.array(z.string().max(40)).max(20)) })),

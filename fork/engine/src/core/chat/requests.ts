@@ -7,7 +7,7 @@ import type { TaskView } from '../gateway/model.js';
 import { FRESH_MS } from './claude.js';
 
 /**
- * A friend's Claude answering your own ask in a chat with something that needs their Mac (ACME-353):
+ * A friend's Claude answering your own ask in a chat with something that needs their Mac:
  * you already asked, so your Mac sends it there as your request at once (the gateway), where their
  * trust settings or their Allow decide. Only for an ask of yours that called their Claude in, only
  * while the answer is fresh, and each answer once. One that can't be sent keeps its button.

@@ -11,7 +11,7 @@ import type { TeamMsg } from './protocol.js';
 import type { TeamBoards, TeamLink, TeamPart } from './service.js';
 
 /**
- * Knocking on a teammate's worktree (ACME-416). The board says Ata is working on a task; you
+ * Knocking on a teammate's worktree. The board says Ata is working on a task; you
  * knock, and Ata's Mac finds the worktree doing it. The knock shows in that worktree's chat (a
  * card there) and as a notification, the bell's and the phone's: Let In as Viewer, as Editor, or
  * Not Now. Letting you in shares that one worktree with you the friend-share way, so its chat
@@ -78,7 +78,7 @@ export class TeamKnocks implements TeamPart {
     const to = peerId ?? on[0]?.peerId;
     if (!to) throw new Error('No teammate is working on that task right now');
     const link = this.team.linksOf(issue.projectId).find((l) => l.peerId === to);
-    // You knock on friends only (ACME-510): friends on one team link up by themselves, someone else is a friend request away.
+    // You knock on friends only: friends on one team link up by themselves, someone else is a friend request away.
     if (!link) {
       const name = this.team.nameOf(to);
       if (!this.team.rosters.members(issue.projectId, this.team.self).some((m) => m.peerId === to)) throw new Error(`${name} isn’t on this project’s team`);

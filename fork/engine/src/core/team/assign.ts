@@ -12,12 +12,12 @@ import type { TeamAssignment, TeamState } from './model.js';
 import type { TeamBoards, TeamPart } from './service.js';
 
 /**
- * Giving a team task to a teammate (ACME-223). A task is for a person, never a Claude (ACME-278).
+ * Giving a team task to a teammate. A task is for a person, never a Claude.
  *
  * - **To a teammate:** the assignee travels with the board. On their Mac it's in My Tasks, and a
  *   teammate's change that makes it theirs notifies them and waits in their inbox (`assigned`; the
  *   phone's NeedsYou card, Got It) until they've seen it.
- * - **Not to a teammate's Claude** (ACME-262): giving one a task only pinged them to start, so it's
+ * - **Not to a teammate's Claude**: giving one a task only pinged them to start, so it's
  *   gone (the board makes one given to someone's Claude theirs). You ask their Claude in a chat with them, @-mentioning the
  *   task. A request sent before that still lands on the task when it's answered: its summary and
  *   files as proof, and a note from their Claude (the note travels with the board).
@@ -97,7 +97,7 @@ export class TeamAssign implements TeamPart {
     this.team.deps.notify?.({ kind: 'needsYou', tag: 'task', title: `${name} gave you ${issue.key}`, body: issue.title, need: `team-task:${issue.id}`, key: `team-assign:${issue.id}:${f.l}:${f.a}` });
   }
 
-  /** Their Claude's answer to a request sent before ACME-262: proof and a note on the task. */
+  /** Their Claude's answer to a request sent before proof and a note on the task. */
   private result(task: TaskView): void {
     const asked = this.asked.find((x) => x.task === task.id);
     if (!asked || !isFinal(task.state) || !task.result) return;

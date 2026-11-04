@@ -9,7 +9,7 @@ import type { ChatExtras } from './views.js';
  * Direct messages with friends: each conversation kept in ~/.teamod/dms/<peer>.jsonl, and what
  * you sent while they were offline in your outbox (~/.teamod/outbox.json) until their Mac says
  * it got it, or until it expires. The file is only ever appended to: a deleted message, an edit
- * or a cleared chat is a line of its own, applied when the file is read back (ACME-425). Deleting
+ * or a cleared chat is a line of its own, applied when the file is read back. Deleting
  * or editing your own message for both of you also waits in ~/.teamod/dm-changes.json until their
  * Mac says it got it, like a message.
  */

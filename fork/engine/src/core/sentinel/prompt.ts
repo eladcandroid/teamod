@@ -13,7 +13,7 @@ const fence = (text: string): string => text.replace(/sentinel_(trigger|step)/gi
 /** A tag's attribute, escaped. */
 const attr = (text: string): string => fence(text).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** An earlier step's output up to this many characters goes into a Claude step's prompt whole; a bigger one as its file (ACME-331). */
+/** An earlier step's output up to this many characters goes into a Claude step's prompt whole; a bigger one as its file. */
 export const INLINE_MAX = 4_000;
 /** How much of a big output its material shows before pointing at its file. */
 export const PREVIEW_CHARS = 1_500;
@@ -132,7 +132,7 @@ export function sentinelNote(): string {
 }
 
 /**
- * How to build a sentinel from data (ACME-304): look before writing the query, use the project's own
+ * How to build a sentinel from data: look before writing the query, use the project's own
  * variables, and show the preview setup answers with. In every brief that sets sentinels up.
  */
 const DATA_LINES = [
@@ -197,7 +197,7 @@ export function dashboardAskBrief(d: Dashboard, metrics: string, items: readonly
 }
 
 /**
- * Ask Sentinel leads (ACME-333): most people don't know what a watcher could do for them, so it looks
+ * Ask Sentinel leads: most people don't know what a watcher could do for them, so it looks
  * first and offers, in plain words, instead of waiting to be told how.
  */
 const LEAD_LINES = [
@@ -212,7 +212,7 @@ const LEAD_LINES = [
 ];
 
 /**
- * Ask Sentinel builds (ACME-590): people type here as they would to any chat ("how many signups this
+ * Ask Sentinel builds: people type here as they would to any chat ("how many signups this
  * week?") without knowing it makes dashboards. A question about their data gets a board that keeps
  * answering it, not a table in the conversation.
  */

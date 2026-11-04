@@ -1,5 +1,5 @@
 /**
- * The runtimes an agent picker shows (ACME-446), whether this Mac runs them or not: one this Mac
+ * The runtimes an agent picker shows, whether this Mac runs them or not: one this Mac
  * can't run yet stays in the list, greyed, saying what's missing, instead of disappearing.
  * Browser-safe and dependency-free: the daemon, the Mac app and the phone import it.
  */
@@ -24,7 +24,7 @@ export interface RuntimeChoice {
   readonly why?: string;
   /** Its models (Claude's come from Claude Code itself: the state's `models`). */
   readonly models?: readonly RuntimeModel[];
-  /** Where it stands on this Mac, once asked (ACME-507): onboarding and Settings › Agent say it in words. */
+  /** Where it stands on this Mac, once asked: onboarding and Settings › Agent say it in words. */
   readonly state?: RuntimeState;
   /** Not ready: what to do, in plain words ("Run codex login in Terminal…"). */
   readonly fix?: string;

@@ -2,7 +2,7 @@ import { type Dialogue, agentTurns, budgetLeft, isOver, nextSpeaker } from './mo
 import { speakerName } from './prompt.js';
 
 /**
- * A dialogue's header card, in words (ACME-466): what the Mac's card and the phone's thread show.
+ * A dialogue's header card, in words: what the Mac's card and the phone's thread show.
  * Browser-safe (zod and words only).
  */
 

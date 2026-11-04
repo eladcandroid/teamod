@@ -6,7 +6,7 @@ import { git } from '../../workspaces/git.js';
 import { normalizeRemote } from '../../workspaces/manager.js';
 
 /**
- * A friend's own copy of a project you share with them whole (ACME-258). They clone the repository
+ * A friend's own copy of a project you share with them whole. They clone the repository
  * straight from where it lives when they can read it (a public one, or one they have access to);
  * otherwise your Mac packs every branch into a git bundle and sends it over your link, and they
  * clone from that. Either way it lands in ~/teamod/<you>/<project> and joins their Projects.

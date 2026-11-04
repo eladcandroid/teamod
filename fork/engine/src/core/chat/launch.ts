@@ -57,9 +57,9 @@ export function startChat(opts: { mesh: Mesh; store: Store; session?: Session; d
   const claude = new ChatClaude({
     mesh,
     files,
-    // On your default agent (Claude when it can't), named by the one that answered (ACME-503).
+    // On your default agent (Claude when it can't), named by the one that answered.
     answer: session?.answersChats ? (req) => session.answerChat(req) : undefined,
-    // You asking your own Claude: a real turn with its tools, in this chat (ACME-207).
+    // You asking your own Claude: a real turn with its tools, in this chat.
     // It works in Your Mac's folder: only where that is (the Mac app's daemon).
     ...(session?.backend ? { act: (conversation: string, prompt: string) => session.host.runChat(conversation, prompt), canAct: () => Boolean(assistantOf(session)) } : {}),
     policy: () => store.getState().prefs.chatClaude,
@@ -71,7 +71,7 @@ export function startChat(opts: { mesh: Mesh; store: Store; session?: Session; d
     onLive: (conversation, id, state, agent) => store.dispatch({ type: 'net_live', conversation, state, live: { peerId: mesh.peerId, name: nameOf(mesh.peerId), for: id, since: Date.now(), agent } }),
     onProblem: (conversation, text) => session?.notifier.notify({ kind: 'problems', title: `${agentLabel(session.agentRef, undefined, true, { capital: true })} couldn’t answer`, body: text, channel: conversation }),
   });
-  // A friend's Claude answering your ask with something for their Mac: it goes there as your request (ACME-353).
+  // A friend's Claude answering your ask with something for their Mac: it goes there as your request.
   const requests = new AnswerRequests({
     mesh,
     ask: (input) => {

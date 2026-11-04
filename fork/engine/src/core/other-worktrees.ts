@@ -17,7 +17,7 @@ import type { Project, Workspace } from '../workspaces/types.js';
 /** Reads other tools' data (Claude Code transcripts, Conductor's database). Omitted in the demo and tests. */
 export interface OtherTools {
   conversations(dir: string): Promise<readonly ConversationSummary[]>;
-  /** Those that ran in a folder or any folder inside it (ACME-321). */
+  /** Those that ran in a folder or any folder inside it. */
   conversationsUnder(dir: string): Promise<readonly FoundConversation[]>;
   conductor(): Promise<readonly ConductorWorkspace[]>;
   creators(paths: readonly string[], since: number): Promise<ReadonlyMap<string, WorktreeCreator>>;

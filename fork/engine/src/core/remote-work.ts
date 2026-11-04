@@ -52,7 +52,7 @@ export interface RemoteWorkDeps {
 type Waiter = { peer: string; resolve: (v: unknown) => void; reject: (e: Error) => void; timer: NodeJS.Timeout };
 
 const OUTBOX_TTL_MS = 15 * 60_000;
-/** A handoff's branch waits longer: a friend outside the room may be offline when it's offered (ACME-341). */
+/** A handoff's branch waits longer: a friend outside the room may be offline when it's offered. */
 const HANDOFF_TTL_MS = 60 * 60_000;
 const AUTO_ACCEPT_BYTES = 50 * 1024 * 1024;
 const AUTO_ACCEPT_PER_10_MIN = 10;
@@ -453,7 +453,7 @@ export class RemoteWork {
     return true;
   }
 
-  /** Why a handoff can't reach them: someone in your room always can; a friend outside it over the network (ACME-341). */
+  /** Why a handoff can't reach them: someone in your room always can; a friend outside it over the network. */
   private cannotHandOff(peerId: string): string | undefined {
     if (this.state.peers.some((p) => p.peerId === peerId)) return undefined;
     const friend = this.state.network.friends.find((f) => f.peerId === peerId);

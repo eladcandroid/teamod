@@ -39,7 +39,7 @@ export interface NoticeEvent {
   /**
    * What waits for you that it's about: a needs-you item's id (companion/needs-you.ts), or the
    * start of one (`gwq:<task>`). The bell answers it in place and opens where it lives; answered,
-   * the notice is read (ACME-255).
+   * the notice is read.
    */
   readonly need?: string;
   /** What happened, once: a notice with the same key is never raised again (a plan's milestone passing…). */
@@ -104,7 +104,7 @@ export function placeName(state: DomainState, channel: string): string {
   if (channel === 'room') return state.peers.length > 1 ? 'the group chat' : 'your chat';
   if (isAssistant(channel)) return ASSISTANT_TITLE;
   if (isSentinelChat(channel)) return 'the Sentinel chat';
-  // A friends' chat (your Claude acts there when you ask it, ACME-207).
+  // A friends' chat (your Claude acts there when you ask it).
   if (channel.startsWith('dm:')) return `your chat with ${state.network.friends.find((f) => f.peerId === channel.slice(3))?.name ?? 'a friend'}`;
   if (channel.startsWith('group:')) return state.network.groups.find((g) => g.id === channel.slice(6))?.name ?? 'a channel';
   const id = channel.slice(3);
@@ -253,7 +253,7 @@ function finishedRuns(prev: DomainState, next: DomainState): NoticeEvent[] {
   return [...out, ...finishedTasks(next, before)];
 }
 
-/** The agent of your latest run in a conversation (the one asking there now, ACME-503); none: your default. */
+/** The agent of your latest run in a conversation (the one asking there now); none: your default. */
 function speakerIn(state: DomainState, channel: string | undefined): AgentRef {
   const selfId = state.self?.peerId;
   const run = state.log
@@ -317,7 +317,7 @@ function messagesForYou(prev: DomainState, next: DomainState): NoticeEvent[] {
 }
 
 /**
- * Someone mentions you in a task's comment ("@kai can you look?", ACME-419): a teammate's comment
+ * Someone mentions you in a task's comment ("@kai can you look?"): a teammate's comment
  * arrives with the board. Opening it goes to the task.
  */
 function taskMentions(prev: DomainState, next: DomainState, now: number): NoticeEvent[] {

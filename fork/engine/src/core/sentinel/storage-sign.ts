@@ -1,5 +1,5 @@
 /**
- * A Supabase Storage object's link, signed when it's clicked (ACME-345): the project's own Supabase
+ * A Supabase Storage object's link, signed when it's clicked: the project's own Supabase
  * variables (its URL under any prefix, and a service key) sign one object for about a minute. The
  * key goes only to Supabase from this Mac; the link is handed to the screen that asked and never
  * kept. Problems say which names to set, never a value.

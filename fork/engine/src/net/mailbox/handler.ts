@@ -1,5 +1,5 @@
 /**
- * teamod's mailbox (ACME-272): where a frame waits when the friend it's for and the Mac it's from
+ * teamod's mailbox: where a frame waits when the friend it's for and the Mac it's from
  * are never online at the same time. One mailbox per person, addressed by their peer id. It is a
  * blind store: what's in it is sealed to the recipient's box key (only their Mac opens it), and
  * signed by the sender, so the mailbox only learns who wrote to whom, when, and how much.

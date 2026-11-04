@@ -92,7 +92,7 @@ export function launchDialogues(host: DialoguesHost): () => void {
       if (!backend) throw new Error(`${run.participant.agent.label} can't run on this Mac`);
       const channel = run.dialogue.channel ?? 'room';
       const place = channel === 'room' ? undefined : turnPlace(session.workspaces?.place(channel), run.participant.agent, run.dialogue.mode !== 'work');
-      // No place (the room): the speaker's own model rides the run, or a local model wouldn't know its endpoint (ACME-503).
+      // No place (the room): the speaker's own model rides the run, or a local model wouldn't know its endpoint.
       const model = run.participant.agent.model;
       const on = !place && model ? (Object.assign(Object.create(backend) as AgentBackend, { run: (input: AgentRunInput) => backend.run({ ...input, model }) })) : backend;
       return session.host.runDialogueTurn(channel, on, run.input, { ...(place ? { place } : {}), defaultModel: runtime === own().runtime });

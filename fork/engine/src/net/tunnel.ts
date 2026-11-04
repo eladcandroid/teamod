@@ -188,7 +188,7 @@ export function watchTunnel(publicUrl: string, onDead: () => void, opts: WatchOp
 
 /**
  * The cloudflared binary npm installed, or else one downloaded on first use. The Mac app doesn't
- * bundle it (ACME-383) and can't write inside itself, so that one goes to ~/.teamod/bin.
+ * bundle it and can't write inside itself, so that one goes to ~/.teamod/bin.
  */
 async function managedCloudflared(onProgress: (msg: string) => void): Promise<string> {
   const pkg = await import('cloudflared');

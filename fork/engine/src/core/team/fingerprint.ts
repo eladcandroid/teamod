@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import type { GitHubRepo } from '../../workspaces/github.js';
 
 /**
- * Comparing repositories with a friend without telling them yours (ACME-221). Each side sends, for
+ * Comparing repositories with a friend without telling them yours. Each side sends, for
  * each GitHub project it has, HMAC-SHA-256(pair key, "host/owner/repo") cut to 128 bits, where the
  * pair key comes from both peer ids: the same two people get the same fingerprints, anyone else
  * (or the same repository with another friend) different ones. A friend who has the repository

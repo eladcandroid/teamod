@@ -33,7 +33,7 @@ export function codexHome(env: NodeJS.ProcessEnv = process.env): string {
 }
 
 export function launchClaudeCode(host: { readonly session: object; readonly store: Store; readonly demo: boolean; readonly notify?: (event: NoticeEvent) => void }): () => void {
-  // Codex's outside sessions show in Activity too (ACME-455); the demo only with TEAMOD_CODEX_HOME.
+  // Codex's outside sessions show in Activity too; the demo only with TEAMOD_CODEX_HOME.
   const codex = !host.demo || teamodEnv('CODEX_HOME') ? new CodexSessionsWatcher({ home: codexHome(), store: host.store }) : undefined;
   codex?.start();
   const stopCodex = (): void => codex?.stop();

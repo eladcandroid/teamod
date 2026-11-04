@@ -10,7 +10,7 @@ export type AccessScope = 'folder' | 'full';
 
 export interface AgentRunInput {
   readonly prompt: string;
-  /** Instructions for the agent's own terminal (ACME-534), not a turn: visuals as tokens, no fences (agent/terminal-prompt.ts). */
+  /** Instructions for the agent's own terminal, not a turn: visuals as tokens, no fences (agent/terminal-prompt.ts). */
   readonly terminal?: boolean;
   /** The prompt's id in Claude's transcript (a UUID: the request's own), so editing that message can cut the session there. */
   readonly promptId?: string;
@@ -38,7 +38,7 @@ export interface AgentRunInput {
   /** Model for this run (an alias like "sonnet" or a full id); unset: the default. */
   readonly model?: string;
   readonly effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-  /** At most this many turns (a friend's task, ACME-427); unset: no limit. */
+  /** At most this many turns (a friend's task); unset: no limit. */
   readonly maxTurns?: number;
   /** Your environment variables for this run, over teamod's own (only for runs you asked for). */
   readonly env?: Readonly<Record<string, string>>;
@@ -144,7 +144,7 @@ export interface SentinelTools {
   list(): string;
   /**
    * A new sentinel from a draft (it starts paused; the answer links it as `sentinel:<id>`). One with a
-   * source runs it once first (ACME-304): saved only when it works, answered with a preview.
+   * source runs it once first: saved only when it works, answered with a preview.
    */
   create(draft: import('../core/sentinel/tool-draft.js').ToolDraft): string | Promise<string>;
   /** Runs one that's on (never a paused one). */
@@ -161,7 +161,7 @@ export interface SentinelTools {
   update(ref: string, patch: import('../core/sentinel/tool-draft.js').ToolPatch): string | Promise<string>;
   /** Delete it (through your approval: never in ALWAYS_OK). */
   remove(ref: string): string;
-  /** Its runs, newest first: id, when, how it ended, its line, whether its agent's chat is kept (ACME-577). */
+  /** Its runs, newest first: id, when, how it ended, its line, whether its agent's chat is kept. */
   runs(ref: string): string;
   /** Delete some of its runs' chats, or the runs themselves (through your approval, always) → what was done. */
   deleteRuns(ref: string, which: { readonly runs?: readonly string[]; readonly state?: string; readonly before?: string }, what: 'chat' | 'run'): Promise<string>;
@@ -254,7 +254,7 @@ export interface BoardTools {
     readonly status?: 'backlog' | 'todo';
     readonly priority?: 'urgent' | 'high' | 'medium' | 'low' | 'none';
     readonly labels?: readonly string[];
-    /** Only the user sees it (ACME-501). */
+    /** Only the user sees it. */
     readonly private?: boolean;
   }): string;
   /** A board of its own covering a few repos (their names); its key prefix made from its name unless given. */
@@ -313,7 +313,7 @@ export interface PhoneTools {
   info(): Promise<string>;
   /** Install an APK (a path on this Mac); the phone shows its own Install button. */
   install(apkPath: string): Promise<string>;
-  /** teamod Link installed over adb and its Accessibility turned on (ACME-391). */
+  /** teamod Link installed over adb and its Accessibility turned on. */
   setUpLink(): Promise<string>;
   /** A shell command on the phone (needs Wireless debugging). */
   shell(command: string): Promise<string>;
@@ -325,7 +325,7 @@ export interface PhoneTools {
   pull(remotePath: string): Promise<string>;
   /** The phone's current notifications (needs Wireless debugging). */
   notifications(): Promise<string>;
-  /** Save a flow you just did as a named, repeatable macro (ACME-175). */
+  /** Save a flow you just did as a named, repeatable macro. */
   macroSave(name: string, steps: readonly unknown[]): Promise<string>;
   /** The saved macros. */
   macroList(): Promise<string>;
@@ -431,7 +431,7 @@ export interface AgentPlace {
   /** With askOnly: a hidden worktree Claude may edit to fix a conflict there (see policy.ts). */
   readonly fixup?: string;
   /**
-   * Other worktrees this one works in too (an epic across repos, ACME-561): in `additionalDirectories`,
+   * Other worktrees this one works in too (an epic across repos): in `additionalDirectories`,
    * and edited without asking like its own folder when `autoEdit`.
    */
   readonly alsoEdit?: readonly string[];
@@ -456,7 +456,7 @@ export interface TerminalSink {
 }
 
 /**
- * The agent's own terminal app on a conversation (ACME-534): Claude Code's (a local model's too,
+ * The agent's own terminal app on a conversation: Claude Code's (a local model's too,
  * which runs in it; Codex's conversations stay in the chat). The program to run in a pty, and the
  * conversation it goes on with. teamod's tools are served for it until close().
  */
@@ -477,7 +477,7 @@ export interface TerminalLaunch {
 
 export interface AgentBackend {
   run(input: AgentRunInput): Promise<string>;
-  /** The agent's own terminal app on `input.place`'s conversation, with teamod's tools and rules (ACME-534). */
+  /** The agent's own terminal app on `input.place`'s conversation, with teamod's tools and rules. */
   terminal?(input: AgentRunInput, sink: TerminalSink): Promise<TerminalLaunch>;
   /** teamod's tools for a Claude Code session outside the daemon (teamod): mounted behind a token of its own. */
   sessionTools?(input: AgentRunInput): Promise<import('./runtime/claude/terminal.js').SessionTools>;
@@ -499,7 +499,7 @@ export interface AgentBackend {
   workOutScripts?(dir: string, want: { setup: boolean; run: boolean }): Promise<WorkedOutScripts | undefined>;
   /** A task written from a description: title, goal, criteria, labels from the board's own (Sonnet). */
   draftTask?(text: string, ctx: DraftContext): Promise<TaskDraft | undefined>;
-  /** What a project is about, from a quick read-only look at its folder (About This Project, ACME-298). */
+  /** What a project is about, from a quick read-only look at its folder (About This Project). */
   describeProject?(dir: string, project: string): Promise<string | undefined>;
   /** A pull request reviewed before a sentinel merges it: ship or hold, in one sentence (a small model, read-only). */
   reviewPr?(input: import('./pr-reviewer.js').PrReviewInput): Promise<import('./pr-reviewer.js').PrReview | undefined>;

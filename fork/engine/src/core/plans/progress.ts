@@ -95,14 +95,14 @@ export type NextStep =
   | { readonly kind: 'pass'; readonly milestone: MilestoneView }
   | { readonly kind: 'checking'; readonly milestone: MilestoneView }
   | { readonly kind: 'failed'; readonly milestone: MilestoneView }
-  /** A passed milestone merging into the plan's branch; `text`: “Fixing a merge conflict in ACME-9”. */
+  /** A passed milestone merging into the plan's branch; `text`: “Fixing a merge conflict”. */
   | { readonly kind: 'merging'; readonly milestone: MilestoneView; readonly text: string }
   /** Every milestone passed: the plan's branch waits to reach main (Open PR, or merge it here). */
   | { readonly kind: 'ship'; readonly branch: string; readonly pr?: Plan['pr'] }
   | { readonly kind: 'answer'; readonly tasks: readonly TaskView[] }
   /** Tasks that stopped again after a wake: Resume them, or open their chat. */
   | { readonly kind: 'stalled'; readonly tasks: readonly TaskView[] }
-  /** `note`: the latest stall and wake (“ACME-36 stopped, woke it at 11:13”). */
+  /** `note`: the latest stall and wake (“ stopped, woke it at 11:13”). */
   | { readonly kind: 'working'; readonly tasks: readonly TaskView[]; readonly note?: string }
   | { readonly kind: 'waiting'; readonly why: string }
   | { readonly kind: 'done' };
@@ -165,7 +165,7 @@ function taskState(board: BoardState, issue: Issue | undefined, live: Live): { r
   }
 }
 
-/** What a task being combined shows: “Combining ACME-9 and ACME-27 …”, or the conflict being fixed. */
+/** What a task being combined shows: “Combining and …”, or the conflict being fixed. */
 function combiningStep(c: Combining): string {
   const names = c.from.length > 1 ? `${c.from.slice(0, -1).join(', ')} and ${c.from.at(-1)}` : (c.from[0] ?? 'its branches');
   if (!c.conflict) return `Combining ${names} …`;

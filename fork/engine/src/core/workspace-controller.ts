@@ -42,7 +42,7 @@ export interface ControllerDeps {
   /**
    * Ask your own Claude to do something in a workspace conversation. `echo: false` starts Claude
    * without posting the prompt as your message (it is already in the conversation); a string: posted
-   * as your message instead of the prompt (a handoff's prompt carries the conversation, ACME-506).
+   * as your message instead of the prompt (a handoff's prompt carries the conversation).
    */
   /** `shown`: the message is in the conversation already under this request id (see showAsk). */
   readonly askClaude: (prompt: string, channel: string, opts?: { readonly echo?: boolean | string; readonly shown?: string; readonly terminal?: boolean }) => void;
@@ -64,7 +64,7 @@ export interface ControllerDeps {
   readonly onWorkspaceGoing?: (id: string) => void;
   /** An archived worktree is back; `remake` makes again what the archive threw away (npm install…). */
   readonly onWorktreeRestored?: (ws: Workspace, remake: readonly string[]) => void;
-  /** A project's own variables in teamod (ACME-369): whether keys a worktree adds go back on their own, and Save in teamod. */
+  /** A project's own variables in teamod: whether keys a worktree adds go back on their own, and Save in teamod. */
   readonly env?: { readonly newKeysBack: (projectId: string) => boolean; readonly merge: (projectId: string, vars: Readonly<Record<string, string>>) => number };
   /** Claude Code's folder, where its sub-agents' worktrees are found (default: ~/.claude). */
   readonly claudeHome?: string;
@@ -95,7 +95,7 @@ export interface ContinueOptions {
   readonly base?: string;
   readonly name?: string;
   readonly after?: Promise<void>;
-  /** Who goes on there (ACME-506); unset: the conversation's own agent. */
+  /** Who goes on there; unset: the conversation's own agent. */
   readonly agent?: AgentRef;
 }
 
@@ -105,7 +105,7 @@ const sameText = (a: string, b: string): boolean => a.replace(/\s+/g, ' ').trim(
 /** A folder as people read it: ~/… under your home. */
 const tilde = (dir: string): string => (dir.startsWith(`${os.homedir()}/`) ? `~${dir.slice(os.homedir().length)}` : dir);
 
-/** A Claude Code conversation from outside teamod (ACME-321); `wsId`: the worktree it was brought into. */
+/** A Claude Code conversation from outside teamod; `wsId`: the worktree it was brought into. */
 export interface OutsideConversation extends FoundConversation {
   readonly wsId?: string;
 }
@@ -290,9 +290,9 @@ export class WorkspaceController {
   private readonly envQueued = new Set<string>();
 
   /**
-   * The worktrees' env files (ACME-369): untouched copies follow the main folder's, and ones a
+   * The worktrees' env files: untouched copies follow the main folder's, and ones a
    * worktree changed are asked about (copy to the main folder, or keep them there). One project's, or all.
-   * Files are listed and read without holding up the daemon (ACME-406), one check at a time.
+   * Files are listed and read without holding up the daemon, one check at a time.
    */
   checkEnv(projectId?: string, force = true): Promise<void> {
     // A project's page or worktree opening asks too: once every few seconds is plenty.
@@ -404,7 +404,7 @@ export class WorkspaceController {
   open(id: string, tab: WorkspaceTab = 'chat', req?: string): void {
     const ws = this.deps.manager.find(id);
     if (!ws) return this.deps.toast('That workspace no longer exists', 'warn');
-    // A project's main checkout is no conversation (ACME-70): the chat its old one became, else the project's home.
+    // A project's main checkout is no conversation: the chat its old one became, else the project's home.
     if (ws.kind === 'main') {
       const chat = ws.movedTo ? this.deps.manager.find(ws.movedTo) : undefined;
       if (chat && !chat.archived) return this.open(chat.id, tab, req);
@@ -426,7 +426,7 @@ export class WorkspaceController {
    */
   ensureLoaded(id: string): { saved: number } | undefined {
     const channel = `${WS_PREFIX}${id}`;
-    // A main checkout has no conversation to load or save (ACME-70).
+    // A main checkout has no conversation to load or save.
     if (this.loaded.has(channel) || !this.deps.manager.find(id) || this.deps.manager.find(id)?.kind === 'main') return undefined;
     this.loaded.add(channel);
     const saved = this.deps.manager.loadHistory<LogItem>(id);
@@ -493,7 +493,7 @@ export class WorkspaceController {
     return shown;
   }
 
-  // ---------------------------------------------------------- conversations from outside teamod (ACME-321)
+  // ---------------------------------------------------------- conversations from outside teamod
 
   /**
    * The Claude Code conversations that ran in `dir` (else the project's folder) or in a folder
@@ -579,7 +579,7 @@ export class WorkspaceController {
     return ws.id;
   }
 
-  /** Other worktrees' folders a worktree's Claude works in too (set by the board: an epic across repos, ACME-561). */
+  /** Other worktrees' folders a worktree's Claude works in too (set by the board: an epic across repos). */
   private alsoIn: (workspaceId: string) => readonly string[] = () => [];
 
   /** Say which other worktrees a worktree's Claude works in too. → stop. */
@@ -595,7 +595,7 @@ export class WorkspaceController {
     const id = workspaceIdOf(channel);
     const ws = id ? this.deps.manager.find(id) : undefined;
     // A folder deleted behind teamod's back: say so instead of Claude failing to start.
-    // A project's main checkout is no conversation (ACME-70): Claude runs in its chats and worktrees.
+    // A project's main checkout is no conversation: Claude runs in its chats and worktrees.
     if (!ws || ws.archived || ws.kind === 'main' || !existsSync(ws.path)) return undefined;
     // "Let Claude handle it": this one run may sync git in the main folder (and nothing else).
     const syncMain = ws.askOnly ? this.syncRuns.get(ws.id) : undefined;
@@ -603,7 +603,7 @@ export class WorkspaceController {
     // A conversation that picked no agent runs on yours (the project's own, else Settings' default).
     const agent = ws.agent ?? this.followedAgent(ws.id);
     const runtime = agent?.runtime ?? this.deps.defaultRuntime?.() ?? SESSION_RUNTIME_DEFAULT;
-    // An epic's worktree: its sub-tasks' worktrees in other repos too (ACME-561), still there.
+    // An epic's worktree: its sub-tasks' worktrees in other repos too, still there.
     const also = ws.kind === 'worktree' && !ws.askOnly ? this.alsoIn(ws.id).filter((dir) => existsSync(dir)) : [];
     return {
       cwd: ws.path,
@@ -632,7 +632,7 @@ export class WorkspaceController {
   }
 
   /**
-   * A message as its run starts: after a quiet switch (ACME-592) the first run carries the recent
+   * A message as its run starts: after a quiet switch the first run carries the recent
    * conversation the new agent can't read, once (without the message itself, `requestId`'s).
    */
   withCarry(channel: string, message: string, requestId?: string): string {
@@ -670,7 +670,7 @@ export class WorkspaceController {
   }
 
   /**
-   * What an agent that can't resume the conversation starts from (ACME-506): the conversation so
+   * What an agent that can't resume the conversation starts from: the conversation so
    * far as a handoff, then what to do. No conversation: just what to do.
    */
   private handedOff(from: string, channel: string, task: string): string {
@@ -833,12 +833,12 @@ export class WorkspaceController {
     const proper = named || !text ? undefined : nameTask(firstMessage).catch(() => undefined);
     const id = this.deps.manager.newWorktreeId();
     const channel = `${WS_PREFIX}${id}`;
-    // Your message shows at once on its page while git makes the folder (ACME-531); Claude gets it when that's done.
+    // Your message shows at once on its page while git makes the folder; Claude gets it when that's done.
     const shown = text && this.deps.showAsk ? this.deps.showAsk(firstMessage, channel) : undefined;
     const ws = await this.newWorktree(projectId, named || (text ? slugify(text) : 'worktree'), { id, ...(opts.base ? { base: opts.base } : {}), ...(opts.quiet ? { quiet: true } : {}), ...(opts.agent ? { agent: opts.agent } : {}) });
     if (!ws && shown) this.deps.store.dispatch({ type: 'clear', channel });
     if (ws && opts.plan) this.deps.store.dispatch({ type: 'plan_mode', channel, on: true });
-    // Seen as its terminal (ACME-553): the terminal opens on the message, not a turn in the chat (a plan's stays in the chat).
+    // Seen as its terminal: the terminal opens on the message, not a turn in the chat (a plan's stays in the chat).
     const terminal = opts.terminal && !opts.plan;
     if (ws && text) this.deps.askClaude(firstMessage, channel, shown || terminal ? { ...(shown ? { shown } : {}), ...(terminal ? { terminal } : {}) } : undefined);
     if (ws && proper) {
@@ -866,7 +866,7 @@ export class WorkspaceController {
    * new one. The worktree starts from the latest origin (or `base`), is named by a small model
    * after the task (or what you asked last), and opens; Claude starts on the task there once
    * `after` resolves (the run that asked for the move has finished, so its conversation is complete).
-   * `agent` (ACME-506): who goes on there (unset: the conversation's own). One that can't resume the
+   * `agent`: who goes on there (unset: the conversation's own). One that can't resume the
    * conversation (another runtime, or a runtime whose forks start anew) starts fresh, handed it.
    */
   async continueInWorktree(id: string, nameTask: (prompt: string) => Promise<string>, opts: ContinueOptions = {}): Promise<Workspace | undefined> {
@@ -903,7 +903,7 @@ export class WorkspaceController {
     const fromName = this.nameIn(id);
     const made = await this.act("Couldn't create the worktree", () => this.deps.manager.fork(id, name, { base: opts.base ?? project.base }));
     if (!made) return undefined;
-    // Started with another agent (ACME-506): the new worktree runs it from its first turn.
+    // Started with another agent: the new worktree runs it from its first turn.
     if (opts.agent) this.deps.manager.setAgent(made.id, opts.agent);
     // Named while it was being made; announced under its proper name.
     if (proper) await this.renameWhenNamed(made.id, proper);
@@ -943,7 +943,7 @@ export class WorkspaceController {
     const fromName = this.nameIn(source.id);
     const made = await this.act("Couldn't create the worktree", () => this.deps.manager.chatToWorktree(source.id, name, { base: opts.base ?? project.base }));
     if (!made) return undefined;
-    // Started with another agent (ACME-506): it goes on here from the next turn.
+    // Started with another agent: it goes on here from the next turn.
     if (opts.agent) this.deps.manager.setAgent(source.id, opts.agent);
     if (proper) await this.renameWhenNamed(source.id, proper);
     const ws = this.deps.manager.find(source.id) ?? made.ws;
@@ -984,7 +984,7 @@ export class WorkspaceController {
   }
 
   /**
-   * Keep how a worktree is as you send a message there (ACME-385), so editing that message later can
+   * Keep how a worktree is as you send a message there, so editing that message later can
    * put its files back, or fork from there. Quiet: a worktree that can't be read just has none.
    */
   snapshotPrompt(channel: string, requestId: string): Promise<void> {
@@ -998,7 +998,7 @@ export class WorkspaceController {
   }
 
   /**
-   * Edit a message you sent (ACME-385). `here`: the conversation goes back to just before it (it and
+   * Edit a message you sent. `here`: the conversation goes back to just before it (it and
    * everything after leave the chat, Claude forgets them, a worktree's files are as they were then)
    * and the edited message goes in its place. `fork`: a new worktree (or chat) with the conversation
    * up to there and the files as they were then, where the edited message goes; this one stays as
@@ -1020,7 +1020,7 @@ export class WorkspaceController {
     if (mode === 'here') await this.deps.stopHere?.(channel);
     this.saver.flush();
     const session = this.deps.manager.find(id)?.sessionId ?? ws.forkFromSession;
-    // Only Claude Code's conversations can be cut at a message; another runtime's starts afresh, saying why (ACME-461).
+    // Only Claude Code's conversations can be cut at a message; another runtime's starts afresh, saying why.
     const noRewind = fallbackFor(ws.sessionRuntime, 'rewind');
     const cut = noRewind ? undefined : session ? await sessionBefore(session, ws.path, { id: line.request, text: line.text }) : { sessionId: undefined };
     const snap = ws.kind === 'worktree' && line.request ? await snapshotAt(ws.path, promptRef(id, line.request)) : undefined;

@@ -4,7 +4,7 @@ import { type TaskView, isFinal, oneLine, requestGist, targetLabel } from './gat
 
 /**
  * Who's in a conversation with friends and what their Claudes are doing, and what waits on whom
- * (ACME-210), as plain words. The Mac's header, panel and waiting band draw these, and so does the
+ *, as plain words. The Mac's header, panel and waiting band draw these, and so does the
  * phone's chat (companion/views.ts). Browser-safe: no Node, no React.
  */
 

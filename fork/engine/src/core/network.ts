@@ -40,7 +40,7 @@ export interface NetworkOptions {
   readonly mailbox?: MailboxOptions;
 }
 
-/** Which mailbox frames go to when a friend isn't online with you (ACME-272); undefined: none. */
+/** Which mailbox frames go to when a friend isn't online with you; undefined: none. */
 export function mailboxOptions(settings: { readonly mailbox?: string; readonly mailboxAfterMin?: number }): MailboxOptions | undefined {
   const env = teamodEnv('MAILBOX');
   const url = env !== undefined && env !== '' ? env : (settings.mailbox ?? DEFAULT_MAILBOX_URL);
@@ -167,7 +167,7 @@ export function detachNetwork(session: object): void {
   for (const fn of watchers.get(session) ?? []) fn(undefined);
 }
 
-/** Quitting: mail what still waits for friends while every outbox is still running (ACME-272). */
+/** Quitting: mail what still waits for friends while every outbox is still running. */
 export async function leaveNetwork(session: object): Promise<void> {
   await services.get(session)?.mesh.leaving();
 }
@@ -238,7 +238,7 @@ function launch(host: NetworkHost): Launch {
       stopped = true;
       const service = await ready;
       if (!service) return;
-      // Before anything stops: what friends haven't taken goes to their mailboxes (ACME-272).
+      // Before anything stops: what friends haven't taken goes to their mailboxes.
       await service.mesh.leaving();
       detachNetwork(host.session);
       await service.stop();

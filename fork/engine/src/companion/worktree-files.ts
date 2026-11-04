@@ -9,7 +9,7 @@ import { FILE_PAGE, type FilePageView, type FileEntryView, type FolderView, type
 import type { RefTable } from './files.js';
 
 /**
- * A worktree's files on the phone (ACME-42), read-only: the companion's file gate. Everything the
+ * A worktree's files on the phone, read-only: the companion's file gate. Everything the
  * phone names is a path inside one worktree (its conversation's topic says which), and before a
  * folder is listed or a byte is read:
  *

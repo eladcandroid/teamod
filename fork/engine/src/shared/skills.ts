@@ -1,5 +1,5 @@
 /**
- * A skill or custom command Claude Code can use in a conversation's folder (ACME-217): listed in
+ * A skill or custom command Claude Code can use in a conversation's folder: listed in
  * the message box's / menu. `name` is what follows the slash ("review", "supabase:migrate").
  * Browser-safe: no imports.
  */
@@ -16,7 +16,7 @@ export interface ClaudeSkill {
   readonly onCodex?: string;
 }
 
-/** Frontmatter that changes how Claude Code runs a skill or command, with no Codex equivalent (ACME-456). */
+/** Frontmatter that changes how Claude Code runs a skill or command, with no Codex equivalent. */
 export const NOT_ON_CODEX: Readonly<Record<string, string>> = {
   'allowed-tools': 'its allowed tools',
   model: 'its model',
@@ -35,7 +35,7 @@ const SETTINGS = 'teamod’s own settings are in Settings (/settings).';
 
 /**
  * What teamod offers instead of a Claude Code built-in typed in a conversation, in a sentence
- * (ACME-505); undefined: not one of them, or teamod has a command of that name, or it's a prompt
+ *; undefined: not one of them, or teamod has a command of that name, or it's a prompt
  * Claude Code ships (review, security-review, pr-comments) that still means something as text.
  */
 const INSTEAD: Readonly<Record<string, string>> = {

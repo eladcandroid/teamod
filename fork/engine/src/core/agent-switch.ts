@@ -8,7 +8,7 @@ import { isLimitNotice } from '../shared/claude-notices.js';
 export { needsHandoff } from '../shared/agent-handoff.js';
 
 /**
- * Picking another runtime on a live conversation (ACME-447). Sessions don't move between runtimes
+ * Picking another runtime on a live conversation. Sessions don't move between runtimes
  * (a Claude Code session means nothing to Codex), so a switch is an explicit handoff, never a
  * silent swap: the old agent writes down where things stand, the new one starts seeded with it, and
  * the chat says "Handed off from Claude to Codex". When no note comes (it failed, took too long, or
@@ -16,7 +16,7 @@ export { needsHandoff } from '../shared/agent-handoff.js';
  * says so. A model change on the same runtime, or a switch back to the runtime that holds the
  * session (and can resume it), is a plain switch: the conversation goes on as it was.
  *
- * The note is your choice (ACME-592): a quiet switch runs nothing now, and the new agent gets the
+ * The note is your choice: a quiet switch runs nothing now, and the new agent gets the
  * recent conversation with your next message (see carriedPrompt). An old agent at its plan limit
  * can't write a note, so it isn't asked: the switch goes quietly.
  */

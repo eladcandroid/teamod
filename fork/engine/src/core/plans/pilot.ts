@@ -384,7 +384,7 @@ export class PlanPilot {
   }
 
   /**
-   * Start one task now (you, or the head Claude when you asked it). `agent` (Start with…, ACME-506):
+   * Start one task now (you, or the head Claude when you asked it). `agent` (Start with…):
    * who works it this once, instead of the task's own agent or the plan's; a milestone whose agent
    * is already at work keeps that one.
    */
@@ -852,7 +852,7 @@ export class PlanPilot {
       const ordered = [first, ...tasks.filter((t) => t !== first)];
       ids = ordered.map((t) => t.issue!.id);
       const base = first.bases?.length ? plan.branch : first.base;
-      // The agent you started it with (ACME-506), else the plan's (ACME-497); none: your default.
+      // The agent you started it with, else the plan's; none: your default.
       const agent = pick ?? plan.agent;
       const ws = await this.deps.work.startShared(ids, `${first.issue.key} ${m.milestone.title}`, { quiet: true, ...(base ? { base } : {}), ...(agent ? { agent } : {}) });
       const fresh = this.deps.plans.setAgent(plan.id, milestoneId, { worktree: ws.id, ...(ws.branch ? { branch: ws.branch } : {}), at: Date.now(), tasks: ordered.map((t) => t.task.id) });
@@ -1139,7 +1139,7 @@ export class PlanPilot {
     try {
       const base = t.bases?.length ? await this.combinedBase(plan, t, issue) : t.base;
       if (t.bases?.length && !base) return `${issue.key} builds on several tasks: combining their branches hit a conflict, and the agent is fixing it`;
-      // The agent you started it with (ACME-506), else the task's own, else the plan's (ACME-497), else your default.
+      // The agent you started it with, else the task's own, else the plan's, else your default.
       const agent = pick ?? issue.agent ?? plan.agent;
       await this.deps.work.start(issue.id, { claude: true, quiet: true, ...(base ? { base } : {}), ...(agent ? { agent } : {}) });
       if (t.bases?.length) this.deps.plans.setCombining(plan.id, t.task.id, undefined);

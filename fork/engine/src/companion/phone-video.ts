@@ -1,9 +1,9 @@
 import type { Adb } from './phone-adb.js';
 
 /**
- * The phone's screen as live video over adb (ACME-185): Android's own `screenrecord` writes H.264
+ * The phone's screen as live video over adb: Android's own `screenrecord` writes H.264
  * to stdout, adb carries it, and it's cut into pictures here for the mirror's player, the same
- * pieces the app's own stream sends (ACME-184). adb's shell may capture the screen, so nothing asks
+ * pieces the app's own stream sends. adb's shell may capture the screen, so nothing asks
  * on the phone. screenrecord stops after 3 minutes; it's started again then.
  */
 

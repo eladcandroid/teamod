@@ -55,13 +55,13 @@ export interface WorkbenchDeps {
   readonly open?: (target: string) => void;
   /** Models your Claude Code offers (asked once). */
   readonly listModels?: () => Promise<readonly ModelChoice[] | undefined>;
-  /** Another runtime on a live conversation hands it off (core/agent-switch.ts, ACME-447); unset: a plain switch. */
+  /** Another runtime on a live conversation hands it off (core/agent-switch.ts); unset: a plain switch. */
   readonly switchAgent?: (channel: string, agent: AgentRef | undefined, mode?: HandoffMode) => Promise<unknown>;
-  /** The agent picker's runtimes: which run on this Mac, and why the others don't (ACME-446). */
+  /** The agent picker's runtimes: which run on this Mac, and why the others don't. */
   readonly listRuntimes?: () => readonly RuntimeChoice[];
-  /** Whether each runtime that can say so is ready here (Codex: installed, signed in) and its models (ACME-455). */
+  /** Whether each runtime that can say so is ready here (Codex: installed, signed in) and its models. */
   readonly runtimeStatus?: () => Promise<ReadonlyArray<{ readonly id: string } & RuntimeStatus>>;
-  /** How to sign in to a runtime, as a command for Terminal (ACME-507); undefined: it has none. */
+  /** How to sign in to a runtime, as a command for Terminal; undefined: it has none. */
   readonly signInCommand?: (id: string) => Promise<readonly string[] | undefined>;
   /** Look for a pull request (injected in tests). */
   readonly findPr?: (dir: string, branch: string) => Promise<PullRequest | undefined>;
@@ -337,7 +337,7 @@ export class Workbench {
 
   /**
    * Pick the agent for one conversation (undefined: your default); every run from there uses it.
-   * `mode`: when the new agent can't read the session, switch quietly or have the old one write a note (ACME-592).
+   * `mode`: when the new agent can't read the session, switch quietly or have the old one write a note.
    */
   setAgent(channel: string, agent: AgentRef | undefined, mode?: HandoffMode): boolean {
     const id = channel.startsWith('ws:') ? channel.slice(3) : undefined;
@@ -1117,7 +1117,7 @@ export class Workbench {
 
   /**
    * A program in a workspace's folder as one of its terminals, not your shell: the agent's own
-   * terminal app (ACME-534). Your variables and the worktree's, the program's own over them. One
+   * terminal app. Your variables and the worktree's, the program's own over them. One
    * already there under `key` is closed first.
    */
   openProgram(key: string, ws: Workspace, program: { readonly file: string; readonly args: readonly string[]; readonly env: Readonly<Record<string, string>>; readonly title: string }, size = START_SIZE): PtyProcess | undefined {
@@ -1277,7 +1277,7 @@ export class Workbench {
   private startSetup(ws: Workspace, command: string, learn = true): void {
     const wsId = ws.id;
     this.closeTerminal(setupId(wsId));
-    // Its npm installs copied from a checkout that already has them (ACME-366): not from one still setting up.
+    // Its npm installs copied from a checkout that already has them: not from one still setting up.
     const setups = this.deps.store.getState().setup;
     const project = this.manager.list.find((p) => p.id === ws.projectId);
     const sources = project ? [project.root, ...project.workspaces.filter((w) => w.id !== wsId && !w.pending && setups[w.id]?.status !== 'running').map((w) => w.path)] : [];

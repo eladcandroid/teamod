@@ -4,7 +4,7 @@ import { viewFor } from '../client/screen.js';
 import { sentinelChatOf } from '../core/sentinel/model.js';
 
 /**
- * "Open on your Mac" from the phone (ACME-40): what the Mac app's window shows for something the
+ * "Open on your Mac" from the phone: what the Mac app's window shows for something the
  * phone has open (a conversation, a plan, a task, a friends' chat, something that needs you).
  * The daemon sends it to every screen as a `navigate` intent and asks the Mac app to raise its
  * window (its `raise` capability). Pure, so it's tested without a window.
@@ -26,7 +26,7 @@ export function macViewFor(state: DomainState, target: OpenTarget): View | undef
       if (channel === 'room') return { kind: 'room' };
       const chat = assistantChatOf(channel);
       if (chat) {
-        // One of Your Mac's chats (ACME-102); the first after it was deleted is the one open.
+        // One of Your Mac's chats; the first after it was deleted is the one open.
         if (state.assistant.chats.some((c) => c.id === chat)) return { kind: 'assistant', chat };
         return chat === FIRST_CHAT ? { kind: 'assistant' } : undefined;
       }
@@ -35,7 +35,7 @@ export function macViewFor(state: DomainState, target: OpenTarget): View | undef
       if (channel.startsWith('task:')) return { kind: 'requests' };
       if (channel.startsWith('ws:')) {
         const id = channel.slice(3);
-        // A project's main checkout: the chat its old conversation became, else the project's home (ACME-70).
+        // A project's main checkout: the chat its old conversation became, else the project's home.
         if (state.projects.some((p) => p.workspaces.some((w) => w.id === id))) return viewFor({ kind: 'workspace', id, tab: 'chat' }, state);
         const shared = state.shared.find((w) => w.id === id);
         return shared ? { kind: 'shared', owner: shared.owner, id, tab: 'chat' } : undefined;

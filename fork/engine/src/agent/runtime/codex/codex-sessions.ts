@@ -4,7 +4,7 @@ import path from 'node:path';
 import { samePath } from '../claude/claude-sessions.js';
 
 /**
- * Forgetting Codex's own record of a conversation (ACME-532). Codex writes each one to
+ * Forgetting Codex's own record of a conversation. Codex writes each one to
  * ~/.codex/sessions/YYYY/MM/DD/rollout-<time>-<thread id>.jsonl (archived ones to
  * archived_sessions/), its first line a session_meta with the thread id and the folder it ran in.
  */

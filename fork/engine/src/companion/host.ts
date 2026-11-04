@@ -98,7 +98,7 @@ export interface CompanionHostOptions {
   /** Where the models that write down the phone's speech go (~/.teamod/voice), or the voice itself (tests). */
   readonly voice?: MacVoice;
   readonly thumbnail?: Thumbnailer;
-  /** A kept table's documents, streamed by ref (Sentinel's documentBytes, ACME-386). */
+  /** A kept table's documents, streamed by ref (Sentinel's documentBytes). */
   readonly documents?: DocumentBytes;
   /** Outputs on disk per conversation (sub-agents', the scratch folder's), newest first. */
   readonly outputs?: (channel: string) => readonly ConvOutput[];
@@ -120,16 +120,16 @@ export interface CompanionHostOptions {
   readonly refs?: RefTable;
   /** Projects' small icons for the phone (default: made with sips next to the thumbnails). */
   readonly icons?: ProjectIcons;
-  /** The daemon's terminal programs: a worktree's terminals, shared with the phone (ACME-42). */
+  /** The daemon's terminal programs: a worktree's terminals, shared with the phone. */
   readonly terminals?: TerminalManager;
   /** Tests: how long terminal output is coalesced. */
   readonly termCoalesceMs?: number;
-  /** Running adb and reading the device, for driving the phone (ACME-150); tests pass a fake. */
+  /** Running adb and reading the device, for driving the phone; tests pass a fake. */
   readonly system?: SystemPort;
   /** Tests: adb's path straight away, and a fake home for finding it. */
   readonly adbPath?: string;
   readonly home?: string;
-  /** Where saved phone flows live (ACME-175); default ~/.teamod/phone-macros.json via launch. */
+  /** Where saved phone flows live; default ~/.teamod/phone-macros.json via launch. */
   readonly macrosFile?: string;
 }
 
@@ -158,9 +158,9 @@ class PhoneLink implements PhoneLinkHandle {
   heard = Date.now();
   /** It came through the relay (an older app doesn't say how it came). */
   overRelay = false;
-  /** The terminals on its screen (ACME-42). */
+  /** The terminals on its screen. */
   readonly terms: TermRelay;
-  /** What this phone last said it lets the Mac do (ACME-150, the `control` frame). */
+  /** What this phone last said it lets the Mac do (the `control` frame). */
   control?: PhoneControlState;
   /** The Wireless-debugging pairing code it last sent, for `adb pair`. */
   adbCode?: { code: string; at: number };
@@ -195,7 +195,7 @@ class PhoneLink implements PhoneLinkHandle {
     socket.on('close', () => this.finish());
     this.helloTimer = setTimeout(() => this.close(COMPANION_CLOSE.hello, 'no hello'), HELLO_TIMEOUT_MS);
     this.helloTimer.unref();
-    // The phone pings every KEEPALIVE_MS (KEEPALIVE_AWAY_MS while away, ACME-128); three missed and
+    // The phone pings every KEEPALIVE_MS (KEEPALIVE_AWAY_MS while away); three missed and
     // it's gone (a phone that slept without a bye).
     this.beat = setInterval(() => {
       if (Date.now() - this.heard > (this.inFront ? KEEPALIVE_MS : KEEPALIVE_AWAY_MS) * 3) socket.terminate();
@@ -457,10 +457,10 @@ export class CompanionHost {
   private phoneRuns = new Map<string, boolean>();
   private changeTimer?: NodeJS.Timeout;
   readonly reach: Reach;
-  /** Driving the phone from the Mac (ACME-150): routes, adb, and the agent's tools. */
+  /** Driving the phone from the Mac: routes, adb, and the agent's tools. */
   readonly control: PhoneControl;
   private readonly awake: Awake;
-  /** The state at the last notice: what finished since is told to phones away from the app (ACME-128). */
+  /** The state at the last notice: what finished since is told to phones away from the app. */
   private lastState?: DomainState;
 
   constructor(private readonly opts: CompanionHostOptions) {
@@ -582,7 +582,7 @@ export class CompanionHost {
     return this.pairing.start();
   }
 
-  /** Pair the phone on the USB cable (ACME-190): a pairing opens here and on the phone, the four pictures as ever. */
+  /** Pair the phone on the USB cable: a pairing opens here and on the phone, the four pictures as ever. */
   async pairOverCable(): Promise<string> {
     const info = await this.pairing.start();
     await this.control.openPairingOnCable(info.link);
@@ -703,7 +703,7 @@ export class CompanionHost {
     return { topic };
   }
 
-  /** A new worktree with Claude on your words and the photos with them, as the Mac's project home starts one; `agent` (ACME-506): who works it. */
+  /** A new worktree with Claude on your words and the photos with them, as the Mac's project home starts one; `agent`: who works it. */
   private async startWorktree(caller: string, project: string, words: string, files: readonly string[] | undefined, plan: boolean | undefined, agent?: AgentRef): Promise<{ topic: string }> {
     // Its channel doesn't exist yet; any but the room's links the photos the same way.
     const text = await this.withFiles(caller, words, files, 'ws:new');
@@ -721,7 +721,7 @@ export class CompanionHost {
     return chips.length ? String(await this.must(caller, 'attachments.expand', [text, channel, images, images.map((_, i) => i + 1)])) : text;
   }
 
-  /** What you said on the phone, written down here (ACME-140): only the phone that sent the audio, which then goes. */
+  /** What you said on the phone, written down here: only the phone that sent the audio, which then goes. */
   async transcribe(caller: string, a: { audio: string; model: VoiceModelId; language: string; prompt?: string | undefined }): Promise<{ text: string; language?: string; ms: number }> {
     const device = this.deviceOf(caller);
     if (!device) throw new Error('Only the phone that sent the recording can have it written down');
@@ -763,7 +763,7 @@ export class CompanionHost {
     return { signedOut: true };
   }
 
-  // ---- a worktree's files, read-only, and its terminals, shared with the Mac (ACME-42)
+  // ---- a worktree's files, read-only, and its terminals, shared with the Mac
 
   /** A folder of a worktree (its conversation's topic), through the file gate (worktree-files.ts). */
   filesList(topic: string, rel: string): Promise<unknown> {
@@ -851,7 +851,7 @@ export class CompanionHost {
       this.phoneRuns.set(typeof channel === 'string' ? channel : 'room', false);
     }
     const out = await this.opts.call(link.clientId, method, args);
-    // What a sentinel keeps (ACME-392): each run's file and each metric's history (as CSV) as a ref the phone streams.
+    // What a sentinel keeps: each run's file and each metric's history (as CSV) as a ref the phone streams.
     if (method === 'sentinel.dataList' && out.ok) return { ok: true, value: this.withDataRefs(String(args[0]), out.value as SentinelData) };
     if ((method === 'workspaces.startChat' || method === 'workspaces.startWorktree') && out.ok && typeof out.value === 'string') this.phoneRuns.set(`ws:${out.value}`, false);
     // A plan asked from the phone: its head Claude's draft is done (to approve) when its first run ends.
@@ -988,7 +988,7 @@ export class CompanionHost {
       }
     }
     // Every other run that finished (the Mac's own "Claude finished" notices): only for a phone that
-    // stays connected in the background (ACME-128), since one in front sees it already.
+    // stays connected in the background, since one in front sees it already.
     if (prev && prev !== state) {
       const told = new Set(nudges.flatMap((n) => (n.collapse?.startsWith('done:') ? [n.collapse] : [])));
       // A sentinel's run that ended, where it notifies the phone (docs/sentinel.md §4): one nudge per
@@ -1012,7 +1012,7 @@ export class CompanionHost {
   /**
    * Tell each phone: in the app if it's open, else (only once you've been away from the Mac five
    * minutes) a nudge to a linked phone or a push to one that isn't. What needs you while you're at
-   * the Mac is held, and told once you step away if it's still waiting (ACME-360).
+   * the Mac is held, and told once you step away if it's still waiting.
    */
   private async tell(nudges: readonly Nudge[], state: DomainState, idle: number | undefined): Promise<void> {
     for (const record of this.opts.devices.all()) {
@@ -1067,7 +1067,7 @@ export class CompanionHost {
     if (this.stopped) return;
     const linked = new Set([...this.links].filter((l) => l.isOpen).map((l) => l.deviceId));
     const pairing = this.pairing.info();
-    // Each phone carries how Claude can use it now (ACME-150); the adb line is for Settings › Phone.
+    // Each phone carries how Claude can use it now; the adb line is for Settings › Phone.
     const devices = this.opts.devices.views(linked).map((d) => ({ ...d, control: this.control.controlView(d.id) }));
     this.opts.store.dispatch({ type: 'companion', companion: { devices, relay: this.reach.state(), ...(pairing ? { pairing } : {}), adb: this.control.adbView() } });
   }
@@ -1083,7 +1083,7 @@ export class CompanionHost {
   phoneWifiDebugging(deviceId: string, on: boolean): Promise<string> {
     return this.control.setWifiDebugging(deviceId, on);
   }
-  /** teamod Link installed and turned on over adb (Settings › Phone › teamod Link, ACME-391). */
+  /** teamod Link installed and turned on over adb (Settings › Phone › teamod Link). */
   setUpPhoneLink(deviceId: string): Promise<string> {
     return this.control.setUpLink(deviceId);
   }
@@ -1091,7 +1091,7 @@ export class CompanionHost {
   phoneAction(deviceId: string, op: PhoneOp, args: Record<string, unknown>): Promise<unknown> {
     return this.control.action(deviceId, op, args);
   }
-  /** Saved phone flows (ACME-175), for the Mac UI. */
+  /** Saved phone flows, for the Mac UI. */
   listPhoneMacros(): readonly Macro[] {
     return this.control.listMacros();
   }

@@ -325,9 +325,9 @@ interface ClientEvents extends Record<string, unknown[]> {
   /** A finished view for a topic (replacing the last one). */
   view: [Topic, unknown, number];
   nudge: [Extract<MacFrame, { t: 'nudge' }>];
-  /** 1.7: a terminal's output or status (ACME-42). */
+  /** 1.7: a terminal's output or status. */
   term: [Extract<MacFrame, { t: 'term_data' | 'term_status' }>];
-  /** 1.16: the Mac wants the phone to do something (ACME-150); answer with reply(). */
+  /** 1.16: the Mac wants the phone to do something; answer with reply(). */
   req: [Extract<MacFrame, { t: 'req' }>];
   /** 1.16: a byte tunnel to the phone's debugging port (adb over the link). */
   tun: [Extract<MacFrame, { t: 'tun_open' | 'tun_data' | 'tun_ack' | 'tun_close' }>];
@@ -517,7 +517,7 @@ export class CompanionClient extends Emitter<ClientEvents> {
   /** The app went to the background (the link closes after the grace) or came back. */
   focus(on: boolean): void {
     this.send({ t: 'focus', on });
-    // Kept open while away (Stay connected, ACME-128): ping less, where the link allows and the Mac waits that long.
+    // Kept open while away (Stay connected): ping less, where the link allows and the Mac waits that long.
     const v = this.welcome?.v;
     const slow = !on && v !== undefined && v.major === COMPANION_PROTO.major && v.minor >= SINCE.awayBeat && (this.path === 'relay' || this.path === 'lan');
     this.beatEvery(this.opts.keepAliveMs ?? (slow ? KEEPALIVE_AWAY_MS : KEEPALIVE_MS));
@@ -552,7 +552,7 @@ export class CompanionClient extends Emitter<ClientEvents> {
     this.send({ t: 'push', platform, token, relayKey });
   }
 
-  // ---- 1.16: your Mac using the phone (ACME-150)
+  // ---- 1.16: your Mac using the phone
 
   /** Tell the Mac what this phone lets it do, and how it can be reached (adb port, Wi-Fi IP). */
   sendControl(state: import('./protocol.js').PhoneControl): void {

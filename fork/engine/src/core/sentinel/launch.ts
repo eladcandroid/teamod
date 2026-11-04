@@ -70,7 +70,7 @@ export function launchSentinel(host: SentinelHost): () => void {
   });
   attachSentinel(session, sentinels);
   const stopSeed = host.demo && !sentinels.list().length ? seedDemoSentinel(store, sentinels, (ms) => (back = ms)) : () => undefined;
-  // The boards' tiles for the Mac's desktop widgets (ACME-309): never the demo's.
+  // The boards' tiles for the Mac's desktop widgets: never the demo's.
   const stopWidgets = !host.demo && process.platform === 'darwin' ? keepWidgetSnapshot(store, path.join(teamodHome(), 'widgets'), (id) => store.getState().projects.find((p) => p.id === id)?.root) : () => undefined;
   return () => {
     stopWidgets();
@@ -178,7 +178,7 @@ function places(session: Session): SentinelPlaces | undefined {
     macChat: (run) => {
       const mac = assistantOf(session);
       if (!mac) return undefined;
-      // teamod's own: never refused by your Open chats limit, never takes your tab (ACME-568); a run's on the agent its step chose.
+      // teamod's own: never refused by your Open chats limit, never takes your tab; a run's on the agent its step chose.
       return { channel: assistantChannel(mac.newChat({ auto: true, ...(run?.agent ? { agent: run.agent } : {}) })) };
     },
     putAway: async (channel) => {

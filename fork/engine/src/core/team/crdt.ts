@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { type Activity, type Actor, BRIEF_SECTIONS, type Issue } from '../board/model.js';
 
 /**
- * How every teammate's copy of a task agrees (ACME-222), as pure functions. Each field is
+ * How every teammate's copy of a task agrees, as pure functions. Each field is
  * last-writer-wins: it carries who set it (`a`, a peer id) and when, in Lamport time (`l`); the
  * higher `l` wins, then the higher `a`, then (never in practice) the larger value, so every Mac
  * picks the same one whatever order changes arrive in. Activity and comments are only ever added
@@ -12,7 +12,7 @@ import { type Activity, type Actor, BRIEF_SECTIONS, type Issue } from '../board/
  * What travels is the task's words and state only: worktrees, branches, pull requests, proof
  * files and run details stay on the Mac they belong to. "Ata is working on this" is a field of
  * Ata's own (`working.<peerId>`), true while one of Ata's worktrees does it; `running.<peerId>`
- * is true while Ata's Claude is at work there right now (ACME-278: the card shows it moving).
+ * is true while Ata's Claude is at work there right now (the card shows it moving).
  */
 
 export interface Field {

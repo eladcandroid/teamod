@@ -10,7 +10,7 @@ import { promisify } from 'node:util';
 import { teamodHome } from '../core/home.js';
 
 /**
- * Claude Code itself (ACME-384). The Agent SDK runs a native `claude` binary from its platform
+ * Claude Code itself. The Agent SDK runs a native `claude` binary from its platform
  * package (@anthropic-ai/claude-agent-sdk-darwin-arm64, 239 MB), half of the Mac app's download.
  * The Mac app leaves that package out and fetches the exact same one once, into
  * ~/.teamod/claude-code/<version>/, checked against the integrity its build pinned

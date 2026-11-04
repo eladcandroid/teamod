@@ -7,7 +7,7 @@ import { type PolicyContext, decideTool, denyReason } from './policy.js';
 import type { AgentRunInput } from './types.js';
 
 /**
- * teamod's rules for Claude Code in its own terminal (ACME-534). A run in the chat checks every
+ * teamod's rules for Claude Code in its own terminal. A run in the chat checks every
  * tool call in a PreToolUse hook in-process (claude/runner.ts); the terminal's Claude Code is its
  * own program, so the same hook is a command in its `--settings` that asks the daemon (over the
  * tool host, with the terminal's token) and prints the answer. Its own permission prompts still
@@ -74,7 +74,7 @@ export const shellQuote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`
 /** The settings that add the hook (merged by Claude Code with yours; your own hooks run too). */
 export function gateHookSettings(node: string, file: string): Record<string, unknown> {
   const command = `${shellQuote(node)} ${shellQuote(file)}`;
-  // Stop: an answer that wrote a graph or a view as a fence goes back once to show it (ACME-555).
+  // Stop: an answer that wrote a graph or a view as a fence goes back once to show it.
   return { hooks: { PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command, timeout: 600 }] }], Stop: [{ hooks: [{ type: 'command', command, timeout: 30 }] }] } };
 }
 
@@ -131,7 +131,7 @@ const STOP_REASON =
   'Your answer has a ```' + GRAPH_FENCE + ' or ```' + VIEW_FENCE + ' block, which this terminal prints as raw JSON. Show it with mcp__teamod_view__show ' +
   '(a graph: {"type": "graph", …its fields}) and write the token it returns on a line of its own. Say nothing else: the rest of your answer is already on screen.';
 
-/** teamod's answer when Claude ends a turn in the terminal: once, back to show a raw graph or view through the tool (ACME-555). */
+/** teamod's answer when Claude ends a turn in the terminal: once, back to show a raw graph or view through the tool. */
 function stopAnswer(hook: Record<string, unknown>): Record<string, unknown> {
   if (hook.stop_hook_active === true) return {};
   const text = [typeof hook.last_assistant_message === 'string' ? hook.last_assistant_message : '', lastAnswer(transcriptTail(hook.transcript_path))].join('\n\n');

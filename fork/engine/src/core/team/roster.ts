@@ -2,7 +2,7 @@ import path from 'node:path';
 import { readJson, writeJson } from '../../net/mesh/files.js';
 
 /**
- * Who's on a project's team, the same on every Mac (ACME-510). Teaming up is still done in pairs
+ * Who's on a project's team, the same on every Mac. Teaming up is still done in pairs
  * (two friends with the repository say yes), but a team is the whole group those pairs join: a
  * friend of Ata's who teams up with Ata is on the team with you too, though you two aren't friends.
  * Each Mac passes on what it knows of the group over its own team links, the way the board does

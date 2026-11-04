@@ -166,7 +166,7 @@ export interface DialReport {
   readonly found: 'yes' | 'no' | 'unknown';
   /** How old the Mac's relay record is (ms), when there is one. */
   readonly recordAge?: number;
-  /** The Mac's record names its phones, and this one isn't among them: it was removed (ACME-126). */
+  /** The Mac's record names its phones, and this one isn't among them: it was removed. */
   readonly removed?: boolean;
 }
 

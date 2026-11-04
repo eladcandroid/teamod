@@ -7,7 +7,7 @@ import { toolCallOf, toolResultOf } from './events.js';
 import type { CollabAgentToolCall, SubAgentActivity, Thread, ThreadItem, Turn } from './protocol.js';
 
 /**
- * Codex's own sub-agents (its multi_agent, ACME-519) as teamod's: the same 'sub' events and step
+ * Codex's own sub-agents (its multi_agent) as teamod's: the same 'sub' events and step
  * records Claude's Task/Agent sub-agents give (claude/subagents.ts), so the chat's sub-agent rows,
  * their steps, the phone's sub-agent sheet and the run staying open while they work need nothing
  * Codex-specific.

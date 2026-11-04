@@ -38,7 +38,7 @@ const ATTACHMENT_LINK = /\[([^\]\n]*)\]\(teamod-attachment:[^)\s]*\)/g;
 const TEXT_FENCE = /^(|text|txt|plain|plaintext|table|md|markdown|console|output)$/;
 
 /**
- * A table written as text (ACME-71, src/shared/render/text-table.ts): read, it goes as a view block
+ * A table written as text (src/shared/render/text-table.ts): read, it goes as a view block
  * (a table, drawn with the same table as Markdown tables and views, on any phone since 1.3); only
  * looking like one, as a `text` block the phone shows monospaced, never wrapped (1.5).
  */
@@ -53,7 +53,7 @@ function tableBlock(body: string, n: number): ProseView['code'][number] | undefi
 }
 
 /**
- * What else a block may be drawn as (ACME-87, src/shared/render/rich-fence.ts): a file tree, JSON
+ * What else a block may be drawn as (src/shared/render/rich-fence.ts): a file tree, JSON
  * or a terminal goes as it was written, display math as its TeX, a mermaid diagram as the graph or
  * view it reads as. A phone before 1.9 shows a chip for the new kinds (a mermaid one draws).
  */
@@ -116,8 +116,8 @@ export function stripCode(markdown: string): ProseView {
     if (code.length < MAX_CODE) {
       out.push(`[[code:${code.length}]]`);
       // What Claude drew for the screen (a view, a graph, tasks) goes along to be drawn there too
-      // (ACME-68); a phone before 1.3 still shows a chip. A block that's only a table is a table
-      // (ACME-71). Any other code stays a chip.
+      //; a phone before 1.3 still shows a chip. A block that's only a table is a table
+      //. Any other code stays a chip.
       const kind = blockKind(lang);
       const body = lines.slice(i + 1, i + 1 + n).join('\n');
       // A file tree before a table (its rails can read as columns), a table before a terminal.

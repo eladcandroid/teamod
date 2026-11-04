@@ -18,9 +18,9 @@ export const DeviceRecord = z.object({
   path: LinkPath.optional(),
   note: z.string().max(300).optional(),
   push: z.object({ platform: z.enum(['fcm', 'apns']), token: z.string().max(4096), relayKey: z.string().max(200) }).optional(),
-  /** How freely your Claude may use this phone (ACME-150, Settings › Phone); off by default. */
+  /** How freely your Claude may use this phone (Settings › Phone); off by default. */
   use: z.enum(PHONE_USE).optional(),
-  /** The phone's own switch was off when it last said (its Stop): every route is refused until it says yes (ACME-187). */
+  /** The phone's own switch was off when it last said (its Stop): every route is refused until it says yes. */
   stopped: z.boolean().optional(),
 });
 export type DeviceRecord = z.infer<typeof DeviceRecord>;

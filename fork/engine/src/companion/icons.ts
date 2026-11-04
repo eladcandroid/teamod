@@ -5,7 +5,7 @@ import path from 'node:path';
 import { type ProjectIcon, readProjectIcon } from '../core/project-icons.js';
 
 /**
- * Projects' icons for the phone (ACME-45): the icon the Mac shows next to a project (yours, else the
+ * Projects' icons for the phone: the icon the Mac shows next to a project (yours, else the
  * one the project ships, src/core/project-icons.ts), made small (a PNG of at most ICON_PX on its
  * longest side, with `sips`) and named by its checksum. Views carry only the checksum
  * (`icon`); the phone fetches an icon once with `companion.icon(sum)` and keeps it by that sum, so

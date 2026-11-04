@@ -13,7 +13,7 @@ import { defaultAgentOf } from '../protocol.js';
 
 /**
  * Everything waiting for you, each with the API calls its buttons make: the phone's Needs You
- * (views.ts) and the Mac's bell (ACME-255) draw this same list, so the two never disagree about
+ * (views.ts) and the Mac's bell draw this same list, so the two never disagree about
  * what waits or how it's answered. Browser-safe (tests/browser-safe.test.ts): the Mac loads it.
  */
 
@@ -41,7 +41,7 @@ const agentOf = (state: DomainState, peerId: string | undefined, owner: string, 
 
 function approvalItem(state: DomainState, a: Approval): NeedsYou {
   const from = a.peer ? `${nameOf(state, a.peer) ?? 'a friend'}` : agentOf(state, undefined, '');
-  // A friends' chat opens that chat (a request from there, your Claude working there: ACME-207).
+  // A friends' chat opens that chat (a request from there, your Claude working there:).
   const topic = a.channel ? (/^(dm|group):/.test(a.channel) ? chatTopic(a.channel) : convTopic(a.channel)) : undefined;
   return {
     id: `approval:${a.id}`,
@@ -328,7 +328,7 @@ function joinItems(state: DomainState): NeedsYou[] {
     );
 }
 
-/** Someone in your room asks to be friends on the teamod network (ACME-202). */
+/** Someone in your room asks to be friends on the teamod network. */
 function offerItems(state: DomainState): NeedsYou[] {
   return (state.network.offers ?? [])
     .filter((o) => o.dir === 'in')
@@ -346,7 +346,7 @@ function offerItems(state: DomainState): NeedsYou[] {
     }));
 }
 
-/** A friend on the same GitHub repository: team up on it (ACME-221). Only offers waiting on you. */
+/** A friend on the same GitHub repository: team up on it. Only offers waiting on you. */
 function teamOfferItems(state: DomainState): NeedsYou[] {
   return state.team.offers
     .filter((o) => o.state !== 'asked')
@@ -364,7 +364,7 @@ function teamOfferItems(state: DomainState): NeedsYou[] {
     }));
 }
 
-/** A teammate gave you a task (ACME-223): it waits until you've seen it. */
+/** A teammate gave you a task: it waits until you've seen it. */
 function assignedItems(state: DomainState): NeedsYou[] {
   return state.team.assigned.flatMap((a) => {
     const topic = taskTopic(a.issueId);
@@ -383,7 +383,7 @@ function assignedItems(state: DomainState): NeedsYou[] {
   });
 }
 
-/** A teammate knocking on one of your worktrees (ACME-416): let them in as a viewer or an editor. */
+/** A teammate knocking on one of your worktrees: let them in as a viewer or an editor. */
 function worktreeKnockItems(state: DomainState): NeedsYou[] {
   return (state.team.knocks ?? []).map((k) => {
     const topic = chatTopic(`ws:${k.workspaceId}`);
@@ -405,7 +405,7 @@ function worktreeKnockItems(state: DomainState): NeedsYou[] {
 }
 
 /**
- * Shared plans (ACME-225): a plan a teammate shared that you haven't approved (Approve, or words as a
+ * Shared plans: a plan a teammate shared that you haven't approved (Approve, or words as a
  * comment), and a teammate's suggested change to a plan of yours (Apply / Set Aside).
  */
 function sharedPlanItems(state: DomainState): NeedsYou[] {

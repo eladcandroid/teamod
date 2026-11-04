@@ -6,7 +6,7 @@ import type { SubAgentDetailView, SubAgentStepView } from './protocol.js';
 import { HIDDEN_STEP, humanizeDoing, stepWords, stripCode } from './strip.js';
 
 /**
- * One sub-agent opened on the phone (ACME-110, `companion.subAgent`): what it did, every step in
+ * One sub-agent opened on the phone (`companion.subAgent`): what it did, every step in
  * words, and once it ended the report it gave back (code stripped, as Claude's answers are). From
  * what the Mac already keeps, read only: your own Claude's step records of the turn (its steps are
  * tagged with the sub-agent's call; the call's result is its report), else the transcript Claude

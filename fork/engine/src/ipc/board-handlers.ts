@@ -6,7 +6,7 @@ import { canAssign } from '../core/team/model.js';
 import type { Session } from '../core/session.js';
 import type { Args, Method } from './api.js';
 
-/** A project's task is for you or a teammate on it, never any friend (ACME-299). */
+/** A project's task is for you or a teammate on it, never any friend. */
 function onTeam(s: Session, projectId: string, assignee: { readonly id: string; readonly name: string } | undefined): void {
   const state = s.store.getState();
   if (!canAssign(state.team, projectId, state.selfId, assignee?.id)) throw new Error(`${assignee!.name} isn’t on this project’s team. Team up with them first to give them its tasks`);
@@ -22,16 +22,16 @@ export const BOARD_HANDLERS = {
     const work = needBoard(s);
     onTeam(s, input.projectId, input.assignee);
     const { goal, describe, title, private: only, ...given } = input;
-    // Words asking for it to stay yours make it private, unless the sheet said otherwise (ACME-501).
+    // Words asking for it to stay yours make it private, unless the sheet said otherwise.
     const rest = { ...given, private: only ?? Boolean(describe && asksPrivate(describe)) };
-    // New Task's words may ask for several tasks and say who each is for (ACME-319).
+    // New Task's words may ask for several tasks and say who each is for.
     if (!title?.trim() && describe) return work.createDescribed(rest, describe, { several: true });
     return work.board.create({ ...rest, title: title ?? '', ...(goal?.trim() ? { brief: { goal } } : {}) }, work.me());
   },
   'board.update': (s, ref, patch) => {
     const work = needBoard(s);
     const issue = work.board.get(ref);
-    // Keeping who it's already for is fine (a task given before ACME-299); a new someone must be on the team.
+    // Keeping who it's already for is fine (a task given before); a new someone must be on the team.
     if (issue && patch.assignee && patch.assignee.id !== issue.assignee?.id) onTeam(s, issue.projectId, patch.assignee);
     return work.board.update(ref, patch, work.me());
   },

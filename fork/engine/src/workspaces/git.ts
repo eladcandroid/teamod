@@ -176,7 +176,7 @@ export function status(dir: string, base?: string): Promise<Status> {
 }
 
 /**
- * A worktree's commits against its base, by what git keeps its branches in (ACME-407): HEAD, every
+ * A worktree's commits against its base, by what git keeps its branches in: HEAD, every
  * ref and the files that say how refs and history read. The same mark means the same answer.
  */
 interface RefsCounts {
@@ -381,8 +381,8 @@ export const conflictedFiles = async (dir: string): Promise<string[]> => ((await
 export const isAncestor = async (cwd: string, a: string, b: string): Promise<boolean> => (await tryGit(cwd, ['merge-base', '--is-ancestor', a, b])) !== undefined;
 
 /**
- * The branches still needed to have them all: a branch already in another one of them (ACME-27 in
- * ACME-31) goes, and so does one already in `main`. Order is kept; of two equal ones the first stays.
+ * The branches still needed to have them all: a branch already in another one of them (in
+ *) goes, and so does one already in `main`. Order is kept; of two equal ones the first stays.
  */
 export async function neededBranches(repo: string, branches: readonly string[], main?: string): Promise<string[]> {
   const unique = [...new Set(branches)];

@@ -8,7 +8,7 @@ import { teamodEnv } from '../../../core/teamod-env.js';
 import type { RuntimeStatus } from '../types.js';
 
 /**
- * Claude Code on this Mac (ACME-507): signed in or not. teamod brings Claude Code itself (the SDK's
+ * Claude Code on this Mac: signed in or not. teamod brings Claude Code itself (the SDK's
  * binary, or the pinned one the Mac app downloads), so it's never "not installed"; what can be
  * missing is the sign-in. Asked of the binary itself: `claude auth status --json` (Claude Code
  * 2.1, about 0.2 s, no network) says `loggedIn` for a claude.ai login, an API key, Bedrock or

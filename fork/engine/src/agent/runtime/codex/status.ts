@@ -9,7 +9,7 @@ export const CODEX_MISSING = 'Install the Codex app, or run npm i -g @openai/cod
 export const CODEX_SIGN_IN = 'Run codex login in Terminal, or sign in in the Codex app';
 
 /**
- * Codex on this Mac (ACME-455): not installed, installed but not signed in, or ready with its
+ * Codex on this Mac: not installed, installed but not signed in, or ready with its
  * models. Asks a short-lived app-server (`account/read`, refreshing the login so an expired one
  * reads as signed out, then `model/list`); never signs in.
  */

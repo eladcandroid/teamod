@@ -28,7 +28,7 @@ const DIR_CACHE_MS = 5_000;
 /**
  * Files the Mac app shows as themselves, by extension: images a document shows inline (SVG goes
  * in an <img>, where scripts never run), PDFs its reader draws page by page, and videos it plays
- * (ACME-100).
+ *.
  */
 const DOC_IMAGE_TYPES: Readonly<Record<string, string>> = {
   '.png': 'image/png',

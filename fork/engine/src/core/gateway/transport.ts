@@ -10,7 +10,7 @@ import { type Frame, type GatewayMsg, type GatewayMsgInput, parseFrame } from '.
  * wait in the outbox until the other side acknowledges them (resent now and then while there's
  * no ack, delivered when they come back online); progress updates and cards are only sent when
  * someone is reachable right now. A friend you're never online with at the same time gets what
- * waited in their mailbox after a while (ACME-272, net/mesh/mailbox.ts), and acknowledges it the same way.
+ * waited in their mailbox after a while (net/mesh/mailbox.ts), and acknowledges it the same way.
  */
 
 /** What the gateway needs from the mesh node (net/mesh/mesh.ts). */
@@ -23,7 +23,7 @@ export interface MeshPort {
   nameFor(peerId: string): string;
   /** What their teamod said about itself (its version and features); undefined for older Macs. */
   teamodOf?(peerId: string): TeamodInfo | undefined;
-  /** Write in a conversation you share (`dm:<peerId>`, `group:<id>`): a task's card there (ACME-208). */
+  /** Write in a conversation you share (`dm:<peerId>`, `group:<id>`): a task's card there. */
   post?(conversation: string, text: string, extras: ChatExtras): void;
   /** `peerId` is in this conversation with you now. */
   shares?(conversation: string, peerId: string): boolean;

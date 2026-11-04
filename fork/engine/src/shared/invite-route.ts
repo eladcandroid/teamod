@@ -1,5 +1,5 @@
 /**
- * What `/invite` does (ACME-203): on its own it adds a friend (the Add a Friend sheet: link, code,
+ * What `/invite` does: on its own it adds a friend (the Add a Friend sheet: link, code,
  * QR). With friends named (`/invite @ata @bo`) it adds them to what you're looking at: a channel
  * (as members), a DM (it offers a new channel with the three of you), a project or a worktree
  * (shared with them). Plain functions: the Mac's message boxes and the core read it the same way.

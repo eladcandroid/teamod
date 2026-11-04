@@ -34,7 +34,7 @@ export { SESSION_RUNTIME_DEFAULT, resumable } from '../shared/agent-handoff.js';
  * The session a run on `runtime` may resume: a stored one only when a runtime that can read it made
  * it (see resumable). Session ids are each runtime's own (a Codex thread id means nothing to Claude
  * Code, and the other way round), so a place whose agent changed runtime starts a new conversation
- * instead (ACME-447 hands the old one off). `pending`: a Claude Code conversation found outside teamod.
+ * instead (hands the old one off). `pending`: a Claude Code conversation found outside teamod.
  */
 export function resumeFor(
   stored: { readonly sessionId?: string; readonly forkFromSession?: string; readonly sessionRuntime?: string },

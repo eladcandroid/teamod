@@ -17,7 +17,7 @@ export interface LocalTarget {
 }
 
 /**
- * The variables that point Claude Code at an endpoint and keep it off Anthropic (ACME-449): every
+ * The variables that point Claude Code at an endpoint and keep it off Anthropic: every
  * request goes to `baseUrl`, every model alias (and sub-agents, and the small fast model) is the
  * endpoint's model, and Claude Code's own traffic (telemetry, error reports, updates) stays off.
  * The key is the endpoint's, never your Claude login: without one, a placeholder (Ollama takes any),
@@ -71,7 +71,7 @@ export function localRuntime(resolve: (value: string | undefined) => LocalTarget
           if (!target) return Promise.reject(new Error(GONE));
           return claude.run(onEndpoint(input, target, (v) => resolve(v)));
         },
-        // Its terminal (ACME-534): Claude Code on the endpoint, as its runs are.
+        // Its terminal: Claude Code on the endpoint, as its runs are.
         terminal: (input: AgentRunInput, sink: TerminalSink) => {
           const target = resolve(input.model ?? input.place?.agent?.model);
           if (!target) return Promise.reject(new Error(GONE));
@@ -90,7 +90,7 @@ export function localRuntime(resolve: (value: string | undefined) => LocalTarget
 }
 
 /**
- * A local run's usage (ACME-450): free (Claude Code prices it as if Anthropic served it, so the cost
+ * A local run's usage: free (Claude Code prices it as if Anthropic served it, so the cost
  * goes), and how fast the endpoint wrote: the turn's new output tokens over the time since it began.
  * The SDK reports running totals per conversation, so the new part is what grew since the last one.
  */

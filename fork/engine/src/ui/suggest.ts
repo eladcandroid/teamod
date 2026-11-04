@@ -26,7 +26,7 @@ export interface Suggestion {
   readonly task?: TaskMention;
   /** What it is, for its icon (and its section: Claude's skills come under their own heading). */
   readonly kind?: SuggestionKind;
-  /** An agent's tag ("@bob:codex", ACME-520): its mark, drawn instead of the kind's icon. */
+  /** An agent's tag ("@bob:codex"): its mark, drawn instead of the kind's icon. */
   readonly mark?: AgentMark;
 }
 
@@ -50,7 +50,7 @@ export interface SuggestContext {
   readonly skills?: readonly ClaudeSkill[];
   /** How this conversation's agent takes them (its runtime's `skills` capability): 'mapped' (Codex) says what doesn't carry over. */
   readonly skillsOn?: 'native' | 'mapped';
-  /** The room's agent tags ("@codex", "@bob:codex"; shared/agent-tags.ts roomAgentTags), in the room only (ACME-520). */
+  /** The room's agent tags ("@codex", "@bob:codex"; shared/agent-tags.ts roomAgentTags), in the room only. */
   readonly agentTags?: readonly AgentTag[];
 }
 
@@ -195,7 +195,7 @@ function argumentSuggestions(cmd: string, partial: string, ctx: SuggestContext):
       .filter((p) => p.peerId !== ctx.selfId && p.name.toLowerCase().startsWith(lower))
       .map((p) => ({ label: p.name, hint: p.agent ? `has ${agentName(defaultAgentOf(p))} on` : '', value: `/${cmd} ${p.name}`, enter: 'submit' as const, kind: 'person' as const }));
   }
-  // "/invite @ata": your friends by name, to add to the chat, project or worktree you're in (ACME-203).
+  // "/invite @ata": your friends by name, to add to the chat, project or worktree you're in.
   if (cmd === 'invite') {
     const typed = lower.replace(/^@/, '');
     return (ctx.friends ?? [])
@@ -226,7 +226,7 @@ function mentionSuggestions(buffer: string, ctx: SuggestContext): Suggestion[] {
   // `name`: the friend's handle, so "@mi" offers mia and mia's Claude alike.
   const options: Array<{ label: string; hint: string; kind: SuggestionKind; name?: string; mark?: AgentMark }> = [
     { label: '@claude', hint: 'ask your agent', kind: 'claude' },
-    // Each agent by name, with its mark (ACME-520): yours ("@codex"), then each person's ("@bob:codex").
+    // Each agent by name, with its mark: yours ("@codex"), then each person's ("@bob:codex").
     ...(ctx.agentTags ?? []).map((t) => ({ label: t.tag, hint: t.hint, kind: 'claude' as const, mark: t.mark, ...(t.person ? { name: t.person } : {}) })),
     ...ctx.peers
       .filter((p) => p.agent && p.peerId !== ctx.selfId)

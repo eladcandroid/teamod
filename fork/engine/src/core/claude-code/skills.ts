@@ -4,7 +4,7 @@ import { type ClaudeSkill, notOnCodex } from '../../shared/skills.js';
 
 /**
  * The skills and custom commands Claude Code can use in a folder, for the message box's / list
- * (ACME-217): the project's own (.claude/skills, .claude/commands), yours (~/.claude/…), and those
+ *: the project's own (.claude/skills, .claude/commands), yours (~/.claude/…), and those
  * of your enabled plugins ("plugin:name"). Each with its description, read from the file's
  * frontmatter (or a command's first line). Read on demand; nothing is kept.
  */

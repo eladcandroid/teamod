@@ -49,7 +49,7 @@ export interface SessionParts {
   /** Your environment variables (kept on this computer). */
   readonly env: EnvVars;
   readonly local: LocalEndpoints;
-  /** The agent's own terminal on a conversation (ACME-534). */
+  /** The agent's own terminal on a conversation. */
   readonly agentTerms?: AgentTerminals;
 }
 
@@ -57,14 +57,14 @@ export function createSessionParts(session: Session, opts: SessionOptions): Sess
   let workspaces: WorkspaceController | undefined;
   let workbench: Workbench | undefined;
   const env = new EnvVars({ store: opts.store, onChange: () => workbench?.envChanged() });
-  // Local endpoints (ACME-449) answer only where your agent runs (not in the demo).
+  // Local endpoints answer only where your agent runs (not in the demo).
   const listRuntimes = () =>
     runtimeChoices((id) => {
       if (id === (opts.runtime?.agent ?? 'claude')) return session.backend ? {} : undefined;
       if (id === LOCAL_RUNTIME) return opts.runtime?.runtimes('claude') && !localWhy(local.choices()) ? { models: localModels(local.choices()) } : undefined;
       return opts.runtime?.runtimes(id) || opts.alsoRuntimes?.some((r) => r.id === id) ? {} : undefined;
     });
-  // Listed again with what each runtime last said about itself (ACME-507: a local endpoint answering never wipes Codex's sign-in state and models).
+  // Listed again with what each runtime last said about itself (a local endpoint answering never wipes Codex's sign-in state and models).
   const local = new LocalEndpoints({ endpoints: () => env.endpoints(), onChange: () => (workbench ? workbench.runtimesChanged() : opts.store.dispatch({ type: 'runtimes', runtimes: listRuntimes() })) });
   if (opts.runtime) local.start();
   // Database views find the project's connection string (its variables, its .env).
@@ -195,7 +195,7 @@ export function createSessionParts(session: Session, opts: SessionOptions): Sess
       send: (body, o) => session.send(body, o),
       agent: () => session.backend,
       agentRef: (channel) => (channel ? workspaces?.agentOf(channel, session.agentRef) : undefined) ?? session.agentRef,
-      // A room ask that names one of your agents (ACME-520): the ones your card lists, and whether each runs here.
+      // A room ask that names one of your agents: the ones your card lists, and whether each runs here.
       agents: () => opts.client.currentProfile.agents ?? [],
       runsAgent: (agent) => session.runsAgent(agent),
       backendFor: (runtime) => session.backendFor(runtime),
@@ -220,7 +220,7 @@ export function createSessionParts(session: Session, opts: SessionOptions): Sess
       sentinelChat: (channel, from) => sentinelOf(session)?.chatPlace(channel, from),
       confirmTool: (toolName, input) => sentinelOf(session)?.confirmWords(toolName, input),
       plans: (channel, from) => plansOf(session)?.forRun(channel, from),
-      // "Your Mac"'s chats, and your own asks in friends' chats (ACME-207): both work in its folder.
+      // "Your Mac"'s chats, and your own asks in friends' chats: both work in its folder.
       assistant: (channel, from) => assistantOf(session)?.forRun(channel, from) ?? assistantOf(session)?.forChat(channel, from),
       phone: (scratchDir) => companionOf(session)?.control.toolsFor(scratchDir),
       phoneUse: () => companionOf(session)?.control.useLevel() ?? 'off',

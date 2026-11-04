@@ -12,7 +12,7 @@ import type { Store } from './store.js';
 import { MAX_TERM_VISUALS } from './work-store.js';
 
 /**
- * The agent's own terminal on a conversation (ACME-534): Claude Code's terminal app (a local
+ * The agent's own terminal on a conversation: Claude Code's terminal app (a local
  * model's runs in it too; Codex's conversations stay in the chat) in the middle of a worktree, on the same conversation as its chat. While it's open the terminal
  * drives (the chat's own turns wait, see AgentHost.runAgent); what's said there comes back to the
  * chat as it's written (agent-term-sync.ts); the visuals it shows are kept here for its links.
@@ -54,13 +54,13 @@ interface Live {
   readonly startedAt: number;
   pty: PtyProcess;
   remembered: boolean;
-  /** The message from the chat it opened with (ACME-553): in the chat already, so its copy in the transcript isn't. */
+  /** The message from the chat it opened with: in the chat already, so its copy in the transcript isn't. */
   readonly handed?: string;
   tail?: TranscriptTail;
   timer?: NodeJS.Timeout;
 }
 
-/** The terminal's turns less the first prompt it was handed from the chat (said there already, ACME-553). */
+/** The terminal's turns less the first prompt it was handed from the chat (said there already). */
 export function withoutHanded<T extends { readonly type: string; readonly text?: string }>(items: readonly T[], handed: string | undefined): readonly T[] {
   if (!handed) return items;
   const at = items.findIndex((it) => it.type === 'chat' && it.text?.trim() === handed.trim());

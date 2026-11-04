@@ -84,11 +84,11 @@ export function visualizePrompt(what: string): string {
 }
 
 /**
- * `/invite` (ACME-203). On its own: the Add a Friend sheet. With friends named, typed in a worktree:
+ * `/invite`. On its own: the Add a Friend sheet. With friends named, typed in a worktree:
  * share it with them. The Mac's message boxes route it themselves (they also know DMs, channels and
  * projects, src/shared/invite-route.ts); this is the core's own reading, for any other screen. The
- * worktree goes to them over the teamod network (ACME-204), room or not; with the network off, a friend
- * in your room still gets it through the room (ACME-340).
+ * worktree goes to them over the teamod network, room or not; with the network off, a friend
+ * in your room still gets it through the room.
  */
 function inviteCommand(session: Session, args: readonly string[], channel: string): void {
   const parsed = parseInvite(['/invite', ...args].join(' '));
@@ -402,7 +402,7 @@ function runWorkspaceCommand(session: Session, name: string, args: readonly stri
       ctl.open(ws.id, 'terminal');
       return;
     case 'handoff': {
-      // Someone in your room, or a friend by @handle or name over the network (ACME-341).
+      // Someone in your room, or a friend by @handle or name over the network.
       const peer = text ? (session.findPeer(text) ?? friendNamed(text.replace(/^@+/, ''), session.store.getState().network.friends)) : undefined;
       if (!peer) return session.intend({ type: 'overlay', overlay: 'handoff' });
       void session.remote.handoff(ws.id, peer.peerId);

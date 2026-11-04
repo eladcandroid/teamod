@@ -1,5 +1,5 @@
 /**
- * Your local and bring-your-own endpoints (ACME-449), alive: which answer, and the models they say
+ * Your local and bring-your-own endpoints, alive: which answer, and the models they say
  * they have. Kept in env.json with your other secrets (env-vars.ts); this looks at them now and then
  * so the picker can grey one that isn't answering. Ollama on this Mac counts without being added
  * while you have none of your own there. A run asks `resolve` for the endpoint a model value names.

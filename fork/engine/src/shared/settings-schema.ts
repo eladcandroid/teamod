@@ -118,7 +118,7 @@ export const Settings = z.object({
   friendWorktrees: z.enum(['ask', 'off']).default('ask'),
   /** Who may call your Claude into a chat (you always can): friends in the chat, people you trust, or only you. */
   chatClaude: z.enum(['everyone', 'trusted', 'off']).default('everyone'),
-  /** Who sees how much of your plans (Claude Code, Codex…) you have left, on your profile: people you trust, every friend, or no one (ACME-597). */
+  /** Who sees how much of your plans (Claude Code, Codex…) you have left, on your profile: people you trust, every friend, or no one. */
   shareUsage: z.enum(['trusted', 'everyone', 'off']).default('trusted'),
   /** Your main channel: a group with all your friends (made the first time you open it). */
   mainChannel: z.string().regex(/^[0-9a-f]{32}$/).optional(),
@@ -134,7 +134,7 @@ export const Settings = z.object({
   earningsCurrency: z.string().regex(/^[a-z]{3}$/).optional(),
   /** Be on the teamod network (friends, groups, presence) while the Mac app's daemon runs. Off by default for now. */
   network: z.boolean().optional(),
-  /** Where frames wait for a friend you're never online with at the same time (ACME-272): a mailbox's https URL, or "off". Unset: teamod's own. */
+  /** Where frames wait for a friend you're never online with at the same time: a mailbox's https URL, or "off". Unset: teamod's own. */
   mailbox: z.union([z.string().url().max(300), z.literal('off')]).optional(),
   /** Minutes a frame waits for a friend's link before it goes to their mailbox. */
   mailboxAfterMin: z.number().min(0).max(24 * 60).optional(),

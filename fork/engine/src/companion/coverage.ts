@@ -8,7 +8,7 @@ import type { Method } from '../ipc/api.js';
  * `phone` only for what fits the phone (docs/companion.md, "What it is for"): reading, answering
  * (approvals, Claude's questions, friends' requests, plan decisions), asking your Mac (a message in
  * a conversation, a new chat in a project, a friend's Claude), stopping a run, and chatting with
- * friends. Since ACME-42 also a worktree's files, read-only (`companion.files.*`, through the
+ * friends. Since also a worktree's files, read-only (`companion.files.*`, through the
  * companion's file gate: inside that worktree, never a secret), and its terminals, interactive and
  * shared with the Mac (`companion.terminals` / `termOpen` / `termClose`). Never editing, diffs, git
  * beyond Merge, files on the Mac by path, settings, projects, invitations or hosting; the Mac's own
@@ -292,7 +292,7 @@ export const PHONE: Record<Method, Side> = {
   // ---- supporting teamod: the star and coffee asks are the Mac's (they open web pages there)
   'support.answer': 'mac',
 
-  // ---- Your Mac's chats (ACME-102): since 1.14 the phone lists them, starts one and deletes one
+  // ---- Your Mac's chats: since 1.14 the phone lists them, starts one and deletes one
   // (it's chatting). Which tab is open is the Mac's: the phone opens any chat without moving it.
   'assistant.newChat': 'phone',
   'assistant.openChat': 'mac',
@@ -344,7 +344,7 @@ export const PHONE: Record<Method, Side> = {
   'board.remove': 'mac',
   // Start a task in a new worktree (with Claude on it), as the Mac's Start does.
   'board.start': 'phone',
-  // Who works a task from its next start (ACME-498): a pick from a list, as the Mac's task page has it.
+  // Who works a task from its next start: a pick from a list, as the Mac's task page has it.
   'board.setAgent': 'phone',
   'board.settleGone': 'mac',
   'board.setAutoTasks': 'mac',
@@ -384,7 +384,7 @@ export const PHONE: Record<Method, Side> = {
   'plans.setPaused': 'mac',
   'plans.setParallel': 'mac',
   'plans.setTestsAt': 'mac',
-  // Who works the plan's milestones and tasks from here on (ACME-498): a pick from a list.
+  // Who works the plan's milestones and tasks from here on: a pick from a list.
   'plans.setWorkAgent': 'phone',
   'plans.tidyUp': 'mac',
   'plans.pass': 'phone',
@@ -402,7 +402,7 @@ export const PHONE: Record<Method, Side> = {
   'plans.setStyle': 'mac',
 
   // ---- GitHub issues: the Mac's Issues view for now. Reading them and handing one to Claude fits the
-  // phone too (ACME-170): until its screen exists, a task made from one shows on the phone's board.
+  // phone too: until its screen exists, a task made from one shows on the phone's board.
   'issues.list': 'mac',
   'issues.get': 'mac',
   'issues.pulls': 'mac',
@@ -427,7 +427,7 @@ export const PHONE: Record<Method, Side> = {
   'team.reviewPlan': 'phone',
   'team.applySuggestion': 'phone',
   'team.dismissSuggestion': 'phone',
-  // Knocks on a teammate's worktree (ACME-416): answering one is the phone's too (its card); knocking starts on a task's page, the Mac's.
+  // Knocks on a teammate's worktree: answering one is the phone's too (its card); knocking starts on a task's page, the Mac's.
   'team.knock': 'mac',
   'team.cancelKnock': 'mac',
   'team.answerKnock': 'phone',
@@ -475,7 +475,7 @@ export const PHONE: Record<Method, Side> = {
   'companion.askPerson': 'phone',
   // Only ever the calling phone's own certificate.
   'companion.signOut': 'phone',
-  // Your Mac's one setting the phone may change (ACME-127): whether it stays awake for the phone.
+  // Your Mac's one setting the phone may change: whether it stays awake for the phone.
   'companion.keepAwake': 'phone',
   'companion.defaultAgent': 'phone',
   // The Mac app's window shows what the phone has open; an icon the views named by its checksum.
@@ -501,9 +501,9 @@ export const PHONE: Record<Method, Side> = {
   'companion.terminals': 'phone',
   'companion.termOpen': 'phone',
   'companion.termClose': 'phone',
-  // A sub-agent opened on the phone (ACME-110): its steps in words and its report, code stripped.
+  // A sub-agent opened on the phone: its steps in words and its report, code stripped.
   'companion.subAgent': 'phone',
-  // Which conversations the phone saved files from are archived or deleted (ACME-124): names only.
+  // Which conversations the phone saved files from are archived or deleted: names only.
   'companion.gone': 'phone',
   'companion.voice': 'phone',
   'companion.voicePrepare': 'phone',
@@ -514,7 +514,7 @@ export const PHONE: Record<Method, Side> = {
   'voice.transcribe': 'mac',
   // Settings › Terminal › Import from…, and the welcome's terminal step: Mac settings only.
   'terminalImport.detect': 'mac',
-  // The agent's own terminal in a conversation (ACME-534) opens on the Mac, and its visuals open
+  // The agent's own terminal in a conversation opens on the Mac, and its visuals open
   // beside it there. The phone sees when it drives a conversation, and can give it back to the chat.
   'agentTerm.open': 'mac',
   'agentTerm.visual': 'mac',
@@ -543,7 +543,7 @@ export const PHONE: Record<Method, Side> = {
   // Numbers and dashboards (docs/sentinel.md §10): the phone reads a number over time and pulls a
   // dashboard to refresh it (Run Now on its sentinels); arranging dashboards is the Mac's.
   'sentinel.metricRead': 'phone',
-  // A table's document chip (ACME-345): the phone reads the document through the Mac, and a storage
+  // A table's document chip: the phone reads the document through the Mac, and a storage
   // chip's link is signed there (the key stays on the Mac). Opening it in a Mac app is the Mac's.
   'sentinel.document': 'phone',
   'sentinel.signStorage': 'phone',

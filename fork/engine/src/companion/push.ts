@@ -44,7 +44,7 @@ export interface Pusher {
 export const NO_PUSH: Pusher = { push: async () => undefined };
 
 /**
- * You're at the Mac when its keyboard or mouse was used within this long (ACME-360): the phone
+ * You're at the Mac when its keyboard or mouse was used within this long: the phone
  * stays quiet, since you see it there. Five minutes without a touch and the phone is told.
  */
 export const AWAY_AFTER_MS = 5 * 60_000;

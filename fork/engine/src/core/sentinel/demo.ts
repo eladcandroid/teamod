@@ -168,7 +168,7 @@ function seed(sentinels: Sentinels, travel: (msAgo: number) => void, api: string
         startedAt: start,
         endedAt: start + 2 * MIN + i * 7_000,
         headline,
-        // The latest run's Claude session, to watch from its run (ACME-330).
+        // The latest run's Claude session, to watch from its run.
         steps: steps(brief.steps.map((s) => s.id), 'done', start, MIN, i === BRIEFS.length - 1 ? [{ channel: BRIEF_SESSION }] : []).map((s, n) => (quiet && n === 1 ? { ...s, state: 'skipped' } : s)),
         tasks: [],
         ...(quiet ? { why: 'Nothing changed since Friday' } : {}),
@@ -392,7 +392,7 @@ function seed(sentinels: Sentinels, travel: (msAgo: number) => void, api: string
 const NUMBER_RECIPES: ReadonlySet<string> = new Set(['stripe-revenue', 'youtube-subscribers', 'site-speed', 'last-job-run']);
 
 /** A week of numbers (oldest first), and the dashboards that show them. */
-/** Last job run's columns, typed (ACME-381): who as a person, the status a badge, progress a bar, the log and artifacts documents. */
+/** Last job run's columns, typed: who as a person, the status a badge, progress a bar, the log and artifacts documents. */
 const JOB_COLUMNS: readonly MetricColumn[] = [
   { key: 'who', type: 'person', label: 'Who' },
   { key: 'status', type: 'badge', label: 'Status' },

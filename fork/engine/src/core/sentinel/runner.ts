@@ -82,17 +82,17 @@ export interface SentinelPlaces {
   /** A new quiet worktree. */
   worktree(projectId: string, name: string): Promise<SentinelPlace | undefined>;
   /**
-   * A new chat in Your Mac. `run`: a run's own (ACME-566): it doesn't take your open tab nor count
+   * A new chat in Your Mac. `run`: a run's own: it doesn't take your open tab nor count
    * toward Open chats, and runs on the agent its step chose (else your default).
    */
   macChat(run?: { readonly agent?: AgentRef | undefined }): SentinelPlace | undefined;
   /**
-   * Put a run's chat away, as its sentinel keeps them (ACME-566): a project chat is archived (it can be
+   * Put a run's chat away, as its sentinel keeps them: a project chat is archived (it can be
    * restored), a Your Mac one deleted (its report and outputs stay with the run). Never a worktree.
    */
   putAway?(channel: string): Promise<unknown>;
   /**
-   * Delete a run's chat for good, as you asked (ACME-577): a project chat and its conversation, a Your
+   * Delete a run's chat for good, as you asked: a project chat and its conversation, a Your
    * Mac chat; its agent stops first. Never a worktree.
    */
   deleteChat?(channel: string): Promise<unknown>;
@@ -101,7 +101,7 @@ export interface SentinelPlaces {
   /** Archive a worktree quietly (nothing of yours is lost). */
   archive(workspaceId: string): Promise<unknown>;
   /**
-   * The agent a run's own chat or worktree runs for the next step (ACME-497); undefined: your default.
+   * The agent a run's own chat or worktree runs for the next step; undefined: your default.
    * `effort`: the step's thinking effort (undefined: Settings' effort).
    */
   setAgent?(workspaceId: string, agent: AgentRef | undefined, effort?: Effort): void;
@@ -370,11 +370,11 @@ export class SentinelRunner {
       const endedAt = this.deps.now();
       const output = result.output === undefined ? undefined : redactSecrets(result.output);
       // Each step's whole output (its secrets redacted) is a file in the run's folder as it ends:
-      // the next steps get its path (a big one goes to Claude as the file, not pasted; ACME-331).
+      // the next steps get its path (a big one goes to Claude as the file, not pasted).
       if (output !== undefined) {
         const name = `step-${i + 1}.txt`;
         let file = this.deps.folders.write(active.run.id, name, output) ? this.deps.folders.pathOf(active.run.id, name) : undefined;
-        // What a Keep the numbers step read goes on as JSON (ACME-346): a script after it reads the rows, not the summary.
+        // What a Keep the numbers step read goes on as JSON: a script after it reads the rows, not the summary.
         if (result.kind === 'done' && result.data !== undefined) {
           const json = `step-${i + 1}.json`;
           const text = redactSecrets(JSON.stringify(result.data, null, 2) ?? 'null');
@@ -884,7 +884,7 @@ export class SentinelRunner {
     const place = await this.place(active, step);
     if (typeof place === 'string') return { kind: 'failed', why: place };
     const { channel } = place;
-    // The step's agent and model (ACME-497): the run's chat or worktree runs it for this step (steps
+    // The step's agent and model: the run's chat or worktree runs it for this step (steps
     // sharing one can each pick their own). Your Mac's chats run your default agent.
     // Its effort too, when its model takes it (else Settings' effort).
     if (place.workspaceId) {
@@ -943,7 +943,7 @@ export class SentinelRunner {
     const s = active.sentinel;
     const project = s.projectId ? this.deps.project(s.projectId) : undefined;
     const cwd = step.cwd === 'project' && project?.root ? project.root : this.deps.home;
-    // Its own code (ACME-350): written to the run's folder as it is, run with its language's interpreter; `command` is its arguments.
+    // Its own code: written to the run's folder as it is, run with its language's interpreter; `command` is its arguments.
     let command = step.command;
     if (code) {
       const file = this.scriptFile(active.run.id, step, code);
@@ -990,7 +990,7 @@ export class SentinelRunner {
   }
 
   /**
-   * A script step once, outside a run (your test of its sources, ACME-350): its output, or why it
+   * A script step once, outside a run (your test of its sources): its output, or why it
    * failed. It gets what a run's first step gets (no step before it), in a folder of its own that goes after.
    */
   async scriptOnce(sentinel: Sentinel, step: ScriptStep, ms: number): Promise<{ readonly output: string } | { readonly why: string }> {

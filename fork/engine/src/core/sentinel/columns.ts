@@ -4,7 +4,7 @@ import { documentMime } from '../../shared/typed-cells.js';
 export { type DocumentLook, deltaCellOf, documentLook, documentMime, kindWords, personOf, progressOf, quietHtml, ratingOf, sparkOf } from '../../shared/typed-cells.js';
 
 /**
- * Typed columns of a rows metric (docs/sentinel.md §10, ACME-345): what kind of value a column holds,
+ * Typed columns of a rows metric (docs/sentinel.md §10): what kind of value a column holds,
  * so a document shows as a chip that opens it rather than as a dump of its text. The pure part,
  * browser-safe: the types, the storage cell, the documents a run's rows hold (taken out of the rows,
  * their names and bytes; sentinels.ts writes them to the run's folder), and the preview's words.
@@ -14,7 +14,7 @@ export { type DocumentLook, deltaCellOf, documentLook, documentMime, kindWords, 
  * - `storage`: a Supabase Storage object, from a bucket and a path column (or a bucket's own name). The
  *   cell is `<bucket>/<path>`; its link is signed only when it's clicked, for about a minute.
  * - `url`, `path`: declared, so nothing has to guess from the value.
- * - The table's own kinds (ACME-349): text, number, percent, currency, bytes, date, datetime, bool,
+ * - The table's own kinds: text, number, percent, currency, bytes, date, datetime, bool,
  *   badge, color, image, code; and progress (a bar, 0…max), sparkline (a list of numbers), delta (a
  *   change, green or rose by `better`), person (a name or email, with its initials), rating (stars,
  *   0…max), action (a button that runs another sentinel with the row as its trigger's payload).
@@ -81,7 +81,7 @@ export const STORAGE_MAX = 50 * 1024 * 1024;
 
 export const isDocumentKind = (t: ColumnKind): boolean => t === 'html' || t === 'file';
 
-/** A run's file's kind (ACME-392): a document by its name, the report Markdown, a step's output text. */
+/** A run's file's kind: a document by its name, the report Markdown, a step's output text. */
 export const runFileMime = (name: string): string => (name.startsWith(`${FILES_DIR}/`) ? documentMime(name.slice(FILES_DIR.length + 1)) : name.endsWith('.md') ? 'text/markdown' : 'text/plain');
 
 /**

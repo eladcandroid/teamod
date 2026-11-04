@@ -1,5 +1,5 @@
 /**
- * Phrases while you talk (ACME-160): the recording is cut at your pauses, so each phrase is written
+ * Phrases while you talk: the recording is cut at your pauses, so each phrase is written
  * down while you keep talking, and the words are ready the moment you stop. The phone (to the Mac,
  * or on the phone) and the Mac app both feed it 16 kHz samples as they come. No imports, runs anywhere.
  *

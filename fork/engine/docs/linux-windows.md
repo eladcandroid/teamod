@@ -18,7 +18,7 @@ The same teamod runs on Linux and Windows. Some things stay Mac only.
 | Packages | .dmg | AppImage (updates itself), .deb, .rpm | installer (updates itself) |
 
 Mac only: desktop widgets, Focus, the macOS permission steps in the welcome, the Dock badge,
-sleeping only after the outbox is mailed (ACME-277), and notification sounds played from files
+sleeping only after the outbox is mailed, and notification sounds played from files
 (on Linux and Windows the window plays them).
 
 Shortcuts that use ⌃ on a Mac have their own keys elsewhere: Toggle Sidebar is Ctrl+B,

@@ -89,7 +89,7 @@ const SavedPlan = z
     autonomy: z.enum(AUTONOMIES).default('gated'),
     maxParallel: z.number().int().min(1).max(MAX_PARALLEL).catch(DEFAULT_PARALLEL),
     testsAt: z.enum(TESTS_AT).catch('milestone'),
-    // Who works it (ACME-497): one that doesn't read is let go (your default works it).
+    // Who works it: one that doesn't read is let go (your default works it).
     agent: AgentRef.optional().catch(undefined),
     body: Body.optional().catch(undefined),
     draft: Body.optional().catch(undefined),
@@ -265,7 +265,7 @@ export class Plans {
   }
 
   /**
-   * The agent (and model) its milestones and tasks are worked on by from here on (ACME-498);
+   * The agent (and model) its milestones and tasks are worked on by from here on;
    * undefined: your default. Milestones and tasks already at work keep the agent they opened with.
    */
   setWorkAgent(id: string, agent: AgentRef | undefined, by: Actor): Plan {

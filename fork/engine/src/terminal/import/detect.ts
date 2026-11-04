@@ -7,7 +7,7 @@ import { TERMINAL_APPS, TERMINAL_APP_NAMES, type TerminalAppId, type TerminalFou
 import { type Parsed, type ReadFile, familyFromPostScript, parseAlacritty, parseGhostty, parseIterm, parseKitty, parseTerminalApp, parseWarp, parseWarpTheme, parseWeztermScheme, parseWezterm } from './parsers.js';
 
 /**
- * Which other terminals are on this Mac, and what their settings come to (ACME-212). Reads only:
+ * Which other terminals are on this Mac, and what their settings come to. Reads only:
  * their settings files, their preferences (through `defaults export`, which has what's current),
  * and the theme files they point at. Nothing is written, and nothing but the look is kept.
  */

@@ -3,12 +3,12 @@
 export const shellId = (wsId: string): string => wsId;
 export const setupId = (wsId: string): string => `${wsId}:setup`;
 export const runId = (wsId: string): string => `${wsId}:run`;
-/** A GitHub setup step teamod runs where you can see it (installing gh, logging in), ACME-213. */
+/** A GitHub setup step teamod runs where you can see it (installing gh, logging in). */
 export const githubId = (wsId: string): string => `${wsId}:github`;
-/** The agent's own terminal (Claude Code's or Codex's) on a workspace's conversation, ACME-534. */
+/** The agent's own terminal (Claude Code's or Codex's) on a workspace's conversation. */
 export const agentTermId = (wsId: string): string => `${wsId}:agent`;
 export const isAgentTerm = (key: string): boolean => key.endsWith(':agent');
-/** Why the agent's terminal didn't open: a turn is running in the chat. The Mac waits for it instead of failing (ACME-553). */
+/** Why the agent's terminal didn't open: a turn is running in the chat. The Mac waits for it instead of failing. */
 export const TERM_BUSY = 'Your agent is still on a turn in the chat here: let it finish (or stop it), then open the terminal.';
 export const isTermBusy = (message: string): boolean => message.includes(TERM_BUSY);
 /** A shell split beside the agent's terminal: `<wsId>:pane:1`, `<wsId>:pane:2`… */

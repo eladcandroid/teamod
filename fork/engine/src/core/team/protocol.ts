@@ -14,23 +14,23 @@ import { AgentRef } from '../../protocol.js';
  *   the two of you will use for it; `project`: your project's name, for their Claude's requests).
  * - `accept`: you said yes to their invite: the team is formed. `decline`: not now. `leave`: you left.
  *
- * The board (board-sync.ts, ACME-222):
+ * The board (board-sync.ts):
  * - `ops`: tasks as the team has them, or only what changed: each field with who set it and when
  *   (`l` Lamport time, `a` author peer id; the later one wins, by l then a), activity to add
  *   (append-only; `drop`: lines its author took back when it folded two quick changes into one),
  *   and how it was born (the first time). A snapshot is the same message with everything.
  * - `digest`: a hash of every field's clock, sent when a link comes up; a different one gets a snapshot.
  *
- * Plans you choose to share (plan-share.ts, ACME-225):
+ * Plans you choose to share (plan-share.ts):
  * - `plan`: a plan's draft (or what was approved) as its owner has it now, with everyone's reviews;
  *   the newest replaces one still waiting. `plan_gone`: no longer shared (or deleted).
  * - `review`: a teammate's comment, approval or suggested changes (the plan's own edit ops).
  *
- * The project's context (context-share.ts, ACME-298):
+ * The project's context (context-share.ts):
  * - `context`: About This Project as the sender has it (`by`: who wrote it, `at`: when); the
  *   newest wins on every Mac, and the newest replaces one still waiting.
  *
- * Knocking on a teammate's worktree (knock.ts, ACME-416):
+ * Knocking on a teammate's worktree (knock.ts):
  * - `knock`: you'd like to join the worktree doing this task (`note`: a few words with it).
  * - `knock_answer`: let in as `view` or `contribute` (`ws`: the worktree, shared the friend-share
  *   way), `decline` (not now), or `gone` (no worktree does it any more).
@@ -45,7 +45,7 @@ export const peerId = z.string().regex(/^[\w-]{32}$/);
 const words = (max: number) => z.string().max(max);
 export const ActorSchema = z.union([
   z.object({ kind: z.literal('person'), id: peerId, name: words(80) }),
-  // ACME-498: which agent (an older Mac leaves it out: Claude; a bad one is dropped, not the line).
+  // which agent (an older Mac leaves it out: Claude; a bad one is dropped, not the line).
   z.object({ kind: z.literal('claude'), owner: peerId, ownerName: words(80), agent: AgentRef.optional().catch(undefined) }),
   z.object({ kind: z.literal('teamod') }),
 ]);
@@ -91,7 +91,7 @@ export const FIELD_VALUES: Readonly<Record<string, z.ZodType>> = {
   github: z.object({ repo: z.string().max(200), host: z.string().max(200).optional(), number: z.number().int().positive(), url: z.string().max(500), step: z.enum(['investigate', 'fix']).optional(), investigated: z.boolean().optional() }).nullable(),
   deleted: z.boolean(),
 };
-/** A field's value checker: the fixed ones, a brief section, or someone working on it (their Claude running there: additive, ACME-278). */
+/** A field's value checker: the fixed ones, a brief section, or someone working on it (their Claude running there: additive). */
 export function fieldValue(name: string): z.ZodType | undefined {
   if (FIELD_VALUES[name]) return FIELD_VALUES[name];
   if (/^brief\.(goal|context|acceptance|decisions|questions|handoff)$/.test(name)) return z.string().max(20_000);
@@ -122,16 +122,16 @@ export const SharedPlanSchema = z.object({ id: z.string().regex(/^[\w-]{1,60}$/)
 
 export const TeamMsg = z.discriminatedUnion('k', [
   z.object({ k: z.literal('repos'), prints: z.array(hex32).max(500) }),
-  // `team`: who's on it already, by name (ACME-510: you're asked onto a group, not a pair).
+  // `team`: who's on it already, by name (you're asked onto a group, not a pair).
   z.object({ k: z.literal('invite'), print: hex32, link: linkId, project: name, team: z.array(words(80)).max(50).optional() }),
   z.object({ k: z.literal('accept'), print: hex32, link: linkId, project: name }),
   z.object({ k: z.literal('decline'), print: hex32 }),
-  // `all`: they left the whole team, not only the two of you (ACME-510).
+  // `all`: they left the whole team, not only the two of you.
   z.object({ k: z.literal('leave'), link: linkId, all: z.literal(true).optional() }),
-  // A friend request to someone on the team who isn't your friend (ACME-510), passed on by teammates
+  // A friend request to someone on the team who isn't your friend, passed on by teammates
   // until it reaches them: a one-time invitation only they can use (`invite`), so it pairs with them alone.
   z.object({ k: z.literal('befriend'), link: linkId, id: z.string().regex(/^[\w-]{8,40}$/), from: peerId, to: peerId, name: words(80), invite: z.string().min(1).max(4000), expiresAt: z.number().int().min(0) }),
-  // Who's on the team, as this Mac knows it (ACME-510): each line last-writer-wins on `at`.
+  // Who's on the team, as this Mac knows it: each line last-writer-wins on `at`.
   z.object({ k: z.literal('roster'), link: linkId, members: z.array(z.object({ peerId, name: words(80), since: z.number().int().min(0), on: z.boolean(), at: z.number().int().min(0) })).max(200) }),
   z.object({ k: z.literal('ops'), link: linkId, tasks: z.array(TaskDelta).max(50) }),
   z.object({ k: z.literal('digest'), link: linkId, hash: z.string().regex(/^[0-9a-f]{64}$/) }),

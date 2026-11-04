@@ -1,5 +1,5 @@
 /**
- * Which videos play where (ACME-100, ACME-103): pure, for the phone's player and the Mac's.
+ * Which videos play where: pure, for the phone's player and the Mac's.
  * MP4, M4V and MOV (H.264 or HEVC) play on both platforms' players; WebM (VP8, VP9) on Android's
  * and in the Mac's web view, not on iPhone. What a player still can't open (a codec it lacks: ProRes,
  * say) shows the same fallback when it fails. Nothing is transcoded.

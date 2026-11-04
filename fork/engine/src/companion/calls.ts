@@ -22,7 +22,7 @@ export const OpenOnMacResult = z.object({ opened: z.boolean(), why: z.string().o
 export const IconResult = z.object({ sum: z.string(), mime: z.string(), b64: z.string() });
 /** Your Claude's draft of a task described in words (companion.draftTask), before it's added. */
 const OneDraft = z.object({ title: z.string(), goal: z.string(), acceptance: z.array(z.string()), labels: z.array(z.string()), priority: z.enum(['urgent', 'high', 'medium', 'low']).optional(), for: z.string().optional() });
-/** 1.24 (ACME-322): who each is for (`for`), the tasks after the first (`more`), and whether the first is their epic. */
+/** 1.24: who each is for (`for`), the tasks after the first (`more`), and whether the first is their epic. */
 export const TaskDraftResult = OneDraft.extend({ more: z.array(OneDraft).optional(), epic: z.boolean().optional() });
 export type TaskDraftResult = z.infer<typeof TaskDraftResult>;
 /** What `put` answers: a piece taken, then the file's ref. */
@@ -36,12 +36,12 @@ export const PhoneCalls = {
   'host.promote': entry('host.promote', done),
   'host.sendNext': entry('host.sendNext', done),
   'host.steerNow': entry('host.steerNow', done),
-  // 1.28 (ACME-387): edit a message you sent → the conversation it went on in (a fork's channel).
+  // 1.28: edit a message you sent → the conversation it went on in (a fork's channel).
   'workspaces.editPrompt': entry('workspaces.editPrompt', z.string().optional()),
-  // 1.32 (ACME-446): the agent picker: a model of this conversation's runtime, or another runtime's agent.
+  // 1.32: the agent picker: a model of this conversation's runtime, or another runtime's agent.
   'workbench.setModel': entry('workbench.setModel', done),
   'workbench.setAgent': entry('workbench.setAgent', z.boolean().optional()),
-  // Give a conversation its terminal drives back to the chat (ACME-534).
+  // Give a conversation its terminal drives back to the chat.
   'agentTerm.takeOver': entry('agentTerm.takeOver', done),
   'host.stopRun': entry('host.stopRun', z.object({ stopped: z.boolean(), returned: z.array(z.string()) }).partial().passthrough().optional()),
   'host.cancelQueued': entry('host.cancelQueued', done),
@@ -87,11 +87,11 @@ export const PhoneCalls = {
   'network.files.preview': entry('network.files.preview', z.object({ mime: z.string(), b64: z.string() }).passthrough().optional()),
   'network.channels.main': entry('network.channels.main', z.string().optional()),
   'network.read': entry('network.read', done),
-  // 1.30 (ACME-429): a direct message deleted or your own edited, and a direct chat cleared on the Mac.
+  // 1.30: a direct message deleted or your own edited, and a direct chat cleared on the Mac.
   'network.messages.delete': entry('network.messages.delete', done),
   'network.messages.edit': entry('network.messages.edit', done),
   'network.clear': entry('network.clear', done),
-  // 1.34 (ACME-466): a dialogue between agents, stopped or continued from the phone.
+  // 1.34: a dialogue between agents, stopped or continued from the phone.
   'dialogues.stop': entry('dialogues.stop', done),
   'dialogues.continue': entry('dialogues.continue', done),
   'dialogues.confirm': entry('dialogues.confirm', done),
@@ -125,9 +125,9 @@ export const PhoneCalls = {
   'companion.post': entry('companion.post', done),
   'companion.askPerson': entry('companion.askPerson', AskPersonResult),
   'companion.signOut': entry('companion.signOut', z.object({ signedOut: z.literal(true) })),
-  // 1.13: whether the Mac stays awake for the phone (ACME-127).
+  // 1.13: whether the Mac stays awake for the phone.
   'companion.keepAwake': entry('companion.keepAwake', done),
-  // 1.32: one of your providers becomes the default agent (ACME-459).
+  // 1.32: one of your providers becomes the default agent.
   'companion.defaultAgent': entry('companion.defaultAgent', done),
   // 1.14: Your Mac's chats: a new one (its id comes back), or one deleted for good.
   'assistant.newChat': entry('assistant.newChat', z.string()),
@@ -143,7 +143,7 @@ export const PhoneCalls = {
   'companion.draftTask': entry('companion.draftTask', TaskDraftResult),
   'companion.addTask': entry('companion.addTask', z.object({ id: z.string(), key: z.string(), more: z.array(z.object({ id: z.string(), key: z.string() })).optional() })),
   'board.start': entry('board.start', z.string()),
-  // 1.35 (ACME-498): who works a task, and a plan's work, from their next start → what happened, in words.
+  // 1.35: who works a task, and a plan's work, from their next start → what happened, in words.
   'board.setAgent': entry('board.setAgent', z.string()),
   'plans.setWorkAgent': entry('plans.setWorkAgent', z.string()),
   // 1.7: a worktree's files (read-only) and terminals (shared with the Mac).
@@ -153,9 +153,9 @@ export const PhoneCalls = {
   'companion.terminals': entry('companion.terminals', TerminalsView),
   'companion.termOpen': entry('companion.termOpen', TerminalView),
   'companion.termClose': entry('companion.termClose', z.object({ closed: z.boolean() })),
-  // 1.10 (ACME-110): a sub-agent's activity and report.
+  // 1.10: a sub-agent's activity and report.
   'companion.subAgent': entry('companion.subAgent', SubAgentDetailView),
-  // 1.11 (ACME-124): the conversations no longer on the Mac, of those asked about.
+  // 1.11: the conversations no longer on the Mac, of those asked about.
   'companion.gone': entry('companion.gone', z.object({ gone: z.array(z.string()) })),
   'companion.voice': entry('companion.voice', VoiceMacView),
   'companion.voicePrepare': entry('companion.voicePrepare', VoiceMacView),
@@ -167,17 +167,17 @@ export const PhoneCalls = {
   'sentinel.runs': entry('sentinel.runs', z.array(SentinelRunResult)),
   'sentinel.runGet': entry('sentinel.runGet', z.object({ run: SentinelRunResult, sentinel: z.object({ id: z.string(), name: z.string() }).optional(), report: z.string().optional() }).passthrough()),
   'sentinel.decide': entry('sentinel.decide', SentinelRunResult),
-  // 1.22 (ACME-244): a number over time (its points, oldest first), and pull to refresh a dashboard.
+  // 1.22: a number over time (its points, oldest first), and pull to refresh a dashboard.
   'sentinel.metricRead': entry('sentinel.metricRead', z.object({ metric: z.object({ name: z.string(), label: z.string(), unit: z.string() }).passthrough(), lines: z.array(z.object({ at: z.number(), runId: z.string(), value: z.number().optional() }).passthrough()) })),
   'dashboard.refresh': entry('dashboard.refresh', z.object({ total: z.number() })),
-  // 1.25 (ACME-345): a table's document chip, read through the Mac, and a storage chip's link signed there.
+  // 1.25: a table's document chip, read through the Mac, and a storage chip's link signed there.
   'sentinel.document': entry('sentinel.document', DocumentView),
   'sentinel.signStorage': entry('sentinel.signStorage', SignedLinkView),
   'sentinel.runRow': entry('sentinel.runRow', SentinelRunResult),
-  // 1.29 (ACME-386): a document the phone doesn't show, opened in its app on the Mac.
+  // 1.29: a document the phone doesn't show, opened in its app on the Mac.
   'sentinel.documentOpen': entry('sentinel.documentOpen', done),
   'sentinel.storageOpen': entry('sentinel.storageOpen', done),
-  // 1.29 (ACME-392): what a sentinel keeps, its files and histories as refs; a run's file opened on the Mac.
+  // 1.29: what a sentinel keeps, its files and histories as refs; a run's file opened on the Mac.
   'sentinel.dataList': entry('sentinel.dataList', DataListView),
   'sentinel.runFileOpen': entry('sentinel.runFileOpen', done),
 } as const;

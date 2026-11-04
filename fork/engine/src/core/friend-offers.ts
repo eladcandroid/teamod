@@ -4,7 +4,7 @@ import type { NoticeEvent } from './notify.js';
 import type { Store } from './store.js';
 
 /**
- * Friend requests between people in the same room (ACME-202): rooms fold into friends. "Add as
+ * Friend requests between people in the same room: rooms fold into friends. "Add as
  * friend" on someone in your room makes a one-time friend invitation only they may use and sends
  * it to them over the room; their teamod shows "kay wants to add you as a friend" (on the Mac and
  * on the phone, as something that needs them), and Accept uses the invitation, pairing your Macs
@@ -58,7 +58,7 @@ export function receiveFriendOffer(host: OfferHost, from: string, body: BodyOf<'
 
 /**
  * A friend request to keep and show (from your room, or, with `via`, from someone on a team you're
- * on, passed on by your teammates: ACME-510). Accept is the same either way (answerFriendOffer):
+ * on, passed on by your teammates:). Accept is the same either way (answerFriendOffer):
  * the invitation only pairs with them, so it's only added if you say yes.
  */
 export function keepFriendOffer(host: Pick<OfferHost, 'store' | 'notify'>, ask: { readonly from: string; readonly name: string; readonly link: string; readonly expiresAt: number; readonly via?: string }): void {

@@ -4,7 +4,7 @@
  * Supabase project's variables. The string goes only to psql on this Mac: problems say which
  * names to set, never a value.
  *
- * Supabase (ACME-302): its direct address (db.<ref>.supabase.co) answers only over IPv6, so on most
+ * Supabase: its direct address (db.<ref>.supabase.co) answers only over IPv6, so on most
  * networks it never does. Its session poolers (aws-0-<region> or aws-1-<region>.pooler.supabase.com,
  * user postgres.<ref>) work everywhere; the pure parts of finding the right one are here, the
  * dialing is postgres-connect.ts.

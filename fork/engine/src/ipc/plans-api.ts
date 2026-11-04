@@ -42,7 +42,7 @@ export const PlanOpSchema = z.discriminatedUnion('op', [
 
 export const PLANS_API = {
   // A new plan with Claude: its own conversation (in the project's main folder) and its page → the plan.
-  // `agent`: who works its milestones and tasks (ACME-497); none: your default.
+  // `agent`: who works its milestones and tasks; none: your default.
   'plans.create': { args: z.tuple([z.object({ projectId: z.string().min(1).max(200), goal: z.string().min(1).max(8000), autonomy: autonomy.optional(), testsAt: z.enum(TESTS_AT).optional(), agent: AgentRef.optional() })]) },
   // Plan in this conversation (the composer's Plan with Tasks) → the plan.
   'plans.here': { args: z.tuple([z.string().min(1).max(200), autonomy.optional()]) },
@@ -57,7 +57,7 @@ export const PLANS_API = {
   'plans.setParallel': { args: z.tuple([id, z.number().int().min(1).max(MAX_PARALLEL)]) },
   // When the e2e and full suites run: once per milestone (at its check), or only in the final step.
   'plans.setTestsAt': { args: z.tuple([id, z.enum(TESTS_AT)]) },
-  // Who works the plan's milestones and tasks from here on (ACME-498): an agent, or null for your default.
+  // Who works the plan's milestones and tasks from here on: an agent, or null for your default.
   // Milestones and tasks already at work keep theirs → what happened, in words.
   'plans.setWorkAgent': { args: z.tuple([id, AgentRef.nullish()]) },
   'plans.tidyUp': { args: z.tuple([id, z.boolean()]) },
@@ -76,7 +76,7 @@ export const PLANS_API = {
   // A conflict Claude couldn't fix: ask it again; or show the folder it waits in (Finder).
   'plans.retryConflicts': { args: z.tuple([id]) },
   'plans.showConflict': { args: z.tuple([id]) },
-  // Start a ready task now → what happened. `agent` (Start with…, ACME-506): who works it this once,
+  // Start a ready task now → what happened. `agent` (Start with…): who works it this once,
   // instead of the task's own agent or the plan's (a milestone already at work keeps its agent).
   'plans.startTask': { args: z.tuple([id, ref, AgentRef.optional()]) },
   // Wake a started task whose Claude stopped without finishing (it waits for you) → what happened.

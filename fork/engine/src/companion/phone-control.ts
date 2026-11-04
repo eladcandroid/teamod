@@ -26,7 +26,7 @@ import {
 } from './protocol.js';
 
 /**
- * Your Mac using your phone (ACME-150, docs/companion.md "Your phone, from your Mac"). This is the
+ * Your Mac using your phone (docs/companion.md "Your phone, from your Mac"). This is the
  * brain: it knows, per paired phone, how it can be reached right now — USB, Wireless debugging on
  * the same Wi-Fi, Wireless debugging carried through the teamod link, or the app's Accessibility
  * service — and runs each action by the best route it has. The agent's tools (agent/phone-tools.ts)
@@ -58,7 +58,7 @@ export interface PhoneLinkHandle {
 export type { VideoPiece } from './phone-video.js';
 
 /**
- * Something Claude just did on the phone, for the mirror to show where (ACME-186): a tap or a long
+ * Something Claude just did on the phone, for the mirror to show where: a tap or a long
  * press at x, y, a swipe from x, y to x2, y2, or a key, typing, scrolling or opening (no place).
  * What was typed is never in it.
  */
@@ -104,7 +104,7 @@ export interface PhoneControlDeps {
   readonly link: (deviceId: string) => PhoneLinkHandle | undefined;
   /** View/state changed: re-publish the companion slice. */
   readonly onChange: () => void;
-  /** Saved phone flows (ACME-175). */
+  /** Saved phone flows. */
   readonly macros?: PhoneMacros;
   readonly log?: (line: string) => void;
   /** Tests: adb's path straight away (skip discovery), and a fake home for candidates. */
@@ -113,14 +113,14 @@ export interface PhoneControlDeps {
 }
 
 /** What a tool needs to act: which phone, by which route, and the adb for it when there is one. */
-/** teamod Link, the phone's add-on with the Accessibility service (ACME-377), and that service. */
-export const LINK_PACKAGE = 'dev.teamod.teamod.control';
-export const LINK_SERVICE = `${LINK_PACKAGE}/dev.teamod.teamod.addon.TeamodAccessibilityService`;
-/** Each release carries teamod Link under this name (ACME-391). */
+/** teamod Link, the phone's add-on with the Accessibility service, and that service. */
+export const LINK_PACKAGE = 'dev.teamod.app.control';
+export const LINK_SERVICE = `${LINK_PACKAGE}/dev.teamod.app.addon.TeamodAccessibilityService`;
+/** Each release carries teamod Link under this name. */
 export const LINK_APK_URL = 'https://github.com/eladcandroid/teamod/releases/latest/download/teamod-Link.apk';
 
-/** The app itself: Link only works signed with the same key (ACME-430). */
-export const APP_PACKAGE = 'dev.teamod.teamod';
+/** The app itself: Link only works signed with the same key. */
+export const APP_PACKAGE = 'dev.teamod.app';
 
 /** Who signed a package, from `dumpsys package <name>` ("signatures:[8f3c1a2b]"), or undefined when it doesn't say. */
 export function signerOf(dumpsys: string): string | undefined {
@@ -135,7 +135,7 @@ export function withLinkService(current: string): string {
   const kept = current
     .split(':')
     .map((x) => x.trim())
-    .filter((x) => x && x !== 'null' && !x.startsWith('dev.teamod.teamod/'));
+    .filter((x) => x && x !== 'null' && !x.startsWith('dev.teamod.app/'));
   // Written back through the phone's shell: anything else on the list must stay exactly as it is.
   if (kept.some((x) => !/^[\w.$/]+$/.test(x))) throw new Error('The phone’s Accessibility list has a service teamod can’t safely rewrite: turn on teamod Link in Android › Accessibility instead.');
   return kept.includes(LINK_SERVICE) ? kept.join(':') : [...kept, LINK_SERVICE].join(':');
@@ -232,7 +232,7 @@ export class PhoneControl {
     return cable;
   }
 
-  // ---- a phone on the cable (ACME-190)
+  // ---- a phone on the cable
 
   private cable?: CableView;
   private cableTimer?: NodeJS.Timeout;
@@ -291,7 +291,7 @@ export class PhoneControl {
   /**
    * The Android phone on this Mac's USB, if any. The full list (every device's properties, ~100 KB
    * even with nothing plugged in) is read only when the tree of devices isn't the very one that
-   * had no phone last time (ACME-407): anything plugged in, out or re-connected changes the tree
+   * had no phone last time: anything plugged in, out or re-connected changes the tree
    * (a new entry, a new id), so it's seen on the same tick as before.
    */
   private async usbPhone(): Promise<{ name: string; serial?: string } | undefined> {
@@ -307,7 +307,7 @@ export class PhoneControl {
   }
 
   private async factsOf(adb: Adb): Promise<{ teamod: boolean; name: string }> {
-    const res = await adb.shell('pm path dev.teamod.teamod; settings get global device_name', 8_000).catch(() => undefined);
+    const res = await adb.shell('pm path dev.teamod.app; settings get global device_name', 8_000).catch(() => undefined);
     const lines = (res?.stdout ?? '').split('\n').map((l) => l.trim()).filter(Boolean);
     return { teamod: lines.some((l) => l.startsWith('package:')), name: lines.filter((l) => !l.startsWith('package:')).at(-1) ?? '' };
   }
@@ -318,7 +318,7 @@ export class PhoneControl {
     const adb = await this.ensureAdb();
     const row = adb ? (await this.attached()).find((d) => d.usb && d.state === 'device') : undefined;
     if (!adb || !row) throw new Error('Plug the phone in, with USB debugging on and this Mac allowed.');
-    const res = await new Adb(this.deps.sys, adb.path, row.serial).shell(`am start -a android.intent.action.VIEW -d '${link}' dev.teamod.teamod`, 10_000);
+    const res = await new Adb(this.deps.sys, adb.path, row.serial).shell(`am start -a android.intent.action.VIEW -d '${link}' dev.teamod.app`, 10_000);
     if (res.code !== 0 || /Error|Exception/.test(res.stdout + res.stderr)) throw new Error('The phone didn’t open teamod’s pairing: open teamod on the phone and try again.');
   }
 
@@ -367,7 +367,7 @@ export class PhoneControl {
 
   /**
    * Make sure the Mac's adb is connected to this phone's Wireless debugging and return its serial,
-   * or undefined if it isn't reachable. Two ways, the first that works (ACME-189):
+   * or undefined if it isn't reachable. Two ways, the first that works:
    *  - straight over the same Wi-Fi (fastest), to the address and port the paired phone itself
    *    gave over the link, and only once the device there proves it's that phone: it reads back a
    *    one-time code the phone was sent over the link. Nobody else on the network can pass for it
@@ -430,7 +430,7 @@ export class PhoneControl {
   }
 
   /**
-   * Wireless debugging on or off, from the Mac (ACME-187, Settings › Phone). On needs the phone on a
+   * Wireless debugging on or off, from the Mac (Settings › Phone). On needs the phone on a
    * cable: it's turned on there, the phone's app says its port over the link, and the Mac checks it
    * can reach it through the link, so Claude and the mirror carry on unplugged. Android asks "Allow
    * wireless debugging on this network?" on the phone. Turned on here, it goes off again after
@@ -704,7 +704,7 @@ export class PhoneControl {
     return (await r.adb.run(['logcat', ...safe], 20_000)).stdout;
   }
 
-  /** Send a file from this Mac to the phone (adb push); returns the on-device path (ACME-176). */
+  /** Send a file from this Mac to the phone (adb push); returns the on-device path. */
   async push(deviceId: string, localPath: string, dest = '/sdcard/Download/'): Promise<string> {
     const r = await this.need(deviceId, 'act');
     if (!r.adb) throw new Error('Sending a file to the phone needs Wireless debugging.');
@@ -713,7 +713,7 @@ export class PhoneControl {
     return dest.endsWith('/') ? dest + path.basename(localPath) : dest;
   }
 
-  /** Get a file from the phone to a folder on this Mac (adb pull); returns the local path (ACME-176). */
+  /** Get a file from the phone to a folder on this Mac (adb pull); returns the local path. */
   async pull(deviceId: string, remotePath: string, intoDir: string): Promise<string> {
     const r = await this.need(deviceId, 'look');
     if (!r.adb) throw new Error('Getting a file from the phone needs Wireless debugging.');
@@ -724,7 +724,7 @@ export class PhoneControl {
     return local;
   }
 
-  /** The phone's current notifications (adb dumpsys, best-effort parse; ACME-176). */
+  /** The phone's current notifications (adb dumpsys, best-effort parse). */
   async notifications(deviceId: string): Promise<Array<{ app: string; title: string; text: string }>> {
     const r = await this.need(deviceId, 'look');
     if (!r.adb) throw new Error('Reading notifications needs Wireless debugging.');
@@ -739,7 +739,7 @@ export class PhoneControl {
   }
 
   /**
-   * Environment for the owner's runs (ACME-174) so Claude's Bash can use adb and scrcpy against the
+   * Environment for the owner's runs so Claude's Bash can use adb and scrcpy against the
    * phone with no setup: adb on PATH, and ANDROID_SERIAL when this phone's serial is already known
    * (with one phone attached, adb needs no serial anyway). Synchronous and best-effort — it never
    * blocks a run; a `phone_status` or any phone tool first will have cached the serial.
@@ -766,15 +766,15 @@ export class PhoneControl {
   }
 
   /**
-   * A live mirror of the phone's screen (ACME-173). With `video` (the screen can decode H.264) it
-   * plays live video to `onVideo`: over adb, Android's own `screenrecord` (ACME-185, nothing to
+   * A live mirror of the phone's screen. With `video` (the screen can decode H.264) it
+   * plays live video to `onVideo`: over adb, Android's own `screenrecord` (nothing to
    * allow on the phone); without adb, the app's screen capture and hardware encoder (1.18,
-   * ACME-184; the user taps "Start now" once). Until video flows, or if it stops, it shows pictures
+   * the user taps "Start now" once). Until video flows, or if it stops, it shows pictures
    * instead, at about `fps`, to `onFrame`: over adb a full-resolution `screencap` PNG; over the
    * Accessibility link a downscaled JPEG, at most one per SHOT_GAP_MS (Android refuses faster). One
    * picture is in flight at a time, so a slow phone just lowers the rate rather than piling up. The
    * route is found once and re-checked every few seconds, not per picture (finding it runs adb).
-   * `onTouch` hears what Claude does on the phone meanwhile (ACME-186), to show it where it lands.
+   * `onTouch` hears what Claude does on the phone meanwhile, to show it where it lands.
    */
   startMirror(
     deviceId: string,
@@ -927,7 +927,7 @@ export class PhoneControl {
     };
   }
 
-  // ---- what Claude does on the phone (ACME-186)
+  // ---- what Claude does on the phone
 
   private readonly touchers = new Map<string, Set<(t: PhoneTouch) => void>>();
   private readonly busyAt = new Map<string, number>();
@@ -957,7 +957,7 @@ export class PhoneControl {
     return Date.now() - (this.busyAt.get(deviceId) ?? 0) < BUSY_MS;
   }
 
-  /** Elements on screen now with where to tap them, for find-by-text (macros, ACME-175). */
+  /** Elements on screen now with where to tap them, for find-by-text (macros). */
   private async screenTargets(deviceId: string): Promise<Array<{ label: string; cx: number; cy: number }>> {
     const r = await this.need(deviceId, 'look');
     if (r.link?.control?.accessibility) {
@@ -984,7 +984,7 @@ export class PhoneControl {
   }
 
   /**
-   * Run a saved flow (ACME-175): each step in turn, with a short settle between them, re-finding
+   * Run a saved flow: each step in turn, with a short settle between them, re-finding
    * tap-by-text against the live screen. Returns a short transcript; throws on the first step that
    * can't be done (so a broken macro stops rather than wandering).
    */
@@ -1038,7 +1038,7 @@ export class PhoneControl {
     return log.join('\n');
   }
 
-  // ---- saved flows (ACME-175)
+  // ---- saved flows
 
   listMacros(): readonly Macro[] {
     return this.deps.macros?.all() ?? [];
@@ -1194,7 +1194,7 @@ export class PhoneControl {
   }
 
   /**
-   * teamod Link on the phone, from the Mac (ACME-391): the latest release's teamod-Link.apk installed
+   * teamod Link on the phone, from the Mac: the latest release's teamod-Link.apk installed
    * over adb, which Play Protect doesn't block the way it blocks a downloaded Accessibility app, then
    * its Accessibility service turned on beside whatever else is on. Nothing to tap on the phone.
    */
@@ -1216,7 +1216,7 @@ export class PhoneControl {
     const listed = await r.adb.shell(`pm list packages --user 0 ${LINK_PACKAGE}`, 10_000);
     const installed = listed.stdout.split('\n').some((l) => l.trim() === `package:${LINK_PACKAGE}`);
     // Link and the app trust each other by their signing key. A Link signed with the old key (before
-    // ACME-430) is installed but never connects, so it's replaced.
+    //) is installed but never connects, so it's replaced.
     const matches = installed && (await this.sameSigner(r.adb));
     if (!matches) {
       const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'teamod-link-'));
@@ -1354,7 +1354,7 @@ export class PhoneControl {
         return { text: `Screenshot of the phone.${saved} Say in a line what it shows.`, image: { data: shot.image.toString('base64'), mimeType: shot.mime } };
       },
       screen: async () => (await ctl.screen(deviceId)).text,
-      // Each action shows on the mirrors as it happens (ACME-186): where a tap lands, a swipe's path.
+      // Each action shows on the mirrors as it happens: where a tap lands, a swipe's path.
       tap: async (a) => (ctl.claudeDid(deviceId, { op: 'tap', x: a.x, y: a.y }), await ctl.tap(deviceId, a), ok(`Tapped ${a.node !== undefined ? `#${a.node}` : `${a.x},${a.y}`}.`)),
       swipe: async (a) => (ctl.claudeDid(deviceId, { op: 'swipe', x: a.x1, y: a.y1, x2: a.x2, y2: a.y2 }), await ctl.swipe(deviceId, a), ok('Swiped.')),
       type: async (a) => (ctl.claudeDid(deviceId, { op: 'type' }), await ctl.type(deviceId, a), ok(`Typed${a.enter ? ' and pressed enter' : ''}.`)),

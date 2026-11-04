@@ -71,7 +71,7 @@ export type Actor =
       readonly kind: 'claude';
       readonly owner: string;
       readonly ownerName: string;
-      /** Which agent it was (ACME-498: Codex, a local model…); left out on older entries: Claude, as before. */
+      /** Which agent it was (Codex, a local model…); left out on older entries: Claude, as before. */
       readonly agent?: AgentRef;
     }
   | { readonly kind: 'teamod' };
@@ -79,13 +79,13 @@ export type Actor =
 /** Kept for callers that tidied saved boards across an old rename: there is nothing left to rename. */
 export const renamedActors = (value: unknown): unknown => value;
 
-/** Who a task is for: a person, never a Claude (ACME-278). Who works on it right now shows on its own. */
+/** Who a task is for: a person, never a Claude. Who works on it right now shows on its own. */
 export type Assignee = { readonly kind: 'person'; readonly id: string; readonly name: string };
 
 /** How older boards, older teammates and the activity history may still say it: someone's Claude. */
 export type AnyAssignee = Assignee | { readonly kind: 'claude'; readonly owner: string; readonly ownerName: string };
 
-/** A task given to someone's Claude (before ACME-278) is that person's. */
+/** A task given to someone's Claude (before) is that person's. */
 export const personOf = (a: AnyAssignee): Assignee => (a.kind === 'person' ? a : { kind: 'person', id: a.owner, name: a.ownerName });
 
 export interface BriefRevision {
@@ -225,10 +225,10 @@ export interface Issue {
   readonly link?: IssueLink;
   /** The GitHub issue it's for (made from it in Issues): its pull request says "Fixes #n", so merging closes the issue. */
   readonly github?: IssueGitHub;
-  /** The agent (and model) that works it when it starts (ACME-497): its worktree's own. None: your default agent. */
+  /** The agent (and model) that works it when it starts: its worktree's own. None: your default agent. */
   readonly agent?: AgentRef;
   /**
-   * Only you see it (ACME-501): it stays on this Mac, never reaching teammates on a team board or
+   * Only you see it: it stays on this Mac, never reaching teammates on a team board or
    * another tracker (Linear), until Share with Team. A private task's sub-tasks are private too.
    */
   readonly private?: true;
@@ -236,7 +236,7 @@ export interface Issue {
 
 /**
  * Words asking for a task to stay yours ("just for me", "keep it private", "don't share"): New
- * Task makes it private from the start, before anything could reach the team (ACME-501).
+ * Task makes it private from the start, before anything could reach the team.
  */
 export const asksPrivate = (text: string): boolean => PRIVATE_ASK.test(text);
 const PRIVATE_ASK = /(^\s*private\b|\bprivate (task|todo|to-do|note|one|board)s?\b|\b(make|keep|leave) (it|this|them|these)( tasks?)? (private|to myself|off the team)\b|\b(just|only) (for )?me\b|\bfor my eyes only\b|\bdon[’']?t share\b|\bnot for the team\b|\b(is|as|stays?) private\b)/i;
@@ -327,7 +327,7 @@ export interface BoardProject {
   readonly next: number;
   /** Labels people added to this project's set, after the built-in ones (see labels.ts). */
   readonly labels?: readonly LabelDef[];
-  /** What the project is, for Claude writing its tasks (ACME-298): shared with its teammates. */
+  /** What the project is, for Claude writing its tasks: shared with its teammates. */
   readonly context?: ProjectContext;
   /** What it's called, when not its repo's name (a board of its own always has one). */
   readonly name?: string;
@@ -480,7 +480,7 @@ export const issueForWorkspace = (board: BoardState, workspaceId: string): Issue
 
 /**
  * The worktree doing a task right now: its own (the last one, unless it went away), else one that
- * carries its work (ACME-29). `live`: whether a workspace is still here and not archived.
+ * carries its work. `live`: whether a workspace is still here and not archived.
  */
 export function worktreeDoing(issue: Pick<Issue, 'worktrees' | 'worktreeGone' | 'carriedBy'>, live: (workspaceId: string) => boolean): string | undefined {
   const own = issue.worktrees.at(-1);
@@ -508,7 +508,7 @@ export const blocking = (board: BoardState, issue: Issue): Issue[] => board.issu
 
 export const childrenOf = (board: BoardState, issue: Issue): Issue[] => board.issues.filter((i) => i.parent === issue.id).sort(byRank);
 
-/** The other repos an epic's unfinished sub-tasks run in: Start makes a worktree in each too (ACME-561). */
+/** The other repos an epic's unfinished sub-tasks run in: Start makes a worktree in each too. */
 export const reposAlong = (board: BoardState, epic: Issue): string[] => [...new Set(childrenOf(board, epic).filter((k) => k.projectId !== epic.projectId && isStartable(k)).map((k) => k.projectId))];
 
 /** An epic: a task with sub-tasks (worked out from the board, never stored). */

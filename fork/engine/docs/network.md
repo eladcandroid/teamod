@@ -121,7 +121,7 @@ Direct messages to an offline friend wait in your outbox (`~/.teamod/outbox.json
 are sent when a link comes up; the receiver acknowledges and de-duplicates. Group entries are
 held by every member, so you catch up from whoever is online.
 
-### The mailbox (ACME-272)
+### The mailbox
 
 A friend you're never online with at the same time would never get what waits in your outbox, so
 team board changes, sharing frames and tasks between agents also go through a mailbox: a
@@ -131,10 +131,10 @@ Cloudflare Worker (`packages/mailbox`, rules in `src/net/mailbox/handler.ts`, cl
 - **When something goes there.** A frame nobody acknowledged for `mailboxAfterMin` minutes
   (default 2) while its friend isn't linked; and on quitting (or turning the network off), all of
   what still waits at once (`Mesh.leaving`, called before any service stops). Each frame is mailed once.
-- **Before the Mac sleeps (ACME-277).** The Mac app hears IOKit's "will sleep" (`src-tauri/src/power.rs`),
+- **Before the Mac sleeps.** The Mac app hears IOKit's "will sleep" (`src-tauri/src/power.rs`),
   sends the daemon SIGUSR2, and holds the sleep until the daemon has mailed (it writes
   `~/.teamod/slept.at`), 5 s at most. A closed lid strands nothing.
-- **On the task (ACME-273).** A team task whose latest change a teammate's Mac hasn't acknowledged shows
+- **On the task.** A team task whose latest change a teammate's Mac hasn't acknowledged shows
   a small clock on its card and row (state `team.waiting`), and on its page who and where:
   in their mailbox, or waiting for their Mac. Nothing shows once everyone has it.
 - **What the mailbox sees.** It's sealed to the friend's box key and signed by you: the Worker
@@ -159,7 +159,7 @@ system's idle time) when you chose Online, and Online again when you're back. Ne
 through the shared Notifier (the `mentions` kind), silently on Do Not Disturb or while you appear
 offline.
 
-## Profile pictures (ACME-276)
+## Profile pictures
 
 Your picture is set in Settings › General (`network.avatar.set`). The Mac crops it square and shrinks
 it to 256 px first; the daemon keeps PNG, JPEG, WebP or GIF up to 96 KB, by checksum, under
@@ -171,7 +171,7 @@ if it's the checksum that person announced, it hashes to it, and it is a small p
 checksum (`PersonView.avatar`, `NetworkSelf.avatar`) and screens get the bytes with `network.avatar.get`,
 so a picture crosses the network once per change and still shows while its owner is away.
 
-## Friends from your room (ACME-202)
+## Friends from your room
 
 There is one people list: Friends. Someone in your room who is also a friend is just their friend row,
 with the room's bits on it (agent on, following their screen). Someone in your room who isn't a friend
@@ -275,7 +275,7 @@ their own allowance on the link (64 MB/s, bursts of 128 MB), so a transfer doesn
 other times they count like anything else. On a local link a 128 MB file takes about 2 s. A direct message
 with only files carries "📎 name" as its text for Macs that don't know about files yet.
 
-**Your agent acts when you ask it** (ACME-207). When you ask your own agent in a DM or a channel (Ask your agent
+**Your agent acts when you ask it**. When you ask your own agent in a DM or a channel (Ask your agent
 › yours, or @-mentioning it), it takes a real turn with its tools, not the toolless answer below: your own run
 in that chat's lane (`AgentHost.runChat`, channel `dm:<peerId>` / `group:<id>`), working in Your Mac's folder
 (`~/.teamod/assistant/work`, `MacAssistant.forChat`; no saved session: each ask carries the chat as below), with
@@ -296,7 +296,7 @@ conversation" as its text). Each Mac whose owner's agent was asked
 answers with that owner's own agent and login: no tools, no saved session (`AgentBackend.answerChat`),
 reading the conversation as every member's Mac holds it: the latest 12 messages (8 000 characters, with
 who wrote what) and the newest 20 written since the ask (8 000 characters). When there's more before
-that, the agent is told so and gets one tool, `read_earlier` (ACME-428), to page further back through that
+that, the agent is told so and gets one tool, `read_earlier`, to page further back through that
 one conversation only (up to 50 messages a page, never a locked one), and does only when the window
 isn't enough. Your own ask of your own agent, a turn with its tools, gets the last 60 messages
 (30 000 characters) instead. It also reads the ask's text files (200 KB each, 120 000 characters in all) and pictures (4, 3.75 MB
@@ -355,7 +355,7 @@ Code: `src/core/gateway/` (protocol, the gateway, the receiving side, files), `s
   anywhere with full trust), never secrets: up to 512 KB in all inline, bigger ones fetched in
   pieces (see *Big files*). A file request someone said yes to (or that a rule of theirs covers) may
   come from anywhere on their Mac, not only the folders they share.
-- **Secrets** (ACME-209): a `file` request for a secret (`isSecretPath`: an SSH key, a `.env` file, cloud
+- **Secrets**: a `file` request for a secret (`isSecretPath`: an SSH key, a `.env` file, cloud
   credentials, a token file, any other key) is never declined up front, and never let in either: its owner
   always gets a separate approval that says what it is ("kay's agent wants your private SSH key
   id_ed25519", `secretKindOf` / `secretLabel`), each time, with only Allow once / Decline (on the card,
@@ -367,7 +367,7 @@ Code: `src/core/gateway/` (protocol, the gateway, the receiving side, files), `s
   and the keychains (`isNeverSent`), and every `run` or `ask` task that touches secrets. Macs that do this
   say `task.secret`; asking an older one for a secret fails at once ("Ata's teamod 1.2.0 can't send
   secrets Ata approves yet. Ask Ata to update teamod.").
-- **Both people see it** (ACME-208): when a task goes to a friend, the requester's teamod posts its card
+- **Both people see it**: when a task goes to a friend, the requester's teamod posts its card
   in the chat they share: the channel it was asked from if the friend is in it (the request carries
   `chat: "group:<id>"`), else their DM. The message carries `task: { id, role: 'request' }` and words for
   older Macs ("kay's agent asked bob's agent: take a screenshot of your desktop"); each side draws the
@@ -499,7 +499,7 @@ Your card tells each friend what you offer them (their agent sees it in `who_can
   the request needs `files`; `get_file(person, path)` (a `file` task) sends one file from them
   (anywhere with full trust); a secret only when they approve that one request (see *Secrets* above).
 
-**Limits, so a request can't loop** (ACME-427, `gateway/serve.ts`, `gateway.ts`). A friend's task
+**Limits, so a request can't loop** (`gateway/serve.ts`, `gateway.ts`). A friend's task
 here runs at most 50 turns and 20 minutes (sooner if its deadline is), then stops as failed
 ("Stopped after 20 minutes", "Stopped after 50 turns"). It asks you to approve its steps at most 8
 times; the next one stops it instead, and so do 2 declines in a row ("Stopped: kay declined 2 of
@@ -584,7 +584,7 @@ message goes when it's back"; a message sent then shows "Waiting for ata's Mac" 
 Mac took it (`delivery` in the state). The phone lists the worktree in its work view under "ata · bob-api", chats there
 the same way, and its message box says the same (`ConvView.waiting`).
 
-**A fork on your own Mac** (`fork.ts`, ACME-312). In a friend's worktree you work in (*Can work here*), **Fork to My
+**A fork on your own Mac** (`fork.ts`). In a friend's worktree you work in (*Can work here*), **Fork to My
 Mac** in its header makes it a worktree of yours: the sheet says what comes over and what stays behind, and asks for a
 name. Your Mac finds the project in your Projects (your copy of a project shared whole, or your own clone of the same
 repository: the `project` message carries `repo`, its https address, for that) and sends `fork_request {ws, have}`,
@@ -604,7 +604,7 @@ and the setup when you trust them fully; otherwise the chat says so, with Termin
 the state's `forks` (asking, copying, ready with your worktree's id, failed with why); the header button follows it
 (Packing…, Waiting for ata's Mac…, Copying…, then Open My Fork). The same trust rule now holds for "Runs on" › This Mac.
 
-**Handing a worktree to a friend (ACME-341).** Hand Off lists your friends as well as the room's people with their
+**Handing a worktree to a friend.** Hand Off lists your friends as well as the room's people with their
 agent. To a friend outside your room, the room's own `ws_handoff` (note, chat, branch bundle in a private share for
 them) goes over their link instead (`FriendShares.routeHandoff`), and so does their `ws_handoff_result`; each side
 keeps the `hid` so only that answer is let through, and the bundle's share is fetched the way a fork's pack is (the

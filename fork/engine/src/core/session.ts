@@ -74,7 +74,7 @@ export interface SessionOptions {
    */
   /**
    * With createAgent: other runtimes beside it, each turn whose place picked one of them run there
-   * (the demo's scripted Codex, so the Mac e2e can drive a Codex worktree: ACME-462).
+   * (the demo's scripted Codex, so the Mac e2e can drive a Codex worktree:).
    */
   readonly alsoRuntimes?: readonly AgentRuntime[];
   readonly runtime?: {
@@ -218,9 +218,9 @@ export class Session {
   readonly diff: SharedDiff;
   /** Your environment variables for shells, scripts and your Claude (never sent to the room). */
   readonly env: EnvVars;
-  /** Your local and bring-your-own endpoints (ACME-449), as they answer now. */
+  /** Your local and bring-your-own endpoints, as they answer now. */
   readonly local: LocalEndpoints;
-  /** The agent's own terminal on a conversation (ACME-534). */
+  /** The agent's own terminal on a conversation. */
   readonly agentTerms?: import('./agent-term.js').AgentTerminals;
   private projectsTimer?: NodeJS.Timeout;
   /** What this session asks screens to do (see core/intents.ts). */
@@ -230,7 +230,7 @@ export class Session {
 
   /** Backends for your other agents' runtimes (a dialogue's Codex beside your Claude), made when first needed. */
   private readonly otherBackends = new Map<string, AgentBackend>();
-  /** Room asks that named an agent ("@bob:codex", ACME-520), until their run says which one answers. */
+  /** Room asks that named an agent ("@bob:codex"), until their run says which one answers. */
   private readonly namedAsks = new Map<string, { readonly peer: string; readonly agent: AgentRef }>();
 
   constructor(private readonly opts: SessionOptions) {
@@ -282,7 +282,7 @@ export class Session {
       make(main),
       main.id,
       (id) => {
-        // A local endpoint is Claude Code pointed elsewhere (ACME-449): it runs wherever Claude does.
+        // A local endpoint is Claude Code pointed elsewhere: it runs wherever Claude does.
         const other = id === LOCAL_RUNTIME ? (rt.runtimes('claude') ? localRuntime((v) => this.local.resolve(v)) : undefined) : rt.runtimes(id);
         return other ? make(other) : undefined;
       },
@@ -302,7 +302,7 @@ export class Session {
     if (!this.runtime || runtime === this.runtime.id) return this.agent;
     const made = this.otherBackends.get(runtime);
     if (made) return made;
-    // A local endpoint is Claude Code pointed elsewhere (ACME-449), as in routed(): it runs wherever Claude does.
+    // A local endpoint is Claude Code pointed elsewhere, as in routed(): it runs wherever Claude does.
     const rt = runtime === LOCAL_RUNTIME ? (this.opts.runtime?.runtimes('claude') ? localRuntime((v) => this.local.resolve(v)) : undefined) : this.opts.runtime?.runtimes(runtime);
     if (!rt || !this.opts.runtime) return undefined;
     const backend = guardedBackend(rt.create({ ...this.opts.runtime.options, bridge: this.bridge }), rt.capabilities);
@@ -434,7 +434,7 @@ export class Session {
     }
     // A dialogue between your agents: started here (proposed, you confirm its caps), or what you say into one (core/dialogues).
     if (dialoguesOf(this)?.fromComposer(raw, channel)) return true;
-    // "@codex": your own Codex when it runs here, listed on your card or not (ACME-520).
+    // "@codex": your own Codex when it runs here, listed on your card or not.
     const parsed = parseInput(raw, this.selfId, state.peers, { runs: (runtime) => this.runsAgent({ runtime, label: runtime }) });
     // In a workspace, you're talking to your Claude working in that folder.
     if (channel !== 'room' && (parsed.kind === 'chat' || parsed.kind === 'agent')) {
@@ -589,7 +589,7 @@ export class Session {
   requestAgent(target: string, prompt: string, viaAgent: boolean, channel = 'room', urgent = false, project?: string, requestId: string = randomUUID(), agent?: AgentRef): string {
     const plan = this.store.getState().planMode[channel] === true;
     this.questions.track(requestId, target, channel);
-    // "@bob:codex" (ACME-520): the agent rides the ask, in the room only; their Mac runs it or says which one did (see namedAsks).
+    // "@bob:codex": the agent rides the ask, in the room only; their Mac runs it or says which one did (see namedAsks).
     const named = agent && channel === 'room' ? { agent: { runtime: agent.runtime, label: agent.label, ...(agent.model ? { model: agent.model } : {}) } } : {};
     if (named.agent) {
       this.namedAsks.set(requestId, { peer: target, agent: named.agent });
@@ -615,7 +615,7 @@ export class Session {
     // Load the saved conversation first, so what's said now is kept with it.
     if (!shared && channel.startsWith('ws:')) this.workspaces?.ensureLoaded(channel.slice(3));
     const requestId = shown ?? randomUUID();
-    // How a worktree is as you send this, so editing the message later can go back to it (ACME-385).
+    // How a worktree is as you send this, so editing the message later can go back to it.
     if (!shared && (echo || shown)) void this.workspaces?.snapshotPrompt(channel, requestId);
     // Steering your own Claude at work here: the message says it isn't read yet from the moment it's drawn.
     if (echo && !shown) this.sendChat(typeof echo === 'string' ? echo : prompt, false, channel, requestId, urgent && !shared && this.host.runningIn(channel));
@@ -624,7 +624,7 @@ export class Session {
 
   /**
    * Your message in a conversation you see as its agent's terminal, before that has had a turn
-   * (ACME-553): drawn in the chat as always, then the terminal opens with it as its first prompt,
+   *: drawn in the chat as always, then the terminal opens with it as its first prompt,
    * instead of a turn in the chat. When the terminal can't open (a turn already running there, a
    * shared or Codex conversation), it goes to the chat as any message does. `shown`: see askOwnClaude.
    */
@@ -648,7 +648,7 @@ export class Session {
 
   /**
    * Your first message in a conversation that isn't there yet (a worktree being made), drawn at
-   * once so sending it shows something (ACME-531); askOwnClaude with `shown` sends it when it's
+   * once so sending it shows something; askOwnClaude with `shown` sends it when it's
    * ready. Returns the request id it's drawn under.
    */
   showAsk(prompt: string, channel: string): string {
@@ -790,7 +790,7 @@ export class Session {
   private claudeReadyAt?: { readonly at: number; readonly ready: Promise<boolean> };
 
   /**
-   * Where a side call goes now (ACME-503): your default agent (the project's own, when one is named)
+   * Where a side call goes now: your default agent (the project's own, when one is named)
    * decides each time, so a change in Settings counts at once. Codex: its own one-shot call, then
    * Claude's when it fails. A local model: Claude's only when Claude is signed in here (its side calls
    * can't run on the endpoint yet), never quietly to Anthropic otherwise. Claude, the demo, tests: the backend's.
@@ -1073,7 +1073,7 @@ export class Session {
     // To yourself (your Claude in your own conversations, its events back to you): handled right
     // here, never through the room. A dropped or half-open room connection (after sleep, a network
     // change, offline) used to swallow these silently: the plan chat's message never reached Claude
-    // and its replies went missing until the connection came back (ACME-64).
+    // and its replies went missing until the connection came back.
     if (opts.to !== undefined && opts.to === this.selfId) return this.loopback(body);
     try {
       return this.opts.client.send(body, opts);
@@ -1183,7 +1183,7 @@ export class Session {
         gatewayOf(this)?.onRoomFrame(from, body.frame);
         return;
       case 'friend_offer':
-        // Someone in the room wants to be friends on the network (ACME-202): shown, never acted on by itself.
+        // Someone in the room wants to be friends on the network: shown, never acted on by itself.
         return receiveFriendOffer(this, from, body);
       case 'room_cleared':
         if (this.store.getState().peers.find((p) => p.peerId === from)?.host) {
@@ -1339,7 +1339,7 @@ export class Session {
     return Boolean(await findSkill(name, dir, claudeHome()).catch(() => undefined));
   }
 
-  /** The agent that answers for work in `project` (its own default over yours; ACME-444). */
+  /** The agent that answers for work in `project` (its own default over yours). */
   agentFor(project?: string): AgentRef {
     return chosenAgent(this.store.getState().prefs, project);
   }
@@ -1415,7 +1415,7 @@ export class Session {
   }
 
   /**
-   * A room ask that named an agent, at its first word back (ACME-520): when another agent answers,
+   * A room ask that named an agent, at its first word back: when another agent answers,
    * a line says which and why: it isn't set up there, or their Mac is older and runs its default.
    */
   private sayWhoAnswers(from: string, body: BodyOf<'agent_event'>): void {

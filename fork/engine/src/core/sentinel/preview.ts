@@ -1,7 +1,7 @@
 import type { Row } from '../../shared/view-spec.js';
 
 /**
- * What a sentinel's sources bring back, checked before it's saved and on a test run (ACME-304): the
+ * What a sentinel's sources bring back, checked before it's saved and on a test run: the
  * first rows, how empty each column is, and the columns empty in (nearly) every row, so a wrong
  * join shows before the first run rather than as a dashboard of dashes. Pure and browser-safe.
  */

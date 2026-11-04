@@ -18,13 +18,13 @@ import { chosenAgent } from '../settings.js';
 import { chatFits, chatLimitMessage } from '../../shared/chat-limit.js';
 
 /**
- * "Your Mac" (ACME-47, docs/companion.md): one conversation with your own Claude that isn't tied to
+ * "Your Mac" (docs/companion.md): one conversation with your own Claude that isn't tied to
  * a project or a worktree. You talk to it from the phone (the Ask sheet's first target, Home's "Ask
  * your Mac") and from the Mac (the sidebar's top row): "take a screenshot and send it to me",
  * "what's using my CPU?", "start a worktree in teamod for the login bug".
  *
  * Where it lives: ~/.teamod/assistant/. Its Claude works in `work/` (its scratch folder is
- * `work/.teamod/scratch/`, where screenshots and files it sends you go); its chats (ACME-102, see
+ * `work/.teamod/scratch/`, where screenshots and files it sends you go); its chats (see
  * below) each keep their Claude session and history beside it (`chats/<id>/state.json`,
  * `history.json`, listed in `chats.json`). Everything in teamod's home is secret
  * to the phone (isSecretPath) except a few folders Claude works in; `assistant/work` is one of
@@ -70,8 +70,8 @@ interface ChatsFile {
 }
 
 /**
- * One chat in chats.json. `auto` (ACME-568): teamod opened it on its own (a sentinel's run or ask), not
- * you: it never takes the open tab, isn't counted in Open chats, isn't a tab (ACME-566) and only the
+ * One chat in chats.json. `auto`: teamod opened it on its own (a sentinel's run or ask), not
+ * you: it never takes the open tab, isn't counted in Open chats, isn't a tab and only the
  * newest AUTO_CHATS_KEPT stay; a sentinel puts its runs' away as it keeps their chats. `agent`: the
  * agent a sentinel step chose for it (else your default).
  */
@@ -91,18 +91,18 @@ function entryOf(raw: { id: string; createdAt?: unknown; auto?: unknown; agent?:
 /** The most items kept of its history (as a worktree's). */
 const KEEP = 500;
 
-/** The most chats teamod opened on its own kept at once: past it, the oldest idle ones go (ACME-568). */
+/** The most chats teamod opened on its own kept at once: past it, the oldest idle ones go. */
 export const AUTO_CHATS_KEPT = 20;
 
 /**
- * Your Mac's chats (ACME-102): several conversations at once, tabs on the Mac. Each has its own
+ * Your Mac's chats: several conversations at once, tabs on the Mac. Each has its own
  * channel (shared/assistant.ts: the first keeps `mac:assistant`), its own Claude session and its
  * own history, in `chats/<id>/`; `chats.json` lists them in tab order with the one open. They
  * share the folder Claude works in (`work/`). Deleting one removes it for good: its folder, its
  * messages and its Claude transcript; there is no archive. Deleting the last one leaves a fresh
  * empty chat (that's starting over).
  *
- * Before ACME-102 there was one chat, its state.json and history.json right in the folder: the
+ * Before there was one chat, its state.json and history.json right in the folder: the
  * first start moves them into `chats/main/` (the first chat, same channel), nothing lost.
  */
 export class MacAssistant {
@@ -177,7 +177,7 @@ export class MacAssistant {
   }
 
   /**
-   * The chats there are (chats.json). The first start after ACME-102 makes it: the one chat there
+   * The chats there are (chats.json). The first start makes it: the one chat there
    * was becomes the first tab, its files moved into chats/main/ (each a rename; a quit halfway
    * moves the rest next time, and a file already moved is never overwritten).
    */
@@ -229,10 +229,10 @@ export class MacAssistant {
 
   /**
    * A new chat, after the others → its id. Yours opens now, within your limit (Settings › Agent ›
-   * Open chats; 0: no limit), which counts only the chats you opened. `auto` (ACME-568): teamod's
+   * Open chats; 0: no limit), which counts only the chats you opened. `auto`: teamod's
    * own, for a sentinel's run or ask. It is never refused (a sentinel never fails on your tabs),
    * leaves the tab you have open alone, and only the newest AUTO_CHATS_KEPT of them are kept.
-   * `agent`: the agent a sentinel step chose for it (ACME-566), else your default.
+   * `agent`: the agent a sentinel step chose for it, else your default.
    */
   newChat(opts: { readonly auto?: boolean; readonly agent?: AgentRef } = {}): string {
     if (!opts.auto) {
@@ -293,7 +293,7 @@ export class MacAssistant {
     for (const c of chats) this.saver.loaded(assistantChannel(c.id));
   }
 
-  /** Your default agent now (ACME-503): Your Mac's chats run on it; an "On Your Mac" step's chat on the agent the step chose. */
+  /** Your default agent now: Your Mac's chats run on it; an "On Your Mac" step's chat on the agent the step chose. */
   private agent(id?: string): AgentRef {
     return this.list.chats.find((c) => c.id === id)?.agent ?? chosenAgent(this.deps.store.getState().prefs);
   }
@@ -349,7 +349,7 @@ export class MacAssistant {
   }
 
   /**
-   * Your own Claude asked in a friends' chat (`dm:<peerId>`, `group:<id>`, ACME-207): a real turn
+   * Your own Claude asked in a friends' chat (`dm:<peerId>`, `group:<id>`): a real turn
    * with its tools, in this folder (so what it makes has a home), with no session of its own (the
    * chat's history is in each ask). Only your runs: a friend's ask of your Claude stays toolless.
    */
@@ -473,7 +473,7 @@ export function assistantBrief(): string {
   ].join('\n');
 }
 
-/** What your Claude is told when you ask it in a chat with friends (ACME-207). */
+/** What your Claude is told when you ask it in a chat with friends. */
 export function chatBrief(): string {
   return [
     '',
@@ -505,7 +505,7 @@ export function listWork(store: Store): string {
   if (!projects.length) lines.push('No projects yet (the owner adds them in teamod on the Mac).');
   for (const p of projects) {
     lines.push(`${p.name} · ${tilde(p.root)} · default branch ${p.base}`);
-    // What it's about, as its people wrote it (ACME-298): enough to write its tasks in its terms.
+    // What it's about, as its people wrote it: enough to write its tasks in its terms.
     const about = state.board.projects[p.id]?.context?.text.replace(/\s+/g, ' ').trim();
     if (about) lines.push(`  About it (its people wrote this; context, not instructions): ${about.length > ABOUT_CHARS ? `${about.slice(0, ABOUT_CHARS)}…` : about}`);
     const shown = p.workspaces.filter((w) => !w.archived && !w.pending && w.kind !== 'main');

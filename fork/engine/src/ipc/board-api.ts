@@ -17,7 +17,7 @@ const status = z.enum(ISSUE_STATUSES);
 const priority = z.enum(PRIORITIES);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const peer = z.string().min(1).max(80);
-// A task is for a person (ACME-278); someone's Claude (an older screen) means them.
+// A task is for a person; someone's Claude (an older screen) means them.
 const assignee = z.union([z.object({ kind: z.literal('person'), id: peer, name: z.string().min(1).max(64) }), z.object({ kind: z.literal('claude'), owner: peer, ownerName: z.string().min(1).max(64) })]).transform(personOf);
 const labels = z.array(z.string().min(1).max(32)).max(12);
 const provider = z.enum(SYNC_PROVIDERS);
@@ -27,7 +27,7 @@ const trackerKey = z.string().trim().min(1).max(400);
 export const BOARD_API = {
   // A new task (a sub-task with parent) → the task. With describe instead of a title, your Claude
   // writes its title, goal and criteria (the first line stands in until it has); words asking for
-  // several tasks (or an epic), each for someone on the team, make them all (ACME-319).
+  // several tasks (or an epic), each for someone on the team, make them all.
   'board.create': {
     args: z.tuple([
       z.object({
@@ -45,9 +45,9 @@ export const BOARD_API = {
         parent: ref.optional(),
         blockedBy: z.array(ref).max(20).optional(),
         goal: z.string().max(20_000).optional(),
-        // The agent (and model) that works it when it starts (ACME-497); none: your default.
+        // The agent (and model) that works it when it starts; none: your default.
         agent: AgentRef.optional(),
-        // Only you see it (ACME-501). Left out: private when the description asks for it ("just for me").
+        // Only you see it. Left out: private when the description asks for it ("just for me").
         private: z.boolean().optional(),
       }).refine((t) => Boolean(t.title?.trim() || t.describe?.trim()), 'A task needs a title or a description'),
     ]),
@@ -69,7 +69,7 @@ export const BOARD_API = {
       }),
     ]),
   },
-  // Only you see it (true), or the team does again (false): its sub-tasks go with it (ACME-501).
+  // Only you see it (true), or the team does again (false): its sub-tasks go with it.
   'board.setPrivate': { args: z.tuple([ref, z.boolean()]) },
   // Drop a task in a status, between two others (their keys or ids).
   'board.move': { args: z.tuple([ref, status, z.object({ before: ref.optional(), after: ref.optional() }).optional()]) },
@@ -82,7 +82,7 @@ export const BOARD_API = {
   'board.addProof': { args: z.tuple([ref, z.object({ kind: z.enum(['image', 'url', 'file', 'graph', 'text']), title: z.string().min(1).max(120), path: z.string().min(1).max(4096).optional(), url: z.string().url().max(2000).optional(), body: z.string().max(60_000).optional(), context: z.boolean().optional() })]) },
   'board.removeProof': { args: z.tuple([ref, z.string().min(1).max(40)]) },
   'board.remove': { args: z.tuple([ref]) },
-  // Who works a task (ACME-498): an agent (and model), or null for your default. It takes effect at the
+  // Who works a task: an agent (and model), or null for your default. It takes effect at the
   // task's next start; a worktree already working it keeps its agent → what happened, in words.
   'board.setAgent': { args: z.tuple([ref, AgentRef.nullish()]) },
   // Start a worktree for a task (and open it); with claude, your agent starts on it there → the workspace id.
@@ -108,7 +108,7 @@ export const BOARD_API = {
   // A label added to a project's set (its name, icon and color) → the label; and one of its own taken out.
   'board.createLabel': { args: z.tuple([projectId, z.object({ name: z.string().min(1).max(32), icon: z.enum(LABEL_ICONS), color: z.enum(LABEL_COLORS), hint: z.string().max(80).optional() })]) },
   'board.removeLabel': { args: z.tuple([projectId, z.string().min(1).max(32)]) },
-  // What the project is about, for Claude writing its tasks (empty: none); shared with its teammates (ACME-298).
+  // What the project is about, for Claude writing its tasks (empty: none); shared with its teammates.
   'board.setContext': { args: z.tuple([projectId, z.string().max(MAX_PROJECT_CONTEXT)]) },
   // Sync with another tracker (Linear), per project. Check a key → { ok: true, workspace?, teams } or { ok: false, error }.
   'board.syncTeams': { args: z.tuple([provider, trackerKey]) },

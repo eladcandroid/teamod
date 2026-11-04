@@ -135,7 +135,7 @@ export interface MilestoneAgent {
 /** A task that builds on several unmerged tasks: their branches are being combined into its start. */
 export interface Combining {
   readonly at: number;
-  /** The tasks it builds on (their keys, e.g. ACME-9). */
+  /** The tasks it builds on (their keys, e.g.). */
   readonly from: readonly string[];
   /** It stopped at a conflict, left in a hidden worktree for the head Claude to fix. */
   readonly conflict?: {
@@ -208,7 +208,7 @@ export interface TaskWatch {
   readonly wokeAt?: number;
   /** It stalled again soon after a wake: it waits for you (Resume, or Open Chat). */
   readonly needsYou?: boolean;
-  /** The one line it's shown with: “ACME-36 stopped, woke it at 11:13”. */
+  /** The one line it's shown with: “ stopped, woke it at 11:13”. */
   readonly line: string;
   /** Stopped by your usage limit: when it goes on by itself (see shared/run-failure.ts). */
   readonly limitUntil?: number;
@@ -257,7 +257,7 @@ export interface Plan {
   readonly maxParallel: number;
   /** When the e2e and full test suites run (tasks only run typecheck and the tests they touched). */
   readonly testsAt: TestsAt;
-  /** The agent (and model) its milestones and tasks are worked on by (ACME-497); none: your default. A task's own agent beats it. */
+  /** The agent (and model) its milestones and tasks are worked on by; none: your default. A task's own agent beats it. */
   readonly agent?: AgentRef;
   readonly paused: boolean;
   readonly runs: Readonly<Record<string, MilestoneRun>>;

@@ -6,7 +6,7 @@ import type { Complete, RuntimeId } from './types.js';
 export type SideCallBackend = Pick<AgentBackend, 'nameTask' | 'titlePlan' | 'answerChat' | 'fixSetup' | 'fixRun' | 'workOutScripts' | 'draftTask' | 'describeProject' | 'reviewPr'>;
 
 /**
- * Where a side call goes (ACME-503): `own`, your default agent's runtime's one-shot call (Codex's),
+ * Where a side call goes: `own`, your default agent's runtime's one-shot call (Codex's),
  * then `claude`, Claude's backend, when there's no `own`, or it failed. Neither: the plain answer.
  */
 export interface SideRoute {
@@ -40,7 +40,7 @@ export async function routeSideCall<T>(route: SideRoute, run: (on: SideCallBacke
 }
 
 /**
- * One backend for the session layer that runs each turn on its place's runtime (ACME-445): this
+ * One backend for the session layer that runs each turn on its place's runtime: this
  * worktree's Claude and that one's Codex side by side. `backendFor` makes (once) and returns a
  * runtime's backend, already guarded (guard.ts); undefined for one this teamod doesn't run.
  * Everything that isn't a turn (naming a worktree, side calls) stays with the default's; usage is
@@ -62,7 +62,7 @@ export function routedBackend(fallback: AgentBackend, fallbackRuntime: RuntimeId
       if (!backend) return Promise.reject(new Error(`${input.place?.agent?.label ?? id} isn't set up on this Mac. Pick another agent for this worktree.`));
       return backend.run(input);
     },
-    // The agent's own terminal on a conversation (ACME-534): its runtime's, as its turns are.
+    // The agent's own terminal on a conversation: its runtime's, as its turns are.
     terminal: (input: AgentRunInput, sink: TerminalSink) => {
       const id = input.place?.agent?.runtime ?? fallbackRuntime;
       const backend = pick(id);
@@ -77,12 +77,12 @@ export function routedBackend(fallback: AgentBackend, fallbackRuntime: RuntimeId
       return backend.btw(req);
     },
     // Usage: the default's comes back (Claude's, filed by the session); the others in `alsoUsage`
-    // report their own through the bridge, under their own agent (Codex's plan windows, ACME-474).
+    // report their own through the bridge, under their own agent (Codex's plan windows).
     refreshUsage: async () => {
       for (const id of alsoUsage) if (id !== fallbackRuntime) void pick(id)?.refreshUsage?.().catch(() => undefined);
       return fallback.refreshUsage?.();
     },
-    // MCP servers (Settings, ACME-518): the asked runtime's own (Codex's from its config.toml), else the default's.
+    // MCP servers (Settings): the asked runtime's own (Codex's from its config.toml), else the default's.
     mcpServers: async (projects: readonly string[], runtime?: RuntimeId) => (await pick(runtime ?? fallbackRuntime)?.mcpServers?.(projects)) ?? [],
     mcpSignIn: async (projects: readonly string[], name: string, runtime?: RuntimeId) => (await pick(runtime ?? fallbackRuntime)?.mcpSignIn?.(projects, name)) ?? { error: `${runtime === 'codex' ? 'Codex' : 'Your agent'} isn’t running here.` },
     mcpSignedIn: (name: string, runtime?: RuntimeId) => pick(runtime ?? fallbackRuntime)?.mcpSignedIn?.(name) ?? Promise.resolve(undefined),

@@ -5,7 +5,7 @@ import type { PtyProcess, TerminalManager } from '../terminal/pty-host.js';
 import { TERM_COALESCE_MS, TERM_PIECE, type MacFrame, type TerminalView } from './protocol.js';
 
 /**
- * A worktree's terminals on the phone (ACME-42): the very sessions the Mac's terminal dock shows,
+ * A worktree's terminals on the phone: the very sessions the Mac's terminal dock shows,
  * not copies. The daemon runs one PTY per session (terminal/pty-host.ts); the Mac app attaches to
  * it over its local socket (`term_*` frames, daemon/server.ts), the phone over the companion link
  * (here). Both see the same output as it comes, and either can type.

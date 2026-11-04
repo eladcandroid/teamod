@@ -85,7 +85,7 @@ function templatesMenu(state: AppState, manage: boolean): MenuSpec {
 function handoffMenu(state: AppState, id: string): MenuSpec | undefined {
   const ws = findWs(state, id);
   if (!ws) return undefined;
-  // In your room, or friends over the network (ACME-341); one whose teamod can't take it yet isn't offered.
+  // In your room, or friends over the network; one whose teamod can't take it yet isn't offered.
   const people = handoffPeople(state).filter((p) => !p.why);
   return {
     title: `Hand off ${ws.name}`,

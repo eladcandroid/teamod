@@ -230,7 +230,7 @@ export class GitHubIssues {
    * already), else in a new one started for it. The task says what Claude was asked last. What you
    * add (`said`) comes after the instructions, in your words, and shows in the conversation too.
    */
-  /** A teammate is already on it (ACME-224): nobody starts the same issue twice without saying so. */
+  /** A teammate is already on it: nobody starts the same issue twice without saying so. */
   private notTeammates(task: Issue, opts: Asked): void {
     if (opts.anyway) return;
     const me = this.deps.work.me();

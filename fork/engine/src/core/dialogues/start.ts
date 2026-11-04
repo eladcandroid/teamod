@@ -2,7 +2,7 @@ import type { AgentRef } from '../../protocol.js';
 import type { DialogueMode, Participant } from './model.js';
 
 /**
- * Starting a dialogue from the composer (ACME-466), two forms:
+ * Starting a dialogue from the composer, two forms:
  *   @my:claude @my:codex talk about X, 6 turns
  *   /dialogue claude codex cross-reference each other on X, 20k tokens
  *   @my:claude @bob:codex talk about X          (bob's agent: each of its turns is a task to bob)

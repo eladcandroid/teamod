@@ -3,7 +3,7 @@ import type { AppState } from '../core/store.js';
 import { cannotTake } from '../net/mesh/features.js';
 
 /**
- * Who a worktree's Share sheet lists (ACME-340): your friends, who get it over the teamod network
+ * Who a worktree's Share sheet lists: your friends, who get it over the teamod network
  * with nobody in a room, and anyone in your room who isn't a friend. Each with what they have here.
  */
 
@@ -58,7 +58,7 @@ export function shareRowDetail(row: WorktreeShareRow, inRoom: boolean): string {
   return inRoom ? 'In your room, not in this worktree' : 'Not in this worktree';
 }
 
-/** Someone a worktree can be handed to (ACME-341): in your room with their Claude, or a friend over the network. */
+/** Someone a worktree can be handed to: in your room with their Claude, or a friend over the network. */
 export interface HandoffPerson {
   readonly peerId: string;
   readonly name: string;

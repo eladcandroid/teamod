@@ -114,14 +114,14 @@ export interface ClaudeStep extends StepBase {
   readonly kind: 'claude';
   readonly prompt: string;
   readonly where: ClaudeWhere;
-  /** The agent that does it (ACME-497): a runtime ("claude", "codex", "local"); with neither it nor a model, your default agent. */
+  /** The agent that does it: a runtime ("claude", "codex", "local"); with neither it nor a model, your default agent. */
   readonly runtime?: string;
   /** Its model ('' or none: the agent's own default); a model without a runtime is Claude's (older steps). */
   readonly model?: string;
   readonly effort?: string;
 }
 
-/** The agent a step asked for (ACME-497); undefined: your default agent. */
+/** The agent a step asked for; undefined: your default agent. */
 export function stepAgent(step: Pick<ClaudeStep, 'runtime' | 'model'>): AgentRef | undefined {
   if (!step.runtime && !step.model) return undefined;
   const runtime = step.runtime ?? 'claude';
@@ -138,7 +138,7 @@ export function stepEffort(step: Pick<ClaudeStep, 'effort'>, efforts: readonly s
   return effort && (!efforts || efforts.includes(effort)) ? effort : undefined;
 }
 
-/** The languages a script step's own code runs in (ACME-350), with what runs it. */
+/** The languages a script step's own code runs in, with what runs it. */
 export const SCRIPT_LANGUAGES = ['python', 'node', 'bash', 'sh', 'zsh', 'ruby', 'perl'] as const;
 export type ScriptLanguage = (typeof SCRIPT_LANGUAGES)[number];
 export const SCRIPT_LANGUAGE_INFO: Readonly<Record<ScriptLanguage, { readonly label: string; readonly run: string; readonly ext: string }>> = {
@@ -157,7 +157,7 @@ export interface ScriptStep extends StepBase {
   readonly kind: 'script';
   /** One shell line or a script's path; with `code`, what follows the script (its arguments), often empty. */
   readonly command: string;
-  /** The script itself (ACME-350): kept in the sentinel, written to the run's folder and run with `language`'s interpreter. */
+  /** The script itself: kept in the sentinel, written to the run's folder and run with `language`'s interpreter. */
   readonly code?: string;
   readonly language?: ScriptLanguage;
   readonly cwd: 'project' | 'home';
@@ -303,7 +303,7 @@ export interface Limits {
 export const DEFAULT_LIMITS: Limits = { minutes: 30, pauseAfter: 3 };
 
 /**
- * Which runs' conversations a sentinel keeps (ACME-566). The rest are put away once their run ends: a
+ * Which runs' conversations a sentinel keeps. The rest are put away once their run ends: a
  * project chat archived (restorable), a Your Mac chat deleted; each run's report and outputs stay
  * either way, and a worktree with work is never put away. `all` keeps every one (the 200 runs a
  * sentinel keeps), `failed` only failed and stopped runs', `latest` only the newest run's.
@@ -452,7 +452,7 @@ export interface Run {
   readonly chain?: readonly string[];
   /** Its conversations were put away, as its sentinel keeps them (or it was the oldest of 200). */
   readonly putAway?: true;
-  /** You deleted its conversations (ACME-577): put away too, and its page says you did. */
+  /** You deleted its conversations: put away too, and its page says you did. */
   readonly chatDeleted?: true;
 }
 
@@ -702,7 +702,7 @@ export type SentinelAction =
   | { type: 'sentinel_remove'; id: string }
   /** One run changed or began. */
   | { type: 'sentinel_run'; run: RunSummary }
-  /** Runs you deleted (ACME-577): out of the history. */
+  /** Runs you deleted: out of the history. */
   | { type: 'sentinel_runs_gone'; ids: readonly string[] }
   /** Your Claude changing a sentinel: began, or ended (none: forgotten). */
   | { type: 'sentinel_ask'; id: string; ask?: SentinelAsk }

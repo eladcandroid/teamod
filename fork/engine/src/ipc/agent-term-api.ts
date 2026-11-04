@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 /**
- * The agent's own terminal on a conversation (ACME-534): Claude Code's or Codex's terminal app in
+ * The agent's own terminal on a conversation: Claude Code's or Codex's terminal app in
  * the middle of a worktree, on the same conversation as its chat; and the visuals it showed
- * (ACME-535), opened beside it. Browser-safe: zod only.
+ *, opened beside it. Browser-safe: zod only.
  */
 
 const TermSize = z.object({ cols: z.number().int().min(1).max(1000), rows: z.number().int().min(1).max(500) });

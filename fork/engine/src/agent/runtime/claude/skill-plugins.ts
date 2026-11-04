@@ -5,9 +5,9 @@ import type { Options, SdkPluginConfig } from '@anthropic-ai/claude-agent-sdk';
 import { fillArguments, findSkill } from '../../../core/claude-code/skills.js';
 
 /**
- * A project's skills and custom commands on your own runs (ACME-505). Your own runs load your user
+ * A project's skills and custom commands on your own runs. Your own runs load your user
  * settings, so yours (~/.claude) and your enabled plugins come in natively (ownerSettings in
- * runner.ts, ACME-521); a project's .claude/ settings never load (a friend with :rw could plant
+ * runner.ts); a project's .claude/ settings never load (a friend with :rw could plant
  * permissions or hooks there), and that also hid the project's skills and commands. They come back
  * as a plugin: a folder of teamod's that links only the project's skills and commands, under a
  * manifest without hooks or servers (a plugin's own hooks/hooks.json would run: confirmed live).

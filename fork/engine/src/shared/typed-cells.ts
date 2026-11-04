@@ -1,5 +1,5 @@
 /**
- * A kept table's typed cells, read the same way on the Mac and the phone (ACME-381, ACME-386): a
+ * A kept table's typed cells, read the same way on the Mac and the phone: a
  * document's kind from its name and how a viewer shows it, what kind of file it is in words, and
  * each rich kind's value (progress, sparkline, delta, person, rating). Pure and browser-safe
  * (core/sentinel/columns.ts re-exports it; the phone's bundle reads src/shared).

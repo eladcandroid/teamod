@@ -4,7 +4,7 @@ import { CLAUDE_BUILT_INS, notOnCodex } from '../../../shared/skills.js';
 export { fillArguments };
 
 /**
- * Claude Code's skills and custom commands on Codex (ACME-456). A message starting `/name` means
+ * Claude Code's skills and custom commands on Codex. A message starting `/name` means
  * one of them on Claude, which expands it itself; Codex doesn't know them, so teamod maps what maps:
  * - a skill (skills/<name>/SKILL.md) goes in as Codex's own skill input (Codex reads the file);
  * - a custom command (commands/<name>.md) becomes the prompt, $ARGUMENTS filled in;

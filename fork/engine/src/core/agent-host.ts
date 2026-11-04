@@ -39,9 +39,9 @@ export interface AgentHostDeps {
   readonly send: (body: BodyInput, opts?: { to?: string; keep?: boolean }) => boolean;
   readonly agent?: () => AgentBackend | undefined;
   /** Which agent this Mac runs (named on its run events; default: Claude). */
-  /** The agent that runs in `channel` (its place's pick, else your default; ACME-448). */
+  /** The agent that runs in `channel` (its place's pick, else your default). */
   readonly agentRef?: (channel?: string) => AgentRef;
-  /** The agents your card lists: a friend's room ask may name one of those (ACME-520). */
+  /** The agents your card lists: a friend's room ask may name one of those. */
   readonly agents?: () => readonly AgentRef[];
   /** Whether this Mac runs that agent now (unset: only your default). */
   readonly runsAgent?: (agent: AgentRef) => boolean;
@@ -82,13 +82,13 @@ export interface AgentHostDeps {
   readonly plans?: (channel: string, from: string) => { readonly tools?: import('../agent/types.js').PlanTools; readonly brief?: string } | undefined;
   /** "Your Mac" (core/assistant), your own runs in its conversation: where it runs, its tools, what Claude is told. */
   readonly assistant?: (channel: string, from: string) => { readonly place: AgentPlace; readonly tools: MacTools; readonly brief: string } | undefined;
-  /** Your phone (core/phone, ACME-150), your own runs: tools to act on it, saving screenshots in `scratchDir`. `env` lets Bash use adb/scrcpy (ACME-174). */
+  /** Your phone (core/phone), your own runs: tools to act on it, saving screenshots in `scratchDir`. `env` lets Bash use adb/scrcpy. */
   readonly phone?: (scratchDir?: string) => { readonly tools: import('../agent/types.js').PhoneTools; readonly brief: string; readonly env?: Record<string, string> } | undefined;
   /** How freely Claude may use the phone now (off · ask · use · full), for the owner-approval gate. */
   /** Your own worktree runs: the project's setup, and Claude's tool to correct it (core/workbench). */
   readonly setup?: (channel: string) => import('../agent/types.js').SetupTools | undefined;
   readonly phoneUse?: () => 'off' | 'ask' | 'use' | 'full';
-  /** The agent's own terminal is driving this conversation now (ACME-534): the chat waits until you take over. */
+  /** The agent's own terminal is driving this conversation now: the chat waits until you take over. */
   readonly terminalDriving?: (channel: string) => boolean;
 }
 
@@ -203,7 +203,7 @@ export const EXIT_GRACE_MS = 3_000;
 /** How long quitting waits for stopped runs to end before the last save (see abort). */
 const QUIT_SETTLE_MS = 2_000;
 /** Said when a run that wouldn't take an interrupt was stopped for your message. */
-/** A message in a conversation its terminal is driving (ACME-534). */
+/** A message in a conversation its terminal is driving. */
 export const TERMINAL_DRIVING = 'The terminal is driving this conversation: type there, or Take over to talk here.';
 const STOPPED_FOR_YOU = 'Your agent didn’t stop when asked, so its run was stopped for your message';
 
@@ -268,7 +268,7 @@ export class AgentHost {
   /** Tool approvals waiting → the conversation whose run asked for them. */
   private readonly toolApprovals = new Map<string, string>();
   /**
-   * Room asks that named an agent (ACME-520), by request id: the one that runs (its events name it),
+   * Room asks that named an agent, by request id: the one that runs (its events name it),
    * and, until the first event has said it, why it isn't the one named.
    */
   private readonly named = new Map<string, { readonly agent: AgentRef; fallback?: string }>();
@@ -381,7 +381,7 @@ export class AgentHost {
     for (const [itemId, records] of Object.entries(steps)) if (records.length) this.steps.putAll(importedKey(sessionId, itemId), records);
   }
 
-  /** Keep the steps of the agent's terminal turns (ACME-534), by each card's request id (its own id). */
+  /** Keep the steps of the agent's terminal turns, by each card's request id (its own id). */
   keepTerminalSteps(steps: Readonly<Record<string, readonly StepRecord[]>>): void {
     for (const [requestId, records] of Object.entries(steps)) if (records.length) this.steps.putAll(runKey(requestId), records);
   }
@@ -525,7 +525,7 @@ export class AgentHost {
   }
 
   /**
-   * Your own Claude takes a turn in a friends' chat (`dm:`/`group:`, ACME-207), with its tools (it
+   * Your own Claude takes a turn in a friends' chat (`dm:`/`group:`), with its tools (it
    * works in Your Mac's folder: see assistant.forChat), and the answer comes back here for the chat.
    * It goes in that chat's lane like any run of yours; a stop or a failure is an error.
    */
@@ -818,7 +818,7 @@ export class AgentHost {
   }
 
   /**
-   * A room ask that named an agent ("@codex", "@bob:codex", ACME-520): yours runs any agent this Mac
+   * A room ask that named an agent ("@codex", "@bob:codex"): yours runs any agent this Mac
    * runs; a friend's, one your card lists that runs here (agentForAsk), else your default with why.
    * A project's ask keeps the project's agent.
    */
@@ -950,7 +950,7 @@ export class AgentHost {
   }
 
   /**
-   * Send now (ACME-54): a message of yours steered into the running turn, that Claude hasn't read
+   * Send now: a message of yours steered into the running turn, that Claude hasn't read
    * yet, is answered at once. The step Claude is on stops (Claude Code's interrupt, as Stop does)
    * and the conversation goes on from your message, nothing lost. When Claude can't be
    * interrupted the run is stopped and your message runs next. False, with a toast, when it isn't
@@ -1104,9 +1104,9 @@ export class AgentHost {
 
   /** `release`: gives back this run's slot for working at once, when it only waits on background agents. */
   private async runAgent(from: string, body: BodyOf<'agent_request'>, lane: Lane, askTo = from, release?: () => void): Promise<void> {
-    // The agent's own terminal has this conversation (ACME-534): two at once would split it in two.
+    // The agent's own terminal has this conversation: two at once would split it in two.
     if (this.deps.terminalDriving?.(body.channel)) return this.emitAgent(body.requestId, from, 'error', TERMINAL_DRIVING, body.channel);
-    // A room ask that named another of your agents (ACME-520) runs on that one's backend, with its model.
+    // A room ask that named another of your agents runs on that one's backend, with its model.
     const named = this.named.get(body.requestId)?.agent;
     const other = named && named.runtime !== (this.deps.agentRef?.(body.channel) ?? CLAUDE_AGENT).runtime ? this.deps.backendFor?.(named.runtime) : undefined;
     const agent = other ?? (this.agent as AgentBackend);
@@ -1163,7 +1163,7 @@ export class AgentHost {
       const board = (place?.askOnly && !sentinel?.inRun && (!planFirst || place.syncMain)) || from !== this.selfId ? undefined : this.deps.board?.(body.channel, from, { plan: planFirst });
       // A run stopped but not ending (wedged, or never started: no Claude Code yet) has its Claude
       // Code killed after a moment (at once when it's gone already), then is left behind so what
-      // comes next in the conversation starts (ACME-402): never while its Claude Code could still
+      // comes next in the conversation starts: never while its Claude Code could still
       // work in this folder.
       const gone = new Promise<never>((_, reject) =>
         controller.signal.addEventListener(
@@ -1258,7 +1258,7 @@ export class AgentHost {
         // Your MCP servers (your logins: Figma, Linear…) are for runs you asked for, never a friend's.
         ...(from === this.selfId ? { ownerMcp: true } : {}),
         // Your variables can hold secrets: only runs you asked for get them, never a friend's.
-        // Your own runs also get adb on PATH (and ANDROID_SERIAL) when a phone is set up, so Bash can drive it (ACME-174).
+        // Your own runs also get adb on PATH (and ANDROID_SERIAL) when a phone is set up, so Bash can drive it.
         ...(from === this.selfId && (this.deps.envFor || phone?.env) ? { env: { ...this.deps.envFor?.(body.channel, place?.cwd), ...(phone?.env ?? {}), ...tag } } : worktree ? { env: tag } : {}),
         ...this.compactor.threshold(),
       })]);
@@ -1302,7 +1302,7 @@ export class AgentHost {
   }
 
   /**
-   * What the agent's own terminal on a conversation is given (ACME-534): what your own run there
+   * What the agent's own terminal on a conversation is given: what your own run there
    * would get (its folder and session, the task and its tools, your phone, your variables, the
    * worktree's tag), less what's only for a turn. Launched on the conversation's runtime.
    */
@@ -1453,7 +1453,7 @@ export class AgentHost {
     // Your own Claude doesn't nag you (unless you asked it to); fully trusted friends don't either.
     if (requester === this.selfId && state.prefs.selfApproval === 'never') return true;
     if (requester !== this.selfId && trustOf(state, requester) === 'full') return true;
-    // A file that runs code later (a git hook, npm scripts…; ACME-413): asked each time, once, whatever was allowed before.
+    // A file that runs code later (a git hook, npm scripts…): asked each time, once, whatever was allowed before.
     if (requester !== this.selfId && writesCode(toolName, input, cwd ?? process.cwd())) {
       const file = String(input.file_path ?? input.notebook_path);
       const answer = await this.ask('tool', `Your agent (working for ${requesterName}) wants to change ${path.basename(file)}, a file that can run commands on your Mac`, file, requester, channel, { once: true });
@@ -1508,7 +1508,7 @@ export class AgentHost {
   private promptOf(body: BodyOf<'agent_request'>): string {
     const board = this.store.getState().board;
     const prompt = board.issues.length ? explainTaskMentions(body.prompt, (key) => findIssue(board, key)) : body.prompt;
-    // The first run after a quiet switch (ACME-592) takes the recent conversation along; the chat and the queue keep only the message.
+    // The first run after a quiet switch takes the recent conversation along; the chat and the queue keep only the message.
     return this.deps.workspaces?.withCarry?.(body.channel, prompt, body.requestId) ?? prompt;
   }
 

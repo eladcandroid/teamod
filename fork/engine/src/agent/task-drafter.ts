@@ -5,7 +5,7 @@ import type { Complete } from './runtime/types.js';
 const DRAFT_TIMEOUT_MS = 20_000;
 /** Several tasks take longer to write than one. */
 const SEVERAL_TIMEOUT_MS = 45_000;
-/** At most this many tasks from one message (ACME-319). */
+/** At most this many tasks from one message. */
 export const MAX_TASKS = 12;
 /** A look at the code first: a couple of minutes at most. */
 const LOOK_TIMEOUT_MS = 180_000;
@@ -17,7 +17,7 @@ const DRAFT_PRIORITIES = ['urgent', 'high', 'medium', 'low'] as const;
 /** What a task's describer knows besides the words: the project, and its labels (the set it picks from). */
 export interface DraftContext {
   readonly project?: string;
-  /** What the project is about, as its people wrote it (ACME-298): what the app is, how it's laid out. */
+  /** What the project is about, as its people wrote it: what the app is, how it's laid out. */
   readonly about?: string;
   readonly labels: readonly string[];
   /**
@@ -26,13 +26,13 @@ export interface DraftContext {
    */
   readonly look?: string;
   /**
-   * The words may ask for several tasks (or an epic with sub-tasks), each for someone (ACME-319):
+   * The words may ask for several tasks (or an epic with sub-tasks), each for someone:
    * New Task on the Mac. Off, it's always one task (a GitHub issue, the phone's draft).
    */
   readonly several?: boolean;
   /** Who a task can be for (you first, then the project's teammates): the names they go by. */
   readonly people?: readonly string[];
-  /** Who the words' "@mia"s are (ACME-342): their handle as written, their name, and whether they're on the project's team. */
+  /** Who the words' "@mia"s are: their handle as written, their name, and whether they're on the project's team. */
   readonly named?: ReadonlyArray<{ readonly handle: string; readonly name: string; readonly team: boolean }>;
 }
 
@@ -50,7 +50,7 @@ export interface TaskDraft {
   /** Who the words gave it to: one of the people the describer was told of, in their spelling. */
   readonly for?: string;
   /**
-   * More tasks the same words asked for (ACME-319): beside this one, or under it when `epic` (then
+   * More tasks the same words asked for: beside this one, or under it when `epic` (then
    * this one is the epic, and these are its sub-tasks).
    */
   readonly more?: readonly TaskDraft[];
@@ -121,7 +121,7 @@ export function parseTaskDraft(raw: string, known: readonly string[], people: re
 
 const tidyTitle = (title: string): string => title.replace(/\s+/g, ' ').replace(/^["“]|["”.]$/g, '');
 
-/** Every task a draft makes: itself, then the rest (ACME-319). */
+/** Every task a draft makes: itself, then the rest. */
 export const draftCount = (d: TaskDraft): number => 1 + (d.more?.length ?? 0);
 
 /** A title without any model: the first line of what was said. */
@@ -158,7 +158,7 @@ const SYSTEM = [
   'When you are told what the project is about, write the task in its terms: its names for things, the part of the app it touches.',
 ].join('\n');
 
-/** New Task on the Mac (ACME-319): one message can ask for several tasks, an epic, and who does what. */
+/** New Task on the Mac: one message can ask for several tasks, an epic, and who does what. */
 const SEVERAL_SYSTEM = [
   'You turn what someone wants into tasks on their board, all at once: they write one message and every task',
   'it asks for is made. Write them in your own words: never paste their message.',

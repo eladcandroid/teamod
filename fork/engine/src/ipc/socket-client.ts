@@ -129,7 +129,7 @@ class SocketTerm implements PtyLink {
   }
 }
 
-/** One phone's live screen as this screen sees it (ACME-173): frames in, keys out via the API. */
+/** One phone's live screen as this screen sees it: frames in, keys out via the API. */
 class SocketPhoneMirror implements PhoneMirror {
   private readonly frameListeners = new Set<(f: PhoneFrameData) => void>();
   private readonly statusListeners = new Set<(s: PhoneMirrorStatus) => void>();

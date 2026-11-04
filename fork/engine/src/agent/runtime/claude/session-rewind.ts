@@ -1,7 +1,7 @@
 import { forkSession, getSessionMessages, type SessionMessage } from '@anthropic-ai/claude-agent-sdk';
 
 /**
- * Claude's side of editing a message you sent (ACME-385): a copy of its session that ends just
+ * Claude's side of editing a message you sent: a copy of its session that ends just
  * before that message, so it remembers what came before and nothing after. The session itself
  * is left as it was (a fork of it may still need it).
  */

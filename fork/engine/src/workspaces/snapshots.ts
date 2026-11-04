@@ -5,7 +5,7 @@ import path from 'node:path';
 import { git, tryGit } from './git.js';
 
 /**
- * How a worktree was when you sent each message (ACME-385), so editing one can put its files back
+ * How a worktree was when you sent each message, so editing one can put its files back
  * the way they were then, or fork from there. A snapshot is a commit kept under a hidden ref: its
  * parent is HEAD and its tree every file git doesn't ignore, staged or not. Making one touches
  * nothing: not the branch, not the index, not a file.

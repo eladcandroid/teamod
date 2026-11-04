@@ -1,7 +1,7 @@
 import { type Plist, asDict } from './formats.js';
 
 /**
- * Bringing your terminal's keys into teamod's terminal view (ACME-537): Ghostty's `keybind = …`
+ * Bringing your terminal's keys into teamod's terminal view: Ghostty's `keybind = …`
  * lines and iTerm2's key mappings and menu shortcuts, in teamod's terms. A key is a chord as
  * teamod writes one ("Shift+Cmd+D": Ctrl, Alt, Shift, Cmd, then the key) and what it does. What
  * teamod's terminal has no action for is counted, never guessed. Pure: no files.

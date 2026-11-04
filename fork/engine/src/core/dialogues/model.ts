@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { AgentRef } from '../../protocol.js';
 
 /**
- * A chaired dialogue (ACME-465): two or more agents talk turn by turn, and teamod core is the chair.
+ * A chaired dialogue: two or more agents talk turn by turn, and teamod core is the chair.
  * Agents never call each other: the chair relays each final answer as the next prompt, enforces
  * the turn cap, the token budget and Stop, and every turn lands in the room thread.
  *
@@ -14,14 +14,14 @@ import { AgentRef } from '../../protocol.js';
 export const DialogueMode = z.enum(['talk', 'cross-reference', 'work']);
 export type DialogueMode = z.infer<typeof DialogueMode>;
 
-/** Decided in ACME-464: after 10 agent turns the chair pauses and asks Continue?. */
+/** Decided in after 10 agent turns the chair pauses and asks Continue?. */
 export const DEFAULT_TURN_CAP = 10;
 /** cross-reference is a fixed template: answer, critique, reconciliation. */
 export const CROSS_REFERENCE_TURNS = 3;
 
 export const Participant = z.object({
   agent: AgentRef,
-  /** Whose agent it is: unset for the owner's own (a friend's name over the gateway, ACME-468). */
+  /** Whose agent it is: unset for the owner's own (a friend's name over the gateway). */
   owner: z.string().min(1).max(80).optional(),
   /** A friend's agent: their peer id (each of its turns is a gateway task to them). */
   peer: z.string().min(1).max(200).optional(),
@@ -71,7 +71,7 @@ export const Dialogue = z.object({
   startedBy: z.string().max(80).optional(),
   /** A cross-reference's reconciled answer (its last turn), once it's done. */
   result: z.string().max(200_000).optional(),
-  /** A friend chairs it (ACME-468): this is your side's copy of their thread, kept from the turns that reach you. */
+  /** A friend chairs it: this is your side's copy of their thread, kept from the turns that reach you. */
   remoteChair: z.object({ peer: z.string().min(1).max(200), name: z.string().min(1).max(80) }).optional(),
   /** For work mode: the one worktree it runs in. */
   worktree: z.string().max(4096).optional(),

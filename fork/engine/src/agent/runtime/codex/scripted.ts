@@ -8,7 +8,7 @@ import { CodexRpc } from './rpc.js';
 /** The words a scripted agent reads from a built prompt: its last line. */
 export const scriptedWords = (prompt: string): string => prompt.trim().split('\n').at(-1)!.trim();
 
-/** The two sub-agents a `spawn…` prompt starts (ACME-519): who, what they're asked, their steps and report. */
+/** The two sub-agents a `spawn…` prompt starts: who, what they're asked, their steps and report. */
 export const SUB_AGENTS = [
   { nickname: 'Darwin', role: 'explorer', prompt: 'Find the tests that cover the login flow', steps: ['ls tests', 'rg -n login tests'], report: 'Three tests cover the login flow: login.test.ts, session.test.ts and auth.test.ts.' },
   { nickname: 'Noether', role: 'worker', prompt: 'Check the docs mention the --remember flag', steps: ['rg -n -- --remember docs'], report: 'docs/usage.md mentions --remember; docs/cli.md does not yet.' },
@@ -21,7 +21,7 @@ export const SUB_AGENTS = [
  * your approval first (declined: `denied: P`); `wait…` works until interrupted; `spawn…` starts two
  * sub-agents (Codex's multi_agent, shapes from codex-cli 0.166; see spawnTurn). Threads outlive a
  * connection, as Codex keeps them on disk, so a thread resumes in a later run. The conformance and
- * Codex tests drive it, and so does the demo (its Codex worktrees, for the Mac e2e: ACME-462).
+ * Codex tests drive it, and so does the demo (its Codex worktrees, for the Mac e2e:).
  */
 export class ScriptedCodex {
   /** `stepMs`: a pause before each step ends, so a screen sees it run (the demo); none in tests. */
@@ -41,7 +41,7 @@ export class ScriptedCodex {
   models: unknown[] = [{ id: 'gpt-5.5', model: 'gpt-5.5', displayName: 'GPT-5.5', description: 'Frontier', hidden: false, isDefault: true, supportedReasoningEfforts: [{ reasoningEffort: 'low' }, { reasoningEffort: 'high' }] }];
   rateLimits: unknown = { limitId: 'codex', limitName: null, primary: { usedPercent: 11, windowDurationMins: 300, resetsAt: 1780409235 }, secondary: { usedPercent: 5, windowDurationMins: 10080, resetsAt: 1780862132 }, credits: null, planType: 'plus', rateLimitReachedType: null };
   /**
-   * Your MCP servers in its ~/.codex/config.toml (ACME-518), as config/read gives them, with how
+   * Your MCP servers in its ~/.codex/config.toml, as config/read gives them, with how
    * each answers mcpServerStatus/list (shapes recorded from codex-cli 0.166): a web one waiting
    * for a sign-in, a working one with its tools, one that won't start. A plugin's has no config entry.
    */
@@ -74,7 +74,7 @@ export class ScriptedCodex {
       });
     /** The running turn: how to stop it. */
     let running: { id: string; threadId: string; stop: () => void } | undefined;
-    /** Sub-agents' running turns (ACME-519): how to stop each, by turn. */
+    /** Sub-agents' running turns: how to stop each, by turn. */
     const childStops = new Map<string, () => void>();
 
     /**

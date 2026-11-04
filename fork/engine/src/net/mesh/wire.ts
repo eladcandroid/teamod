@@ -35,7 +35,7 @@ export const LinkMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('presence'), presence: PresenceSchema }),
   /** A direct message (end-to-end: the link is a Noise channel between the two of you). */
   z.object({ t: z.literal('dm'), id: msgId, text: z.string().max(8_000), ts: z.number().int().min(0), x: z.unknown().optional() }),
-  /** Someone's Claude started (or stopped) answering in a conversation: `g` a group's id, or none for your direct messages; `agent`: which of theirs (ACME-498; an older Mac leaves it out). */
+  /** Someone's Claude started (or stopped) answering in a conversation: `g` a group's id, or none for your direct messages; `agent`: which of theirs (an older Mac leaves it out). */
   z.object({ t: z.literal('live'), g: groupId.optional(), for: z.string().min(1).max(80), state: z.enum(['thinking', 'idle']), agent: AgentRef.optional().catch(undefined) }),
   /** Chat files (core/chat-files): ask for a piece of a file by checksum, in a conversation you share. */
   z.object({ t: z.literal('f_get'), rid: msgId, sha: hex64, g: groupId.optional(), off: z.number().int().min(0), len: z.number().int().min(1).max(FILE_PIECE) }),
@@ -45,7 +45,7 @@ export const LinkMessage = z.discriminatedUnion('t', [
   z.object({ t: z.literal('av_get'), sha: hex64 }),
   z.object({ t: z.literal('av_data'), sha: hex64, d: z.string().max(Math.ceil(AVATAR_MAX / 3) * 4) }),
   z.object({ t: z.literal('dm_ack'), id: msgId }),
-  /** The author deleted (no `text`) or edited one of their direct messages; `at` orders edits (ACME-425). */
+  /** The author deleted (no `text`) or edited one of their direct messages; `at` orders edits. */
   z.object({ t: z.literal('dm_change'), id: msgId, text: z.string().max(8_000).optional(), at: z.number().int().min(0) }),
   z.object({ t: z.literal('dm_change_ack'), id: msgId, at: z.number().int().min(0) }),
   /** The newest entries I have of a group we're both in. */

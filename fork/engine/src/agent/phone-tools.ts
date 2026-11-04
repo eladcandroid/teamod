@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { PhoneTools } from './types.js';
 
 /**
- * Your phone, from your Mac (ACME-150, core/phone): the tools of the owner's own runs for acting on
+ * Your phone, from your Mac (core/phone): the tools of the owner's own runs for acting on
  * their own paired Android phone (server `teamod_phone`). Each tool calls the controller
  * (src/companion/phone-control.ts), which uses the best route it has — Wireless debugging over
  * adb, or the app's Accessibility service — so the tools stay about *what* to do, not *how*.
@@ -117,7 +117,7 @@ export function createPhoneToolDefs(phone: PhoneTools) {
     tool('phone_notifications', 'The phone’s current notifications (needs Wireless debugging): app, title and text.', {}, () => guarded(async () => words(await phone.notifications()))),
     tool(
       'phone_macro_save',
-      'Save a flow you just did as a named, repeatable macro (ACME-175). Prefer tapText steps (tap by the text an element shows) over tap x,y — they keep working when the screen shifts. Open the right app first.',
+      'Save a flow you just did as a named, repeatable macro. Prefer tapText steps (tap by the text an element shows) over tap x,y — they keep working when the screen shifts. Open the right app first.',
       {
         name: z.string().min(1).max(60),
         steps: z

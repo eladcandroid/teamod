@@ -11,7 +11,7 @@ import type { TeamMsg } from './protocol.js';
 import type { TeamBoards, TeamLink, TeamPart } from './service.js';
 
 /**
- * Plan drafts shared with teammates (ACME-225). A plan stays yours until you share it (its •••
+ * Plan drafts shared with teammates. A plan stays yours until you share it (its •••
  * › Share Plan with Team). Teammates then see its draft (or what was approved) read-only, with its
  * milestones and tasks, and can comment, suggest changes (the plan's own edit ops) or approve.
  * You're notified, and apply a suggestion in one click (it goes in as your edit). Every change to

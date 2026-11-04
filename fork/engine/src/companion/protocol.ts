@@ -20,85 +20,84 @@ export const COMPANION_PROTO = { major: 1, minor: 38 } as const;
  * `conv:mac:assistant` topic, Home's `assistant`), and asking in a project as a new worktree
  * (`workspaces.startWorktree`, with plan mode) or a plan (`plans.create`), besides a question;
  * a plan's dependencies, criteria and autonomy (`PlanView`, `plans.setAutonomy`). 1.6: a
- * worktree's branch state in its conversation (`ConvView.branch`). 1.7 (ACME-42): a worktree's
+ * worktree's branch state in its conversation (`ConvView.branch`). 1.7: a worktree's
  * files, read-only (`companion.files.list` / `find` / `read`), and its terminals, shared with the
  * Mac (`companion.terminals` / `termOpen` / `termClose`, the `term_*` frames). 1.8: a branch's every
  * step from the phone, as the Mac's toolbar has them (`BranchView.steps`, `companion.branchStep`).
- * 1.9 (ACME-87): more of Claude's blocks drawn (`tree`, `json`, `terminal`, `math` blocks, mermaid as
- * a graph or view) and its math typeset (`ProseView.math`). 1.10 (ACME-110): a sub-agent opened on
- * the phone, its whole activity and the report it gave back (`companion.subAgent`). 1.11 (ACME-124):
+ * 1.9: more of Claude's blocks drawn (`tree`, `json`, `terminal`, `math` blocks, mermaid as
+ * a graph or view) and its math typeset (`ProseView.math`). 1.10: a sub-agent opened on
+ * the phone, its whole activity and the report it gave back (`companion.subAgent`). 1.11:
  * which conversations the phone saved files from are archived or deleted (`companion.gone`). 1.12:
- * photos with a new worktree (`companion.ask`'s `worktree` target). 1.13 (ACME-127): whether the Mac
- * stays awake for the phone (`HomeView.mac.keepAwake`, `companion.keepAwake`), and (ACME-128) a phone
+ * photos with a new worktree (`companion.ask`'s `worktree` target). 1.13: whether the Mac
+ * stays awake for the phone (`HomeView.mac.keepAwake`, `companion.keepAwake`), and a phone
  * away pinging every KEEPALIVE_AWAY_MS on a relay or LAN link. 1.14: Your Mac's chats on the phone
  * (`HomeView.macChats`), started and deleted there (`assistant.newChat` / `deleteChat`). 1.15: the
  * plan a conversation is the home of (`ConvView.plan`), so its chat links back to the plan. 1.16
- * (ACME-140): the Mac writes down what you said on the phone (`companion.voice` / `voicePrepare` /
- * `transcribe`). 1.17 (ACME-150): your Mac uses your phone. The phone says what it lets the Mac do
+ *: the Mac writes down what you said on the phone (`companion.voice` / `voicePrepare` /
+ * `transcribe`). 1.17: your Mac uses your phone. The phone says what it lets the Mac do
  * (`control`), the Mac asks it to act (`req` / `reply`), and the Mac's adb reaches the phone's
- * Wireless debugging through the link (`tun_*`). 1.18 (ACME-184): the Mac's mirror of the phone as
- * live H.264 video (the `mirror` op, `vid` / `vid_end`, and the Mac's `vid_ack`). 1.19 (ACME-189,
- * ACME-190): the phone proves it's the one at a Wireless-debugging address (`proof`), and opens its
- * Developer options or About phone for the person (`open {settings}`). 1.20 (ACME-210): who's in a
+ * Wireless debugging through the link (`tun_*`). 1.18: the Mac's mirror of the phone as
+ * live H.264 video (the `mirror` op, `vid` / `vid_end`, and the Mac's `vid_ack`). 1.19 ( *): the phone proves it's the one at a Wireless-debugging address (`proof`), and opens its
+ * Developer options or About phone for the person (`open {settings}`). 1.20: who's in a
  * chat and what their Claude is doing (`ChatMemberView.presence` / `claude`), what waits on whom
  * (`ChatView.waiting`), who gets a message later (`ChatView.note`), and whose a task's card is
  * (`ChatMessageView.task.who` / `secret`). Read-only fields: an older Mac just leaves them out.
- * 1.21 (ACME-237): Sentinel, your watchers (docs/sentinel.md): the `sentinels` and `sentinel:<id>`
+ * 1.21: Sentinel, your watchers (docs/sentinel.md): the `sentinels` and `sentinel:<id>`
  * topics (`SentinelsView`, `SentinelPageView`), Run Now, Pause / Turn On and a run's report
  * (`sentinel.run` / `pause` / `runs` / `runGet`), and a run waiting for your Merge as a `decision`
- * (`sentinel.decide`). 1.22 (ACME-244): numbers and dashboards (docs/sentinel.md §10): the
+ * (`sentinel.decide`). 1.22: numbers and dashboards (docs/sentinel.md §10): the
  * `dashboard:<id>` topic (`DashboardView`, its tiles worked out on the Mac with every compare),
  * pull to refresh (`dashboard.refresh`), a number over time (`sentinel.metricRead`), and in
- * `SentinelsView` the dashboards and the first one's first three numbers for Home. 1.23 (ACME-246):
+ * `SentinelsView` the dashboards and the first one's first three numbers for Home. 1.23:
  * Sentinel's own dashboard and its chat (docs/sentinel.md §10, §12): tiles of kind `series` (an
  * older phone's `chart` still comes as `chart`) and `output` (a step's latest export, `output`),
  * a tile's real size (`span`, `tall`; `width` stays 1 to 3 for older phones), the `draft` state,
  * and `SentinelsView.chat`, the Sentinel chat's open conversation (a `conv:sentinel-chat:<id>`
- * topic the phone writes in as any conversation). 1.24 (ACME-322): New Task from one message makes
+ * topic the phone writes in as any conversation). 1.24: New Task from one message makes
  * several tasks: `companion.draftTask`'s `several`, a draft's `for`, `more` and `epic`, and
- * `companion.addTask` adding them all (`more` in its answer). 1.25 (ACME-345): a table tile's typed
+ * `companion.addTask` adding them all (`more` in its answer). 1.25: a table tile's typed
  * columns (`table.typed`: a document, a storage object, a link, a path, with each row's whole value)
  * and its metric (`table.metric`), so a chip opens the document through the Mac (`sentinel.document`)
  * or a storage object's link signed there (`sentinel.signStorage`); a sentinel page's workflow
- * as a graph (`SentinelPageView.graph`, ACME-352). 1.26 (ACME-361): every board tile in words for
+ * as a graph (`SentinelPageView.graph`). 1.26: every board tile in words for
  * the phone's Home-screen widgets (the `widgets` topic, `WidgetsView`: what the Mac's desktop
  * widgets read from `~/.teamod/widgets/tiles.json`, each project's icon as its checksum).
- * 1.27 (ACME-354): a request you asked of a friend can be removed (`gateway.forget`), and a
+ * 1.27: a request you asked of a friend can be removed (`gateway.forget`), and a
  * needs-you item dismissed (`needs.dismiss`) without answering it, here and on the Mac.
- * 1.28 (ACME-387): a message you sent can be edited (`TurnView.edit`, `workspaces.editPrompt`):
+ * 1.28: a message you sent can be edited (`TurnView.edit`, `workspaces.editPrompt`):
  * the conversation rewinds to it, or goes on in a new fork from there.
- * 1.29 (ACME-386): a table's documents and storage objects as refs the phone streams (`table.typed[].docs`,
+ * 1.29: a table's documents and storage objects as refs the phone streams (`table.typed[].docs`,
  * fetched by the Mac when asked, nothing kept), each column's `max`, `better` and `button`, and Open
  * on your Mac for one the phone doesn't show (`sentinel.documentOpen`, `sentinel.storageOpen`); what a
- * sentinel keeps (`sentinel.dataList`, ACME-392: its metrics' histories and runs' files, as refs) and
+ * sentinel keeps (`sentinel.dataList`, its metrics' histories and runs' files, as refs) and
  * Open on your Mac for a run's file (`sentinel.runFileOpen`).
- * 1.30 (ACME-429): a direct message deleted (`network.messages.delete`, yours from your friend's Mac
+ * 1.30: a direct message deleted (`network.messages.delete`, yours from your friend's Mac
  * too), your own edited (`network.messages.edit`, only one whose words reach the phone whole:
  * `ChatMessageView.editable`), and a direct chat cleared on the Mac (`network.clear`).
- * 1.31 (ACME-500): boards and repos are many to many. `TasksView.projects` are boards (a repo's own,
+ * 1.31: boards and repos are many to many. `TasksView.projects` are boards (a repo's own,
  * by its project id, or one covering several, `board_…`), and a task on a board of several says
  * which repo it runs in (`TaskSummary.repo`). `companion.draftTask` / `addTask` take a board's id
  * too (the task runs in its first repo).
- * 1.32 (ACME-446): the agent picker in a conversation (`ConvView.agent`: runtimes as groups with their
+ * 1.32: the agent picker in a conversation (`ConvView.agent`: runtimes as groups with their
  * models, an unavailable one with why), picked with `workbench.setModel` / `workbench.setAgent`.
- * 1.33 (ACME-459): usage per provider: each `UsageView` says its agent (`runtime`, `isDefault`),
+ * 1.33: usage per provider: each `UsageView` says its agent (`runtime`, `isDefault`),
  * a local model's `tokens` and `tokensPerSec`, and `signedIn`; the phone makes one the default
  * agent (`companion.defaultAgent`). An older Mac sends Claude Code alone, as before.
- * 1.34 (ACME-466): a dialogue between agents in a conversation (`TurnView.dialogue`): its header card,
+ * 1.34: a dialogue between agents in a conversation (`TurnView.dialogue`): its header card,
  * and Stop / Continue? from the phone (`dialogues.stop`, `dialogues.continue`).
- * 1.35 (ACME-498): who works a task and a plan's work: `TaskPageView.agent` / `PlanView.agent` (none:
+ * 1.35: who works a task and a plan's work: `TaskPageView.agent` / `PlanView.agent` (none:
  * your default) and `agents`, the list to change it from (`board.setAgent`, `plans.setWorkAgent`).
  * An older Mac sends neither, and the phone offers no change. SINCE.workAgents: `companion.addTask` and
  * `plans.create` take the `agent` a new task or plan is worked by; each turn and task activity line
  * may carry the `agent` that spoke, for its mark (an older Mac sends none: the phone guesses by name).
- * Start with… (ACME-506), also SINCE.workAgents: `board.start` takes the `agent` that works this start,
+ * Start with…, also SINCE.workAgents: `board.start` takes the `agent` that works this start,
  * and `companion.ask`'s worktree target the `agent` a new worktree runs (an older Mac: your default).
- * 1.36 (ACME-534): the agent's own terminal on the Mac drives a conversation (`ConvView.terminal`):
+ * 1.36: the agent's own terminal on the Mac drives a conversation (`ConvView.terminal`):
  * the phone says so in place of its message box, and Take Over gives it back to the chat
  * (`agentTerm.takeOver`). An older Mac sends none, and never refuses a message for it.
- * 1.37 (ACME-559): a repo's own board also lists the tasks running in its repo from other boards,
+ * 1.37: a repo's own board also lists the tasks running in its repo from other boards,
  * each saying the board it's on (`TaskSummary.onBoard`). An older phone shows them without it.
- * 1.38 (ACME-574): how many of their messages in a chat you haven't read (`ChatView.unread`), so the
+ * 1.38: how many of their messages in a chat you haven't read (`ChatView.unread`), so the
  * phone marks them as the Mac does when you open it. An older Mac leaves it out: no marks.
  */
 export const SINCE = { tasks: 4, openOnMac: 4, icon: 4, merge: 4, draftTask: 4, viewFetch: 4, assistant: 5, askModes: 5, files: 7, terminal: 7, branchSteps: 8, subAgent: 10, gone: 11, worktreePhotos: 12, keepAwake: 13, awayBeat: 13, macChats: 14, voice: 16, control: 17, video: 18, proof: 19, sentinel: 21, dashboard: 22, sentinelChat: 23, severalTasks: 24, documents: 25, widgets: 26, forget: 27, dismiss: 27, editPrompt: 28, docRefs: 29, keptData: 29, chatEdits: 30, agentPicker: 32, providers: 33, dialogues: 34, workAgents: 35, terminalView: 36 } as const;
@@ -109,7 +108,7 @@ export const COMPANION_PIECE = 192 * 1024;
 /** How often the phone's link pings while open, and how long it stays after the app goes to the background. */
 export const KEEPALIVE_MS = 20_000;
 /**
- * Away with the link kept open (Stay connected, ACME-128), over the relay (TCP: Cloudflare drops a
+ * Away with the link kept open (Stay connected), over the relay (TCP: Cloudflare drops a
  * socket idle 100 s) or the same Wi-Fi (no NAT): a ping this often. A hole-punched link keeps
  * KEEPALIVE_MS (mobile NATs forget a UDP mapping in about 30 s). Only with a Mac that has
  * SINCE.awayBeat, which then waits three of these before it calls the phone gone.
@@ -162,7 +161,7 @@ export const Topic = z.union([
 export type Topic = z.infer<typeof Topic>;
 
 /**
- * One of Your Mac's chats: `conv:mac:assistant`, and since ACME-102 (the Mac's chat tabs) also
+ * One of Your Mac's chats: `conv:mac:assistant`, and (the Mac's chat tabs) also
  * `conv:mac:assistant:<id>`. Home's `assistant` names the one open on the Mac.
  */
 export const isMacTopic = (topic: string | undefined): boolean => topic === 'conv:mac:assistant' || Boolean(topic?.startsWith('conv:mac:assistant:'));
@@ -184,12 +183,12 @@ export const OutputView = z.object({
 });
 export type OutputView = z.infer<typeof OutputView>;
 
-/** 1.29 (ACME-386): a kept table's document or storage object, as a ref (`get` streams it; text comes redacted). */
+/** 1.29: a kept table's document or storage object, as a ref (`get` streams it; text comes redacted). */
 export const DocRefView = z.object({ ref: OutputView.shape.ref, name: z.string().max(256), mime: z.string().max(100) });
 export type DocRefView = z.infer<typeof DocRefView>;
 
 /**
- * 1.29 (ACME-392): what a sentinel keeps (`sentinel.dataList` from the phone): each metric with how
+ * 1.29: what a sentinel keeps (`sentinel.dataList` from the phone): each metric with how
  * much it keeps, its whole history as a ref (CSV, made when it's fetched); each run's files as refs.
  */
 export const DataListView = z.object({
@@ -324,12 +323,12 @@ export const ProseView = z.object({
         lang: z.string().max(40).optional(),
         lines: z.number().int().min(0),
         /**
-         * 1.3: what Claude drew for the screen rather than code (ACME-68): a `teamod-view` (table,
+         * 1.3: what Claude drew for the screen rather than code: a `teamod-view` (table,
          * chart, stats, code, colors), a `teamod-graph` or `teamod-tasks`, its JSON as written. The
          * phone reads it with the Mac's own parsers (src/shared) and draws it; its source's rows
          * come through the Mac (companion.viewFetch). A phone before 1.3 shows the chip. A table
          * Claude wrote as text is a `view` (a table) too; 1.5: one that only looks like a table
-         * is `text`, shown monospaced and never wrapped. 1.9 (ACME-87): a file tree (`tree`), JSON
+         * is `text`, shown monospaced and never wrapped. 1.9: a file tree (`tree`), JSON
          * (`json`) or terminal output (`terminal`) as written, display math as its TeX (`math`), and
          * a mermaid diagram as the `graph` or `view` it reads as (src/shared/render/rich-fence.ts).
          */
@@ -348,7 +347,7 @@ export const ProseView = z.object({
 export type ProseView = z.infer<typeof ProseView>;
 
 /**
- * 1.10 (ACME-110): one sub-agent opened on the phone (`companion.subAgent`): its activity, every
+ * 1.10: one sub-agent opened on the phone (`companion.subAgent`): its activity, every
  * step in words with when it began (newest last), and once it ended the report it gave back, code
  * stripped as Claude's answers are (`stripCode`). `missing`: the Mac keeps no details of it
  * (someone else's Claude, or gone); the phone shows what the view had.
@@ -373,7 +372,7 @@ export const TurnView = z.object({
   id,
   who: z.enum(['you', 'claude', 'friend', 'system']),
   name: z.string().max(100),
-  /** ACME-498: with `claude`, which agent it is (its mark); an older Mac leaves it out (the phone goes by the name). */
+  /** with `claude`, which agent it is (its mark); an older Mac leaves it out (the phone goes by the name). */
   agent: AgentRefView.optional(),
   prose: ProseView,
   ts,
@@ -393,13 +392,13 @@ export const TurnView = z.object({
    */
   steer: z.object({ request: id, waiting: z.enum(['next_step', 'stopping']) }).optional(),
   /**
-   * 1.28 (ACME-387): your message can be edited (workspaces.editPrompt with the conversation's
+   * 1.28: your message can be edited (workspaces.editPrompt with the conversation's
    * workspace, this turn's id, the new words and 'here' or 'fork'): where it is, a worktree (its
    * files go back too) or a chat. Only a message whose words show here whole (no code in it).
    */
   edit: z.object({ ws: id, kind: z.enum(['worktree', 'chat']) }).optional(),
   /**
-   * 1.34 (ACME-466): where a dialogue between agents begins (core/dialogues view.ts, in words): its
+   * 1.34: where a dialogue between agents begins (core/dialogues view.ts, in words): its
    * topic, who talks, turn n of the cap, the budget left, and whether Stop / Continue apply now.
    * Its turns follow as `claude` turns named for their agent.
    */
@@ -454,7 +453,7 @@ export const HomeView = z.object({
    */
   outputs: z.array(OutputView.extend({ topic: Topic.optional() })).max(30),
   unread: z.object({ work: z.number().int().min(0), chats: z.number().int().min(0) }),
-  /** 1.5: "Your Mac" (`conv:mac:assistant`): its last line and whether it works, for Home's "Ask your Mac". Since ACME-102 the chat open on the Mac (its topic may be `conv:mac:assistant:<id>`, see isMacTopic). */
+  /** 1.5: "Your Mac" (`conv:mac:assistant`): its last line and whether it works, for Home's "Ask your Mac". Since the chat open on the Mac (its topic may be `conv:mac:assistant:<id>`, see isMacTopic). */
   assistant: ConvSummary.optional(),
   /** 1.14: every one of Your Mac's chats in the Mac's tab order, each titled by its tab ("New chat" until you write), for the phone's chat list. */
   macChats: z.array(ConvSummary).max(40).optional(),
@@ -531,7 +530,7 @@ export const MergeCheckView = z.object({
 });
 export type MergeCheckView = z.infer<typeof MergeCheckView>;
 
-/** 1.32: the agent picker (ACME-446): your default agent's runtime first; one this Mac doesn't run has `why` and no models. */
+/** 1.32: the agent picker: your default agent's runtime first; one this Mac doesn't run has `why` and no models. */
 export const AgentPickerView = z.object({
   runtime: z.string().max(32),
   label: z.string().max(120),
@@ -582,7 +581,7 @@ export const ConvView = z.object({
   /** 1.32: your conversation's agent picker (src/ui/agent-picker.ts): the chip's words, and runtimes as groups with their models. */
   agent: AgentPickerView.optional(),
   /**
-   * ACME-520, the room only: its agent tags for "@" in the message box (shared/agent-tags.ts), each
+   * the room only: its agent tags for "@" in the message box (shared/agent-tags.ts), each
    * agent by name with its mark ("@codex" yours, "@bob:codex" bob's). An older Mac leaves it out.
    */
   tags: z.array(z.object({ tag: z.string().max(80), hint: z.string().max(200), agent: AgentRefView })).max(40).optional(),
@@ -631,7 +630,7 @@ export const PlanView = z.object({
   paused: z.boolean().optional(),
   parallel: z.number().int().min(0).optional(),
   running: z.number().int().min(0).optional(),
-  /** 1.35 (ACME-498): who works its milestones and tasks from here on (none: your default), and the list to change it from (`plans.setWorkAgent`). */
+  /** 1.35: who works its milestones and tasks from here on (none: your default), and the list to change it from (`plans.setWorkAgent`). */
   agent: AgentRefView.optional(),
   agents: AgentPickerView.optional(),
 });
@@ -662,7 +661,7 @@ export const TaskSummary = z.object({
   pr: z.object({ number: z.number().int().min(0), state: z.string().max(20) }).optional(),
   /** Teammates on the same repository working on it now (core/team): "Ata is working on this". */
   working: z.string().max(200).optional(),
-  /** Teammates who don't have its latest change yet (ACME-273): "Ata doesn't have the latest yet". */
+  /** Teammates who don't have its latest change yet: "Ata doesn't have the latest yet". */
   waiting: z.string().max(240).optional(),
   /** It's an epic (a task with sub-tasks): how many of them are done, of all but canceled ones. */
   epic: z.object({ done: z.number().int().min(0), total: z.number().int().min(0) }).optional(),
@@ -672,7 +671,7 @@ export const TaskSummary = z.object({
   repo: z.string().max(200).optional(),
   /** The board it's on (its name), when listed on its repo's own board from another (1.37). */
   onBoard: z.string().max(200).optional(),
-  /** Only you see it (ACME-501): it never reaches teammates or Linear. */
+  /** Only you see it: it never reaches teammates or Linear. */
   private: z.literal(true).optional(),
   updatedAt: ts,
 });
@@ -692,7 +691,7 @@ export const TasksView = z.object({
     .max(100),
   /**
    * The board's other tasks, the ones `groups` leave out (older done, canceled, past a group's
-   * 100), newest first: only what a task key in Claude's words needs to be a live chip (ACME-109).
+   * 100), newest first: only what a task key in Claude's words needs to be a live chip.
    * Optional: an older Mac leaves it out, and the phone then knows only the listed ones.
    */
   others: z.array(z.object({ id, key: z.string().max(40), title: z.string().max(300), status: TaskStatus })).max(TASK_OTHERS).optional(),
@@ -707,15 +706,15 @@ export const TaskPageView = TaskSummary.extend({
   goal: ProseView.optional(),
   acceptance: z.array(z.object({ text: z.string().max(1000), state: z.union([z.enum(['done', 'deferred', 'not_done', 'open']), z.string().max(20)]), reason: z.string().max(1000).optional() })).max(60),
   /** Newest last. */
-  /** `agent` (ACME-498): an agent's line, which agent it was (its mark); an older Mac leaves it out (the phone goes by `who`). */
+  /** `agent`: an agent's line, which agent it was (its mark); an older Mac leaves it out (the phone goes by `who`). */
   activity: z.array(z.object({ id, at: ts, who: z.string().max(80), agent: AgentRefView.optional(), text: z.string().max(500), body: z.string().max(8000).optional(), comment: z.boolean().optional() })).max(60),
   worktree: z.string().max(200).optional(),
   pr: z.object({ number: z.number().int().min(0), state: z.string().max(20), title: z.string().max(300), checks: z.string().max(20).optional() }).optional(),
   /** Where it may be moved from the phone (board.move), with their labels. */
   moves: z.array(z.object({ status: TaskStatus, label: z.string().max(40) })).max(10),
   /**
-   * 1.35 (ACME-498): who works it (none: your default), and while it can start, every agent (for Start
-   * with…). ACME-569: with a worktree on it (`conv`), `agent` is the one running there, shown only (it's
+   * 1.35: who works it (none: your default), and while it can start, every agent (for Start
+   * with…). with a worktree on it (`conv`), `agent` is the one running there, shown only (it's
    * changed in that conversation); a newer phone no longer changes it from here (`board.setAgent`).
    */
   agent: AgentRefView.optional(),
@@ -723,7 +722,7 @@ export const TaskPageView = TaskSummary.extend({
 });
 export type TaskPageView = z.infer<typeof TaskPageView>;
 
-/** 1.21 (ACME-237): a sentinel run's state (src/core/sentinel/model.ts RUN_STATES); one a phone doesn't know is drawn plain. */
+/** 1.21: a sentinel run's state (src/core/sentinel/model.ts RUN_STATES); one a phone doesn't know is drawn plain. */
 export const SentinelRunState = z.union([z.enum(['queued', 'running', 'needs-you', 'done', 'skipped', 'failed', 'stopped']), z.string().max(20)]);
 
 /**
@@ -742,7 +741,7 @@ export const SentinelSummary = z.object({
   sentence: z.string().max(300),
   paused: z.boolean(),
   pausedWhy: z.string().max(300).optional(),
-  /** ACME-239: why its event trigger can't watch now, with what to do (no gh, no Stripe key, no token). */
+  /** why its event trigger can't watch now, with what to do (no gh, no Stripe key, no token). */
   trouble: z.string().max(300).optional(),
   last: z.object({ state: SentinelRunState, headline: z.string().max(300), at: ts }).optional(),
   nextAt: ts.optional(),
@@ -791,7 +790,7 @@ export const SentinelRunView = z.object({
   pr: z.object({ number: z.number().int().min(0), url: z.string().max(500) }).optional(),
   step: z.string().max(100).optional(),
   report: OutputView.optional(),
-  /** ACME-330: its Claude step's conversation (a channel the phone's conversation screen opens), to watch it work. */
+  /** its Claude step's conversation (a channel the phone's conversation screen opens), to watch it work. */
   chat: z.string().max(200).optional(),
 });
 export type SentinelRunView = z.infer<typeof SentinelRunView>;
@@ -801,13 +800,13 @@ export const SentinelPageView = SentinelSummary.extend({
   steps: z.array(z.object({ kind: z.string().max(20), name: z.string().max(100) })).max(40),
   runs: z.array(SentinelRunView).max(30),
   needsYou: z.array(NeedsYou).max(10),
-  /** 1.25 (ACME-352): its workflow as a `teamod-graph` (JSON): what starts it, its steps, where results land, its last run's states. */
+  /** 1.25: its workflow as a `teamod-graph` (JSON): what starts it, its steps, where results land, its last run's states. */
   graph: z.string().max(200_000).optional(),
 });
 export type SentinelPageView = z.infer<typeof SentinelPageView>;
 
 /**
- * 1.22 (ACME-244): a dashboard's tile as the phone draws it, worked out on the Mac: its title, the
+ * 1.22: a dashboard's tile as the phone draws it, worked out on the Mac: its title, the
  * sentinel it's from (paused or gone said quietly), and for its kind: a number with its change for
  * every compare (the phone's chips pick one; `pinned` is the tile's own), a chart's series, a
  * table's rows, a text's headline (or its report through `sentinel.runGet` with `runId`). A tile
@@ -844,7 +843,7 @@ export const DashboardTileView = z.object({
       columns: z.array(z.string().max(80)).max(20),
       rows: z.array(z.array(z.union([z.string().max(300), z.number(), z.boolean(), z.null()])).max(20)).max(50),
       total: z.number().int().min(0),
-      /** 1.29 (ACME-386): each column's key (what an action's row is sent back with). */
+      /** 1.29: each column's key (what an action's row is sent back with). */
       keys: z.array(z.string().max(80)).max(20).optional(),
       /** 1.25: the metric the rows are (a chip's `sentinel.document` names it). */
       metric: z.object({ sentinelId: z.string().max(200), name: z.string().max(80) }).optional(),
@@ -856,7 +855,7 @@ export const DashboardTileView = z.object({
             key: z.string().max(80),
             kind: z.union([z.enum(['html', 'file', 'storage', 'url', 'path']), z.string().max(20)]),
             values: z.array(z.string().max(1200).nullable()).max(50),
-            /** 1.29 (ACME-386): a document's or storage object's cell as a ref the phone streams (`get`), with its name and kind; the Mac reads or fetches it then. */
+            /** 1.29: a document's or storage object's cell as a ref the phone streams (`get`), with its name and kind; the Mac reads or fetches it then. */
             docs: z.array(DocRefView.nullable()).max(50).optional(),
             /** 1.29: what the column's sentinel said of it: progress's and rating's most, which way a change is good, an action's or a document's button words. */
             max: z.number().optional(),
@@ -875,7 +874,7 @@ export const DashboardTileView = z.object({
 export type DashboardTileView = z.infer<typeof DashboardTileView>;
 
 /**
- * 1.25 (ACME-345): a table's document, read through the Mac (`sentinel.document`): its name, kind,
+ * 1.25: a table's document, read through the Mac (`sentinel.document`): its name, kind,
  * size, and its text or bytes (base64). A phone gets at most DOCUMENT_TO_PHONE of it (`cut`: text was).
  */
 export const DocumentView = z.object({
@@ -906,7 +905,7 @@ export const DashboardView = z.object({
 export type DashboardView = z.infer<typeof DashboardView>;
 
 /**
- * 1.26 (ACME-361): a board tile as a Home-screen widget draws it, in words (src/core/sentinel/
+ * 1.26: a board tile as a Home-screen widget draws it, in words (src/core/sentinel/
  * widgets.ts `widgetSnapshot`, the same the Mac's desktop widgets read): a number (its value, its
  * change, its points), a chart (its points with the first and last labels) or text. `dashboard`
  * and `tile` name it on its board (the widget opens there). Never a source, a query or a key.
@@ -946,19 +945,19 @@ export const ChatMessageView = z.object({
   from: z.string().max(100),
   mine: z.boolean(),
   claude: z.boolean().optional(),
-  /** ACME-434: with `claude`, which agent answered (an older Mac leaves it out: Claude). */
+  /** with `claude`, which agent answered (an older Mac leaves it out: Claude). */
   agent: AgentRefView.optional(),
   text,
   ts,
-  /** ACME-425: when its author last changed its text (a Mac before it never says). */
+  /** when its author last changed its text (a Mac before it never says). */
   edited: ts.optional(),
-  /** 1.30 (ACME-429): your own direct message whose words reach the phone whole: it can be edited here. */
+  /** 1.30: your own direct message whose words reach the phone whole: it can be edited here. */
   editable: z.boolean().optional(),
   files: z.array(OutputView).max(20).optional(),
   /** A friend's Claude answering you can't touch their Mac from the chat: what it offers to do there as a request (gateway.ask `to`). */
   offer: z.object({ to: id, ask: z.string().max(500), needs: z.array(z.enum(['project', 'shell', 'files', 'screen', 'device'])).max(5).optional() }).optional(),
   /**
-   * A task between two people's Claudes (ACME-208), drawn as a small card: who asks whom, where it is
+   * A task between two people's Claudes, drawn as a small card: who asks whom, where it is
    * ("Waiting for bob to approve"), its tone, the result's summary and the files it brought.
    */
   task: z
@@ -987,7 +986,7 @@ export const ChatMemberView = z.object({
   peerId: id,
   name: z.string().max(64),
   me: z.boolean().optional(),
-  /** 1.20 (ACME-210): online, away, dnd or offline. */
+  /** 1.20: online, away, dnd or offline. */
   presence: z.union([z.enum(['online', 'away', 'dnd', 'offline']), z.string().max(20)]).optional(),
   /** 1.20: what their Claude is doing, in the header's words ("working", "idle", "offline · 1.1", "needs an update"). */
   claude: z.string().max(80).optional(),
@@ -1002,11 +1001,11 @@ export const ChatView = z.object({
   live: z.array(z.string().max(100)).max(20),
   /** Who's in it, you first (1.2; older Macs leave it out). */
   members: z.array(ChatMemberView).max(200).optional(),
-  /** 1.20 (ACME-210): what waits here: on you ("Waiting on you: …"), or on someone else; `task`: its card. */
+  /** 1.20: what waits here: on you ("Waiting on you: …"), or on someone else; `task`: its card. */
   waiting: z.array(z.object({ text: z.string().max(300), you: z.boolean(), task: id.optional() })).max(10).optional(),
   /** 1.20: who won't get a message now ("Mia is offline: this waits for them"). */
   note: z.string().max(200).optional(),
-  /** 1.38 (ACME-574): their messages you haven't read yet, the last ones (until you open it: then 0). */
+  /** 1.38: their messages you haven't read yet, the last ones (until you open it: then 0). */
   unread: z.number().int().min(0).optional(),
 });
 export type ChatView = z.infer<typeof ChatView>;
@@ -1033,7 +1032,7 @@ export const PeopleView = z.object({
 });
 export type PeopleView = z.infer<typeof PeopleView>;
 
-// ---- a worktree's files and terminals (1.7, ACME-42)
+// ---- a worktree's files and terminals (1.7)
 
 /**
  * One entry of a worktree's folder (companion.files.list). `ref`: a picture, openable in the
@@ -1099,7 +1098,7 @@ export type TerminalsView = z.infer<typeof TerminalsView>;
 
 const termKey = z.string().min(1).max(200);
 
-// ---- your phone, used by your Mac (1.16, ACME-150; docs/companion.md, "Your phone, from your Mac")
+// ---- your phone, used by your Mac (1.16; docs/companion.md, "Your phone, from your Mac")
 
 /**
  * What the Mac may ask the phone to do (the `req` frame's `op`), through the app's Accessibility
@@ -1279,7 +1278,7 @@ export const relayUrlFor = (base: string, keyHex: string): string => `${base.rep
  * with that key (hyperdht mutablePut): its current relay. The DHT lookup works on networks where
  * peer connections don't, so a phone finds the relay there.
  */
-// `phones` (ACME-126, under the companion key only): the first 16 hex of each paired phone's link key, so
+// `phones` (under the companion key only): the first 16 hex of each paired phone's link key, so
 // a phone the Mac no longer knows hears it (and is told to pair again) instead of "Mac offline" forever.
 export const RelayRecord = z.object({ v: z.literal(1), relay: RelayUrl.optional(), at: ts, phones: z.array(z.string().regex(/^[0-9a-f]{16}$/)).max(8).optional() });
 export type RelayRecord = z.infer<typeof RelayRecord>;
@@ -1460,7 +1459,7 @@ export interface DeviceView {
   readonly path?: LinkPath;
   /** That in words, when it's worth saying ("couldn't connect directly on its network; it used the relay"). */
   readonly note?: string;
-  /** Claude using it (ACME-150): what you allow on the Mac, what the phone allows, and how it's reached now (the host fills this in; an older slice won't have it). */
+  /** Claude using it: what you allow on the Mac, what the phone allows, and how it's reached now (the host fills this in; an older slice won't have it). */
   readonly control?: PhoneControlView;
 }
 
@@ -1509,7 +1508,7 @@ export interface AdbView {
   readonly version?: string;
   readonly fetching?: boolean;
   readonly error?: string;
-  /** A phone on this Mac's USB cable, and how far adb gets with it (ACME-190). */
+  /** A phone on this Mac's USB cable, and how far adb gets with it. */
   readonly cable?: CableView;
 }
 
@@ -1525,6 +1524,6 @@ export interface CableView {
 }
 
 export interface CompanionSlice {
-  /** `relay`: how phones on other networks reach this Mac now (reach.ts), for Settings › Phone (ACME-126). */
+  /** `relay`: how phones on other networks reach this Mac now (reach.ts), for Settings › Phone. */
   readonly companion: { readonly devices: readonly DeviceView[]; readonly relay?: 'ready' | 'starting' | 'off'; readonly pairing?: { readonly link: string; readonly code: string; readonly expiresAt: number; readonly waiting?: { readonly name: string; readonly fingerprint: string } }; readonly adb?: AdbView };
 }

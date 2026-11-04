@@ -13,7 +13,7 @@ export interface WorkspaceUsage {
   /** Estimated cost in USD (what the SDK reports; not a bill). */
   readonly cost: number;
   readonly runs: number;
-  /** A local or bring-your-own model (ACME-450): no plan, no cost; how fast its last turn wrote, in tokens a second. */
+  /** A local or bring-your-own model: no plan, no cost; how fast its last turn wrote, in tokens a second. */
   readonly local?: { readonly tps?: number };
   /** The SDK reports running totals per conversation; remembered to add only what's new. */
   readonly lastSession?: string;
@@ -51,12 +51,12 @@ export interface WorkspaceRecord {
   readonly sessionRuntime?: string;
   /** The agent picked for this workspace (unset: your default). */
   readonly agent?: AgentRef;
-  /** Switched quietly from this agent (its name, ACME-592): the recent conversation goes with your next message, then this clears. */
+  /** Switched quietly from this agent (its name): the recent conversation goes with your next message, then this clears. */
   readonly carryFrom?: string;
   /** Set on forks until their first run, so Claude branches the parent's conversation. */
   readonly forkFromSession?: string;
   readonly forkedFrom?: string;
-  /** Brought in from a Claude Code conversation that ran outside teamod (its session id, ACME-321). */
+  /** Brought in from a Claude Code conversation that ran outside teamod (its session id). */
   readonly importedSession?: string;
   /** Hashes of env files copied into this worktree at creation, to detect changes later. */
   readonly envSnapshot?: Readonly<Record<string, string>>;
@@ -64,7 +64,7 @@ export interface WorkspaceRecord {
   readonly envKept?: Readonly<Record<string, string>>;
   /** Model picked for this conversation (unset: your default). */
   readonly model?: string;
-  /** Thinking effort picked for this conversation (a Sentinel step's, ACME-498; unset: Settings'). */
+  /** Thinking effort picked for this conversation (a Sentinel step's; unset: Settings'). */
   readonly effort?: Effort;
   readonly usage?: WorkspaceUsage;
   /** Handed off to a friend (their name), who continues it on their computer. */
@@ -83,7 +83,7 @@ export interface WorkspaceRecord {
    */
   readonly mergeWhenReady?: MergeWait;
   /**
-   * A project's main checkout only: the chat its conversation from before became (ACME-70). The main
+   * A project's main checkout only: the chat its conversation from before became. The main
    * checkout is no conversation of its own; opening it opens that chat, or the project's home.
    */
   readonly movedTo?: string;

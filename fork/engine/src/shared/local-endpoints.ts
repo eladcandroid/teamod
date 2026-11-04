@@ -1,5 +1,5 @@
 /**
- * Local and bring-your-own models (ACME-449): named Anthropic-compatible endpoints (Ollama first,
+ * Local and bring-your-own models: named Anthropic-compatible endpoints (Ollama first,
  * then LiteLLM, a company proxy…) that Claude Code runs against instead of Anthropic. The endpoint
  * is config, not its own agent: a run on one is Claude Code with ANTHROPIC_BASE_URL pointed there.
  * In the picker they're the 'local' runtime's models, one per endpoint and model, valued
@@ -10,7 +10,7 @@ import type { RuntimeModel } from './agent-runtimes.js';
 /** The runtime id local endpoints run under (see agent-runtimes.ts KNOWN_RUNTIMES). */
 export const LOCAL_RUNTIME = 'local';
 
-/** Ollama's Anthropic-compatible endpoint on this Mac: the blessed local stack (ACME-451). */
+/** Ollama's Anthropic-compatible endpoint on this Mac: the blessed local stack. */
 export const OLLAMA_URL = 'http://localhost:11434';
 export const OLLAMA_ID = 'ollama';
 

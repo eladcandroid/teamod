@@ -1,7 +1,7 @@
 # teamod mailbox
 
 A Cloudflare Worker that holds sealed frames for friends who are never online at the same time
-(ACME-272). A Mac posts a frame here when a friend's Mac hasn't acknowledged it for a while
+. A Mac posts a frame here when a friend's Mac hasn't acknowledged it for a while
 (settings `mailboxAfterMin`, default 2), or at once when you quit; the friend's Mac takes its mail when it starts, wakes, and
 every few minutes while some friend is offline. Frames are sealed to the recipient's box key and
 signed by the sender: the Worker sees who wrote to whom, when and how much, never what.

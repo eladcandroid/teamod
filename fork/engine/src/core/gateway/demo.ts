@@ -31,7 +31,7 @@ interface Persona {
   /** The few words their notification shows for it. */
   readonly asksBackSummary: string;
   readonly asksIn?: string;
-  /** Their plans' usage, shared on their card with those they trust (ACME-597): percent used, and hours until each resets. */
+  /** Their plans' usage, shared on their card with those they trust: percent used, and hours until each resets. */
   readonly usage: ReadonlyArray<{ readonly agent: AgentRef; readonly plan: string; readonly fiveHour: readonly [number, number]; readonly week: readonly [number, number] }>;
 }
 

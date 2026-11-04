@@ -23,7 +23,7 @@ async function guarded(fn: () => string | Promise<string>): Promise<{ content: A
   }
 }
 
-/** What every sentinel with a database source needs from Claude before its query is written (ACME-304). */
+/** What every sentinel with a database source needs from Claude before its query is written. */
 const READ_FIRST =
   'Before writing a source’s query, read the schema with sentinel_try_source: the columns of every table you join, how the foreign keys actually link (which column holds which id), and child rows that would double-count (chunks or retries pointing at a parent). For a table of events, include who did it when there is a user. Ask the user about columns whose meaning isn’t obvious instead of guessing. Leave a postgres source without url or env: it uses the project’s own variables (DATABASE_URL, or Supabase’s).';
 

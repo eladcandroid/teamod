@@ -6,7 +6,7 @@ import type { MergeCheckView, MergeView } from './protocol.js';
 import { plainLine } from './strip.js';
 
 /**
- * Merging a worktree from the phone (ACME-67), on the Mac's own path: the checks of its Merge sheet
+ * Merging a worktree from the phone, on the Mac's own path: the checks of its Merge sheet
  * (git.mergePreview + reviewMerge), the merge itself (the workspace controller's merge, as
  * workspaces.merge), and on conflicts Claude asked to resolve them in that worktree (as Solve merge
  * conflict does, workspaces.askClaudeToMerge). Where each merge stands is kept here (per worktree)

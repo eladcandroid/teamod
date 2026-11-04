@@ -121,14 +121,14 @@ export class FriendShares implements FriendSharing {
   private readonly inbound = new Set<string>();
   private readonly offs: Array<() => void> = [];
   private saveTimer: NodeJS.Timeout | undefined;
-  /** Each project's https address to clone from (null: none), looked up once (ACME-258). */
+  /** Each project's https address to clone from (null: none), looked up once. */
   private repos: Record<string, string | null> = {};
   private readonly lookingUp = new Set<string>();
   /** Bundles of your projects waiting for a friend to fetch them (share name → that friend). */
   private readonly outgoing = new Map<string, string>();
   /** Bundles of friends' projects you're fetching (share name → its owner). */
   private readonly incoming = new Map<string, string>();
-  /** Worktrees you offered a friend outside your room to take over, waiting for their answer (hid → them, ACME-341). */
+  /** Worktrees you offered a friend outside your room to take over, waiting for their answer (hid → them). */
   private readonly handoffsOut = new Map<string, string>();
   /** Handoffs a friend offered you over the network, to answer them the same way (hid → them). */
   private readonly handoffsIn = new Map<string, string>();
@@ -303,7 +303,7 @@ export class FriendShares implements FriendSharing {
           name: project.name.slice(0, 200),
           ...(icon && icon.data.length <= ICON_MAX ? { icon } : {}),
           role: grant.role,
-          // Each with the agent that runs it (ACME-448): yours for it, else your default.
+          // Each with the agent that runs it: yours for it, else your default.
           worktrees: worktrees.map((w) => ({ id: w.id, name: w.name.slice(0, 200), ...(w.branch ? { branch: w.branch.slice(0, 200) } : {}), agent: placeAgent(w, defaultAgentOf(this.state.self)) })),
           members,
           ...(grant.only ? this.repoFor(project) : this.copyFor(project)),
@@ -439,7 +439,7 @@ export class FriendShares implements FriendSharing {
   }
 
   /**
-   * Handing a worktree to a friend outside your room (ACME-341): the offer goes over their link, its
+   * Handing a worktree to a friend outside your room: the offer goes over their link, its
    * branch bundle is fetched like a fork's pack, and their answer comes back the same way. Someone in
    * your room gets it through the room, as before.
    */
@@ -639,7 +639,7 @@ export class FriendShares implements FriendSharing {
     if (m.copy && !next.copy) void this.makeCopy(from, m.id);
   }
 
-  // ---------------------------------------------------------------- your copy (ACME-258)
+  // ---------------------------------------------------------------- your copy
 
   /**
    * Make your own copy of a project a friend shares with you whole: the one you already have when
@@ -694,7 +694,7 @@ export class FriendShares implements FriendSharing {
   }
 
   /**
-   * Say something in a friend's worktree, but to your own Claude in your copy (ACME-260): a
+   * Say something in a friend's worktree, but to your own Claude in your copy: a
    * worktree of yours on the same branch (made the first time, the branch fetched when you
    * don't have it), opened, with the message sent there. Returns its id.
    */
@@ -728,7 +728,7 @@ export class FriendShares implements FriendSharing {
     return ws.id;
   }
 
-  // ---------------------------------------------------------------- forks (ACME-312)
+  // ---------------------------------------------------------------- forks
 
   /**
    * Fork a friend's worktree to this Mac: their Mac packs it (fork.ts) and yours makes it a

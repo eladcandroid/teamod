@@ -64,7 +64,7 @@ interface Room {
 const roomInvite = (room: Room): string | undefined => (room.reach ? encodeInvite({ ...room.reach, secret: room.secret }) : undefined);
 
 let claudeWithStatus: AgentRuntime | undefined;
-/** The runtimes, Claude's saying whether it's signed in (a local model's side calls go to Claude only then, ACME-503). */
+/** The runtimes, Claude's saying whether it's signed in (a local model's side calls go to Claude only then). */
 function withClaudeStatus(id?: RuntimeId): AgentRuntime | undefined {
   const rt = runtimeFor(id);
   if (!rt || rt.id !== 'claude' || rt.status) return rt;
@@ -222,7 +222,7 @@ export interface Core {
   start(): void;
   /** Leave the room and stop everything. */
   stop(): Promise<void>;
-  /** The Mac is about to sleep: mail what friends haven't taken (ACME-277). */
+  /** The Mac is about to sleep: mail what friends haven't taken. */
   sleeping(): Promise<void>;
 }
 
@@ -231,7 +231,7 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
   let config = input;
   const demo = config.mode === 'demo' ? createDemoFolders() : undefined;
   if (demo) config = { ...config, tunnel: 'none', policyChosen: true, shares: [{ name: 'landing', root: demo.mine, writable: true }] };
-  // The Mac app's first launch: fetch Claude Code now, so it's usually there before the first message (ACME-384).
+  // The Mac app's first launch: fetch Claude Code now, so it's usually there before the first message.
   if (!demo && config.agent && !teamodEnv('CLAUDE_PATH')) void claudeCodeReady().catch(() => {});
   // Your own key, kept between runs: friends recognize you, and the trust they gave you comes back.
   const identity = loadIdentity(path.join(teamodHome(), 'identity.json'));
@@ -305,7 +305,7 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
     createAgent: demo
       ? (bridge) => createMockBackend(bridge, Number(teamodEnv('DEMO_PACE')) || 2.6) // unhurried, so you can watch workspaces run side by side
       : undefined,
-    // The demo's Codex: the real Codex runtime over a scripted app-server, so a worktree can run on it (ACME-462).
+    // The demo's Codex: the real Codex runtime over a scripted app-server, so a worktree can run on it.
     ...(demo ? { alsoRuntimes: [createCodexRuntime({ connect: new ScriptedCodex({ stepMs: 600 }).connect })] } : {}),
     // Your agent through the runtime seam (agent/runtime): Claude, the only one registered yet.
     ...(!demo && config.agent
@@ -388,7 +388,7 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
     seedDemoContext(store);
     setTimeout(() => {
       session.updateUsage({ plan: 'max', fiveHour: { pct: 12 }, week: { pct: 38 } });
-      // A second and a third provider, so the Usage tab shows a card for each shape (ACME-458).
+      // A second and a third provider, so the Usage tab shows a card for each shape.
       session.updateUsage({ plan: 'plus', windows: [{ label: 'Weekly', pct: 24 }] }, { runtime: 'codex', model: 'gpt-5', label: 'Codex' });
       session.updateUsage({ tokens: { input: 182_000, output: 41_500 }, tokensPerSec: 38 }, { runtime: 'local', model: 'qwen3', label: 'Local' });
     }, 300);
@@ -429,7 +429,7 @@ export async function buildCore(input: Config, hooks: CoreHooks, opts: { readonl
     await room.hub?.close();
   };
 
-  /** The Mac is about to sleep (ACME-277): what friends haven't taken goes to their mailboxes now. */
+  /** The Mac is about to sleep: what friends haven't taken goes to their mailboxes now. */
   const sleeping = (): Promise<void> => leaveNetwork(session);
   return { config, session, store, terminals, room: room.room, workspacesHome: workspaces.store.home, start, stop, sleeping };
 }

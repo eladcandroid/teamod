@@ -48,7 +48,7 @@ export interface TaskOutcome {
   readonly problems?: readonly string[];
   /** The file is a secret its owner approved sending, that one time ("private SSH key id_ed25519"). */
   readonly secret?: string;
-  /** An ask: the agent that answered on their Mac (their pick, never the asker's; ACME-448). */
+  /** An ask: the agent that answered on their Mac (their pick, never the asker's). */
   readonly agent?: AgentRef;
 }
 
@@ -97,13 +97,13 @@ export interface TaskView {
   readonly by: 'agent' | 'person';
   /** Sent: the conversation your Claude asked from (its answer continues there). */
   readonly conversation?: string;
-  /** The chat both people see its card in (ACME-208): your DM with them (`dm:<peerId>`), or the channel it was asked from. */
+  /** The chat both people see its card in: your DM with them (`dm:<peerId>`), or the channel it was asked from. */
   readonly chat?: string;
-  /** Sent: the friend's Claude's chat answer it came from (its message id): its card stays under that answer (ACME-353). */
+  /** Sent: the friend's Claude's chat answer it came from (its message id): its card stays under that answer. */
   readonly answer?: string;
-  /** A turn of a chaired dialogue (ACME-468): the chair waits for it, and nothing resumes a conversation with it. */
+  /** A turn of a chaired dialogue: the chair waits for it, and nothing resumes a conversation with it. */
   readonly dialogue?: DialogueEnvelope;
-  /** Sent: which of their agents it asks for (ACME-503); their Mac says so when another one does it. */
+  /** Sent: which of their agents it asks for; their Mac says so when another one does it. */
   readonly onAgent?: AgentRef;
   readonly state: TaskState;
   /** The latest steps (short lines). */
@@ -143,7 +143,7 @@ export interface PeerCard {
   readonly offers: readonly Need[];
   readonly projects: readonly string[];
   readonly claude: boolean;
-  /** Their plan usage, per provider, when they share it with you (ACME-597). */
+  /** Their plan usage, per provider, when they share it with you. */
   readonly usages?: readonly ProviderUsage[];
   readonly at: number;
 }

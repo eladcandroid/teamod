@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { VoiceModelId } from '../companion/protocol.js';
 
 /**
- * Speaking instead of typing in the Mac app (ACME-144): the window records, and the daemon writes it
+ * Speaking instead of typing in the Mac app: the window records, and the daemon writes it
  * down on the Mac's GPU with the phone's own engine (core/voice.ts, one model loaded for both).
  * Browser-safe: zod only.
  */
@@ -16,6 +16,6 @@ export const VOICE_API = {
   // Get one now (it comes in the background) → VoiceMacView.
   'voice.prepare': { args: z.tuple([VoiceModelId]) },
   // The words in a recording (a 16 kHz mono WAV, base64; written to a temporary file, deleted once
-  // written down; `prompt`: the words before it, ACME-160) → TranscriptView. A model that isn't here yet starts coming, and this says how far.
+  // written down; `prompt`: the words before it) → TranscriptView. A model that isn't here yet starts coming, and this says how far.
   'voice.transcribe': { args: z.tuple([z.string().min(1).max(MAX_WAV_B64), z.object({ model: VoiceModelId, language: z.string().regex(/^(auto|[a-z]{2,3})$/), prompt: z.string().max(400).optional() }).strict()]) },
 } as const;

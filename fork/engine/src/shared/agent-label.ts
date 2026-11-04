@@ -4,7 +4,7 @@ import type { AgentRef } from '../protocol.js';
 const CLAUDE_AGENT: AgentRef = { runtime: 'claude', label: 'Claude' };
 
 /**
- * The words screens and messages say for an agent (ACME-435): "your Claude", "Kai's Codex",
+ * The words screens and messages say for an agent: "your Claude", "Kai's Codex",
  * "bob's Claude (Opus)". Nothing user-facing writes "Claude" itself: it says the agent's label,
  * so a Codex or a local model is named as what it is. Missing ref: Claude (an older Mac's).
  * Browser-safe, imports types only: the Mac app and the phone import it.

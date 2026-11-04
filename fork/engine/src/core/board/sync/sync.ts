@@ -253,7 +253,7 @@ export class TaskSync {
         seen.add(remote.id);
         cursor = Math.max(cursor ?? 0, remote.updatedAt);
         const issue = this.byRemote(projectId, start.provider, remote.id);
-        // Private here (ACME-501): left alone both ways until it's shared again.
+        // Private here: left alone both ways until it's shared again.
         if (issue && !issue.private) await this.eachAsync(counts, () => this.merge(provider, start, issue, remote, counts));
       }
       // New here: sent over, parents first.

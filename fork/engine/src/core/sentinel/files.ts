@@ -210,7 +210,7 @@ export class RunFolders {
   }
 
   /**
-   * What a run kept, for you to look at (ACME-392): its report, each step's output, its documents
+   * What a run kept, for you to look at: its report, each step's output, its documents
    * (`files/<name>`), with their sizes. Never its trigger (a payload can carry what it was sent).
    */
   list(runId: string): Array<{ readonly name: string; readonly size: number }> {

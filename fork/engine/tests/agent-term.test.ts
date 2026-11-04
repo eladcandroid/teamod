@@ -48,8 +48,8 @@ describe('visuals in the terminal', () => {
   });
 
   it('says what any other block the chat draws is: task cards, code, comments, diagrams, pictures', () => {
-    expect(describeVisual(1, '```teamod-tasks\nBLG-1\nBLG-2\n```')).toMatchObject({ kind: 'tasks', title: 'Tasks', meta: 'ACME-1, ACME-2' });
-    expect(describeVisual(2, '```teamod-tasks\nBLG-1\n```')).toMatchObject({ kind: 'tasks', title: 'ACME-1' });
+    expect(describeVisual(1, '```teamod-tasks\nACME-1\nACME-2\n```')).toMatchObject({ kind: 'tasks', title: 'Tasks', meta: 'ACME-1, ACME-2' });
+    expect(describeVisual(2, '```teamod-tasks\nACME-1\n```')).toMatchObject({ kind: 'tasks', title: 'ACME-1' });
     expect(describeVisual(3, '```teamod-code\nsrc/auth.ts:40-62\nhighlight: 44\n```')).toMatchObject({ kind: 'source', title: 'src/auth.ts:40-62' });
     expect(describeVisual(4, '```teamod-pr-comments\nshow: all\n```')).toMatchObject({ kind: 'comments', meta: 'all threads' });
     expect(describeVisual(5, '```mermaid\nflowchart LR\nA-->B\n```')).toMatchObject({ kind: 'diagram', meta: 'flowchart' });
@@ -63,9 +63,9 @@ describe('visuals in the terminal', () => {
     const kept: string[] = [];
     const term = createViewTools(new TerminalShelf({ add: (b) => kept.push(b) }), os.tmpdir());
     const block = term.tools.find((t) => t.name === 'show_block')!;
-    const out = await block.handler({ markdown: '```teamod-tasks\nBLG-1\n```' }, {});
+    const out = await block.handler({ markdown: '```teamod-tasks\nACME-1\n```' }, {});
     expect(JSON.stringify(out)).toContain('[[visual:1]]');
-    expect(kept).toEqual(['```teamod-tasks\nBLG-1\n```']);
+    expect(kept).toEqual(['```teamod-tasks\nACME-1\n```']);
     expect(createViewTools(new ViewShelf(), os.tmpdir()).tools.some((t) => t.name === 'show_block')).toBe(false);
   });
 

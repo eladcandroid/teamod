@@ -15,7 +15,7 @@ export interface SubmitContext {
   readonly runUiAction: (action: UiAction) => void;
   /** Turn attachment chips into links before sending (each screen attaches its own way). */
   readonly expand?: (text: string) => string;
-  /** Whether a message sent in `channel` ('draft': a new one) opens its agent's terminal on it, as the screen shows it (ACME-553). */
+  /** Whether a message sent in `channel` ('draft': a new one) opens its agent's terminal on it, as the screen shows it. */
   readonly toTerminal?: (channel: string) => boolean;
 }
 

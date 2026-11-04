@@ -1,6 +1,6 @@
 /**
  * What was new when you came into a chat, for the Mac's and the phone's "New messages" line
- * (ACME-573, ACME-574): the last `count` of their messages, up to the one that was last then
+ *: the last `count` of their messages, up to the one that was last then
  * (`upTo`; what arrives while you're there is read as it comes).
  */
 export function unreadSince(messages: readonly { readonly id: string; readonly mine: boolean }[], count: number, upTo?: string): ReadonlySet<string> {

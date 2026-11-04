@@ -18,7 +18,7 @@ export interface McpServerRow {
   readonly canSignIn: boolean;
   /** How many tools it offers, when its agent says (Codex does). */
   readonly tools?: number;
-  /** Can be turned on and off from here (Codex: written to its config.toml, ACME-518). */
+  /** Can be turned on and off from here (Codex: written to its config.toml). */
   readonly canTurnOff?: boolean;
 }
 

@@ -3,7 +3,7 @@ import type { RuntimeChoice, RuntimeModel } from './agent-runtimes.js';
 import { modelName } from './agent-label.js';
 
 /**
- * The agent picker (ACME-446), as the Mac's composer and the phone show it: runtimes as groups
+ * The agent picker, as the Mac's composer and the phone show it: runtimes as groups
  * (Claude › Opus, Sonnet…; Codex › …; Local model › …), each with its models and the effort levels
  * they take. Your default agent's group comes first and open; the others sit behind it. A runtime
  * this Mac doesn't run stays, greyed, saying what's missing. Browser-safe.
@@ -92,7 +92,7 @@ export function agentPicker(state: PickerState, channel: string, defaultRuntime 
 
 /**
  * What picking `model` of `runtime` does here. Same runtime: a model change (no new conversation).
- * Another runtime: an agent change (ACME-447 hands the conversation off). Your default's runtime
+ * Another runtime: an agent change (hands the conversation off). Your default's runtime
  * picked back: the conversation follows your default agent again (null). New conversations only
  * take your default agent's models here; another runtime is the new worktree's own pick.
  */
@@ -104,7 +104,7 @@ export function pickAction(picker: AgentPicker, group: Pick<PickerGroup, 'runtim
 }
 
 /**
- * The agent that actually runs in a workspace (ACME-448): its own pick, else the owner's default,
+ * The agent that actually runs in a workspace: its own pick, else the owner's default,
  * with the workspace's model. What a joined or asked worktree shows: the owner's, never the viewer's.
  */
 export function placeAgent(ws: { readonly agent?: AgentRef; readonly model?: string }, fallback: AgentRef): AgentRef {

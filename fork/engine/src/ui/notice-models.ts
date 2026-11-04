@@ -140,7 +140,7 @@ export function noticeTarget(state: Pick<DomainState, 'projects' | 'shared'>, ch
   const shared = state.shared.find((w) => w.id === id);
   if (shared) return { kind: 'shared', owner: shared.owner, id };
   const ws = findWorkspace(state.projects, id);
-  // A project's main checkout is no conversation (ACME-70): the chat its old one became, if any.
+  // A project's main checkout is no conversation: the chat its old one became, if any.
   if (ws?.kind === 'main') return ws.movedTo && findWorkspace(state.projects, ws.movedTo) ? { kind: 'workspace', id: ws.movedTo } : undefined;
   return ws ? { kind: 'workspace', id } : undefined;
 }

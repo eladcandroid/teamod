@@ -20,7 +20,7 @@ export const SENTINEL_API = {
   'sentinel.duplicate': { args: z.tuple([id]) },
   // Run Now → the run (queued when one is going).
   'sentinel.run': { args: z.tuple([id]) },
-  // Test its sources once, paused or not, without turning it on (ACME-302): each Keep the numbers step
+  // Test its sources once, paused or not, without turning it on: each Keep the numbers step
   // that reads a source runs and keeps what it finds; nothing else runs → SentinelTest (core/sentinel/preview.ts).
   'sentinel.test': { args: z.tuple([id]) },
   // Stop a run → whether one was going.
@@ -29,7 +29,7 @@ export const SENTINEL_API = {
   'sentinel.pause': { args: z.tuple([id, z.boolean()]) },
   // Its whole index (the last 200 runs), newest first, without outputs.
   'sentinel.runs': { args: z.tuple([id]) },
-  // Delete what a run left (ACME-577): `chat` its agents' conversations, `run` those and the run itself
+  // Delete what a run left: `chat` its agents' conversations, `run` those and the run itself
   // (its folder and its line in the history). Not while it runs.
   'sentinel.runDelete': { args: z.tuple([id, z.enum(['chat', 'run'])]) },
   // One run: its steps' outputs (the first 16 KB each) and its report's text → RunDetail.
@@ -46,7 +46,7 @@ export const SENTINEL_API = {
   'sentinel.webhookUrl': { args: z.tuple([id]) },
   // A sentinel's number over time (two years at most; since a time) → { metric, lines }, oldest first.
   'sentinel.metricRead': { args: z.tuple([id, z.string().min(1).max(80), z.number().optional()]) },
-  // A typed column's document (ACME-345), by sentinel, metric, column and its cell (the file's name; only one
+  // A typed column's document, by sentinel, metric, column and its cell (the file's name; only one
   // its latest rows hold) → { name, mime, size, text | base64, runId, at }. The phone reads it through the Mac.
   'sentinel.document': { args: z.tuple([id, z.string().min(1).max(80), z.string().min(1).max(80), z.string().min(1).max(200)]) },
   // The same document opened in its own app on the Mac, or (`reveal`) shown in Finder.
@@ -58,7 +58,7 @@ export const SENTINEL_API = {
   'sentinel.storageDocument': { args: z.tuple([id, z.string().min(1).max(80), z.string().min(1).max(80), z.string().min(1).max(1200)]) },
   // The same object saved in its run's files (readable only by you) and opened in its own app, or (`reveal`) shown in Finder.
   'sentinel.storageOpen': { args: z.tuple([id, z.string().min(1).max(80), z.string().min(1).max(80), z.string().min(1).max(1200), z.enum(['open', 'reveal']).optional()]) },
-  // What a sentinel keeps, to look at and take out (ACME-392): its metrics (how many lines, since when) and its runs' files → SentinelData.
+  // What a sentinel keeps, to look at and take out: its metrics (how many lines, since when) and its runs' files → SentinelData.
   'sentinel.dataList': { args: z.tuple([id]) },
   // A run's file (its report, a step's output, a document `files/<name>`) as `sentinel.document` reads; text redacted.
   'sentinel.runFile': { args: z.tuple([id, z.string().min(1).max(220)]) },
@@ -68,7 +68,7 @@ export const SENTINEL_API = {
   'sentinel.dataExport': { args: z.tuple([id, z.union([z.object({ metric: z.string().min(1).max(80), format: z.enum(['csv', 'json']) }), z.object({ runId: id })])]) },
   // Show its numbers' folder, or a run's folder, in Finder.
   'sentinel.dataReveal': { args: z.tuple([id, id.optional()]) },
-  // An action cell's button (ACME-349): runs the sentinel its column names, with the row (one of the
+  // An action cell's button: runs the sentinel its column names, with the row (one of the
   // metric's latest rows, checked) as its trigger's payload → the run.
   'sentinel.runRow': { args: z.tuple([id, z.string().min(1).max(80), z.string().min(1).max(80), z.record(z.string().max(80), z.union([z.string().max(100_000), z.number(), z.boolean(), z.null()]))]) },
   // The Sentinel chat (docs/sentinel.md §12): a new conversation beside the others, open now → { id, channel }.

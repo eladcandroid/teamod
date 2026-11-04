@@ -3,7 +3,7 @@ import path from 'node:path';
 import { teamodHome } from './home.js';
 
 /**
- * Needs-you items you dismissed without answering (ACME-359), by id: they leave the phone's list,
+ * Needs-you items you dismissed without answering, by id: they leave the phone's list,
  * the Mac's "Waiting for you" and its notifications, and stay gone across restarts. An id the
  * Mac no longer has waiting is dropped the next time you dismiss something, so the file stays small.
  */

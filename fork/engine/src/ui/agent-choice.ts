@@ -7,7 +7,7 @@ import { type AgentMark, runtimeMark } from '../shared/agent-marks.js';
 const CLAUDE_AGENT: AgentRef = { runtime: 'claude', label: 'Claude' };
 
 /**
- * The agents you can pick (ACME-444, ACME-497) as pop-up entries: every runtime this Mac knows, each
+ * The agents you can pick as pop-up entries: every runtime this Mac knows, each
  * with its models ("Claude", "Claude · Opus", "Codex", "Codex · GPT-5.5", "Local model · qwen3").
  * A runtime that isn't set up here stays listed, greyed, saying what's missing. The value is
  * `runtime:model` ('' model: the runtime's own default).

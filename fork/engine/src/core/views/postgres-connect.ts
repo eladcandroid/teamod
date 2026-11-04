@@ -13,7 +13,7 @@ import {
 } from './database-url.js';
 
 /**
- * Reaching a Postgres database (ACME-302): the connection string, then its fallbacks; for Supabase,
+ * Reaching a Postgres database: the connection string, then its fallbacks; for Supabase,
  * when its direct address can't be reached (IPv6 only), its session pooler, found by asking each
  * region's until one knows the project; when the password is refused, the project's other password
  * variables (SUPABASE_DB_PASSWORD…). What answered is remembered, so the next run dials it first. When

@@ -18,7 +18,7 @@ export const TEAM_API = {
   'team.answer': { args: z.tuple([peerId, projectId, z.boolean()]) },
   // Leave a project's team (one teammate, or everyone): your tasks stay on your board, they stop staying in step.
   'team.leave': { args: z.tuple([projectId, peerId.optional()]) },
-  // Ask someone on a project's team who isn't your friend to be friends (ACME-510): it reaches them through the team; added only if they accept → their name.
+  // Ask someone on a project's team who isn't your friend to be friends: it reaches them through the team; added only if they accept → their name.
   'team.befriend': { args: z.tuple([projectId, peerId]) },
   // A task a teammate gave you: you've seen it (it leaves your inbox; it stays yours).
   'team.ackAssignment': { args: z.tuple([z.string().min(1).max(40)]) },
@@ -29,7 +29,7 @@ export const TEAM_API = {
   // A teammate's suggested changes to your plan: in (as your edit), or set aside.
   'team.applySuggestion': { args: z.tuple([planId, reviewId]) },
   'team.dismissSuggestion': { args: z.tuple([planId, reviewId]) },
-  // Knock on the worktree a teammate is doing a task in (ACME-416): they let you in as a viewer or an editor. Optional: which teammate, a few words.
+  // Knock on the worktree a teammate is doing a task in: they let you in as a viewer or an editor. Optional: which teammate, a few words.
   'team.knock': { args: z.tuple([z.string().min(1).max(40), peerId.optional(), z.string().max(500).optional()]) },
   // Take a knock of yours back (or clear one they answered).
   'team.cancelKnock': { args: z.tuple([knockId]) },

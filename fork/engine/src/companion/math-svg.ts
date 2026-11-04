@@ -3,7 +3,7 @@ import { splitInlineMath } from '../shared/render/math.js';
 import type { ProseView } from './protocol.js';
 
 /**
- * Math for the phone (ACME-87): the Mac typesets it with MathJax into SVG (paths only, drawn in the
+ * Math for the phone: the Mac typesets it with MathJax into SVG (paths only, drawn in the
  * text's color), and the phone draws the SVG as it is: no TeX engine, no web view, no fonts there.
  * MathJax loads the first time there's math, and what it made is kept.
  */

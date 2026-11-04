@@ -9,7 +9,7 @@ import { type TaskDelta, type TeamMsg, fieldValue } from './protocol.js';
 import type { TeamBoards, TeamLink, TeamPart } from './service.js';
 
 /**
- * A team's board stays in step on every Mac (ACME-222). Every change to a task of a teamed project
+ * A team's board stays in step on every Mac. Every change to a task of a teamed project
  * here, however it was made (you, your Claude's task tools, a plan, a pull request moving it), is
  * seen as it reaches the shared state: the fields that differ from what the team has get a new
  * Lamport time and go to every teammate, with new activity. What comes from a teammate is merged
@@ -32,13 +32,13 @@ export interface BoardSyncDeps {
   readonly board: Board;
   /** A workspace is still here and not archived. */
   readonly live: (workspaceId: string) => boolean;
-  /** Its Claude is at work there now (ACME-278: teammates see the task moving). */
+  /** Its Claude is at work there now (teammates see the task moving). */
   readonly running?: (workspaceId: string) => boolean;
   /** Where team-board.json lives; null: memory only. */
   readonly dir: string | null;
 }
 
-/** What other parts hear: a teammate's change won here (assignment, ACME-223; issues, ACME-224). */
+/** What other parts hear: a teammate's change won here (assignment; issues). */
 export interface TeamChange {
   readonly link: TeamLink;
   readonly issue: Issue;
@@ -219,7 +219,7 @@ export class TeamBoardSync implements TeamPart {
     const byId = this.tasks[issue.projectId];
     if (!byId || !this.team.teamed(issue.projectId)) return;
     const rec = byId[issue.id];
-    // Private (ACME-501): never sent; one teammates had is taken back from them, as a delete.
+    // Private: never sent; one teammates had is taken back from them, as a delete.
     if (issue.private) {
       if (rec && rec.fields.deleted?.v !== true) this.takeBack(issue.projectId, issue.id, rec);
       return;
@@ -311,7 +311,7 @@ export class TeamBoardSync implements TeamPart {
     const value = (name: string): unknown => onBoard(name, task.fields[name]?.v, this.has);
     const existing = board.get(task.id);
     {
-      // My private task stays mine, whatever teammates' copies say (ACME-501).
+      // My private task stays mine, whatever teammates' copies say.
       if (existing?.private) return undefined;
       if (task.fields.deleted?.v === true) {
         if (existing) board.remove(existing.id);

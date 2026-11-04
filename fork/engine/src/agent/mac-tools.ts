@@ -3,12 +3,12 @@ import { z } from 'zod';
 import type { MacTools } from './types.js';
 
 /**
- * "Your Mac" (ACME-47, core/assistant): the tools of the assistant conversation you talk to from
+ * "Your Mac" (core/assistant): the tools of the assistant conversation you talk to from
  * the phone and the Mac, not tied to any project (server `teamod_mac`). It looks at this Mac (a
  * screenshot, device info), says what's here (projects, worktrees, what runs) and starts work:
  * a worktree with Claude on it, a task from the board, a plan. What it starts it names in its
  * answer as `worktree:<id>`, `task:<KEY>` or `plan:<id>`, which both screens draw as links. It
- * also archives a worktree you ask it to (ACME-565), the same lossless archive as the app's.
+ * also archives a worktree you ask it to, the same lossless archive as the app's.
  */
 
 export const MAC_TOOL_NAMES = ['screenshot', 'device_info', 'list_work', 'start_worktree', 'start_task', 'start_plan', 'archive_worktree'].map((n) => `mcp__teamod_mac__${n}`);

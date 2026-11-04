@@ -8,7 +8,7 @@ import { type ShareMsg, parseShareFrame } from './protocol.js';
  * 20 s while they're linked and at once when they come back, so nothing said while they were
  * offline is lost. Live progress (a Claude's streamed steps) only goes to someone linked now.
  *
- * When the two of you are never online together (ACME-272): what nobody took for a while goes to
+ * When the two of you are never online together: what nobody took for a while goes to
  * their mailbox (net/mesh/mailbox.ts), sealed to them, once; their acknowledgement comes back the
  * same way. Until it's acknowledged it stays here and still goes over the link when one comes up.
  */
@@ -33,7 +33,7 @@ export interface CourierLink<M> {
   isLinked(peerId: string): boolean;
   send(peerId: string, payload: unknown): boolean;
   parse(raw: unknown): CourierFrame<M> | undefined;
-  /** Leave a frame in their mailbox; true once it took it (ACME-272). */
+  /** Leave a frame in their mailbox; true once it took it. */
   mail?(peerId: string, payload: unknown): Promise<boolean>;
   /** How long a frame waits for their link before it's mailed (undefined: no mailbox). */
   mailAfterMs?(): number | undefined;

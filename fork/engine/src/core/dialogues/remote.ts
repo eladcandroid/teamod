@@ -6,7 +6,7 @@ import type { Dialogue, DialogueTurn, Participant } from './model.js';
 import { endedBy, speakerName } from './prompt.js';
 
 /**
- * Dialogues across owners (ACME-468). The chair lives with whoever started it; a friend's agent's
+ * Dialogues across owners. The chair lives with whoever started it; a friend's agent's
  * turn is a gateway task to them (their trust, rules and approvals vet it like any request; store-
  * and-forward and late results already work), carrying a small envelope so their side keeps a copy
  * of the thread. Either side's Stop ends it for both.
@@ -79,7 +79,7 @@ export async function remoteTurn(gw: DialogueGateway, run: DialogueTurnRun, chai
     by: 'agent',
     ...(d.channel ? { conversation: d.channel } : {}),
     dialogue: envelopeFor(d, run.turn, run.speaker, chair),
-    // Their agent the dialogue names (ACME-503): their Mac runs it there, or says which one did.
+    // Their agent the dialogue names: their Mac runs it there, or says which one did.
     agent: p.agent,
   });
   const signal = run.input.signal;

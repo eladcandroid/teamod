@@ -16,7 +16,7 @@ export const STOPPING_FOR = 'Your agent stops its current step to read this';
 export const STEERED_IN = 'Your agent read this while it worked; the answer above covers it.';
 
 /**
- * A steered message Claude hasn't read yet (ACME-54): its card is only a note, waiting in the
+ * A steered message Claude hasn't read yet: its card is only a note, waiting in the
  * running turn for Claude's next step, or for the step being stopped. Once Claude reads it the
  * note says so (STEERED_IN) or the card becomes its own turn.
  */
@@ -25,7 +25,7 @@ export function steerWaiting(card: { readonly status: string; readonly text: str
   return card.text === READS_AFTER_STEP ? 'next_step' : card.text === STOPPING_FOR ? 'stopping' : undefined;
 }
 
-/** A message you steered in, as a screen shows it: on the message itself (ACME-54). */
+/** A message you steered in, as a screen shows it: on the message itself. */
 export interface SteeredMessage {
   /** The request it is (Send now: host.steerNow). */
   readonly request: string;
@@ -76,7 +76,7 @@ function at(item: LogItem, ts: number): LogItem {
 }
 
 /**
- * A conversation's items as the chat draws them around the queue above the box (ACME-317). A
+ * A conversation's items as the chat draws them around the queue above the box. A
  * message waiting its turn is in the queue, not the chat: it and its card aren't drawn, nor once
  * it came out of the queue unsent (it went back to the box, or was dropped). Once it runs, both
  * are drawn where it ran (when it left the queue: after what Claude said meanwhile), not back

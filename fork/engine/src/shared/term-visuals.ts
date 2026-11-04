@@ -2,7 +2,7 @@ import { GRAPH_FENCE, parseGraph } from './graph-spec.js';
 import { VIEW_FENCE, type ViewType, parseView, viewFenceType } from './view-spec.js';
 
 /**
- * Visuals in the agent's terminal (ACME-535). A terminal can't draw a graph or a live table, so in
+ * Visuals in the agent's terminal. A terminal can't draw a graph or a live table, so in
  * the terminal view the `show` tool keeps the element in the daemon and Claude writes its token,
  * `[[visual:7]]`, on a line of its own. The Mac draws a link over the token, and the element opens
  * in the panel beside the terminal. The chat gets the element itself in place of the token when the
@@ -115,7 +115,7 @@ export function visualsIn(text: string): number[] {
  */
 export function expandVisuals(text: string, blockOf: (n: number) => string | undefined): string {
   if (!text.includes('[[visual:')) return text;
-  // A graph or view first written as a fence, then shown again through the tool (the terminal's Stop hook, ACME-555): once is enough.
+  // A graph or view first written as a fence, then shown again through the tool (the terminal's Stop hook): once is enough.
   const once = text.replace(new RegExp(`^[ \\t]*\`\`\`(?:${GRAPH_FENCE}|${VIEW_FENCE})\\b[^\\n]*\\n[\\s\\S]*?^[ \\t]*\`\`\`[ \\t]*$`, 'gm'), '');
   // A table's first rows, written under its token for the terminal, go: the live table is right there.
   const echo = /(\[\[visual:(\d{1,6})\]\]`?[ \t]*\n)(?:[ \t]*\n)*((?:[ \t]*\|[^\n]*\|[ \t]*(?:\n|$))+)/g;

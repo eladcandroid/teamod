@@ -48,7 +48,7 @@ export interface ChatClaudeOptions {
    */
   readonly answer: ((req: ChatAnswerRequest) => Promise<string | { readonly text: string; readonly agent?: AgentRef }>) | undefined;
   /**
-   * Your own asks of your own Claude (ACME-207): a real turn with its tools in this conversation
+   * Your own asks of your own Claude: a real turn with its tools in this conversation
    * (agent-host runChat), its final answer back for the chat. Missing: they're answered like
    * anyone's, without tools.
    */
@@ -189,7 +189,7 @@ export class ChatClaude {
     const beat = setInterval(() => this.live(conversation, m.id, 'thinking'), HEARTBEAT_MS);
     beat.unref?.();
     try {
-      // You asked your own Claude: a real turn, with its tools (ACME-207). Anyone else: one answer, no tools.
+      // You asked your own Claude: a real turn, with its tools. Anyone else: one answer, no tools.
       const acting = m.from === mesh.peerId && this.acts();
       const request = await this.request(m, job.abort.signal, acting);
       const said = acting ? await this.opts.act!(conversation, `${request.system}\n\n${request.prompt}`) : await this.opts.answer!(request);
@@ -211,7 +211,7 @@ export class ChatClaude {
   }
 
   /**
-   * A turn of your Claude that teamod starts in a chat itself (ACME-207): a friend's result or their
+   * A turn of your Claude that teamod starts in a chat itself: a friend's result or their
    * Claude's question came back for a request it made from here. It takes it with its tools, and its
    * answer goes into the chat, as one to your latest message there.
    */
@@ -265,7 +265,7 @@ export class ChatClaude {
     const files = [...read.files, ...pictures];
     const images = tools ? [] : read.images;
     const before = at >= 0 ? all.slice(0, at) : all;
-    // A short recent window (ACME-428); a toolless answer reads further back itself when it must
+    // A short recent window; a toolless answer reads further back itself when it must
     // (read_earlier), a turn with its tools has none and gets the longer window instead.
     const earlier = !tools && olderThanWindow(before, owner) > 0;
     return {

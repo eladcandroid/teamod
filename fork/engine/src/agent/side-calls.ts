@@ -10,7 +10,7 @@ import type { AgentBackend } from './types.js';
 type SideCalls = Required<Pick<AgentBackend, 'nameTask' | 'titlePlan' | 'answerChat' | 'fixSetup' | 'fixRun' | 'workOutScripts' | 'draftTask' | 'describeProject' | 'reviewPr'>>;
 
 /**
- * The one-shot calls a backend makes besides runs (ACME-441): naming worktrees and plans, drafting
+ * The one-shot calls a backend makes besides runs: naming worktrees and plans, drafting
  * tasks, answering a friends' chat, fixing a setup, describing a project, reviewing a pull request.
  * Each goes through a runtime's `complete`, so any default agent does them, not only Claude.
  * `cwd`: the room's folder; `model`: the backend's default (only a chat answer follows it).

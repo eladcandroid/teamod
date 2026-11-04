@@ -880,7 +880,7 @@ export class Sentinels {
     return { sentinel: paused, paused: true };
   }
 
-  // ------------------------------------------------------------------ checking and testing sources (ACME-302, ACME-304)
+  // ------------------------------------------------------------------ checking and testing sources
 
   /**
    * Test a sentinel's sources without turning it on (paused or not): each Keep the numbers step that
@@ -918,7 +918,7 @@ export class Sentinels {
     for (const [i, st] of steps.entries()) {
       if (st.kind !== 'measure' || (only && !only.has(st.id))) continue;
       if (st.from === 'source') out.push(await this.checkSource(st.source, projectId, byClaude, st.id, st.name, (rows) => measureFrom(rows, st.metrics, st.keep), undefined, (rows) => typedOf(st, rows)));
-      // Your own test runs a script step once, and the Keep the numbers step that reads it (ACME-350); your Claude's never does.
+      // Your own test runs a script step once, and the Keep the numbers step that reads it; your Claude's never does.
       else if (scriptsOf && readsScript(steps, i)) out.push(await this.checkScript(scriptsOf, steps[i - 1] as ScriptStep, st));
     }
     return out;
@@ -1304,7 +1304,7 @@ export class Sentinels {
   }
 
   /**
-   * Put away the conversations of a sentinel's ended runs it doesn't keep (ACME-566, `keepChats`): an
+   * Put away the conversations of a sentinel's ended runs it doesn't keep (`keepChats`): an
    * hourly sentinel's chats don't pile up, and a run's report and outputs stay on its page. The run
    * says so (`putAway`), so its page doesn't offer a chat that's gone.
    */
@@ -1326,7 +1326,7 @@ export class Sentinels {
   }
 
   /**
-   * Delete what a run left, as you asked (ACME-577). `chat`: its agents' conversations, for good (the
+   * Delete what a run left, as you asked. `chat`: its agents' conversations, for good (the
    * run, its report and outputs stay). `run`: those, and the run itself: its folder (report, outputs,
    * documents) and its line in the history. A worktree it made stays (it's work, archived or not on
    * its own); numbers it kept stay on their charts. Not while it runs: stop it first.
@@ -1634,7 +1634,7 @@ export class Sentinels {
   }
 
   /**
-   * Everything a sentinel keeps, for you to look at and take out (ACME-392): each metric with how many
+   * Everything a sentinel keeps, for you to look at and take out: each metric with how many
    * lines it keeps and since when, and each run that kept files (its report, each step's output, its
    * documents), newest first. Never a path, nor a trigger's payload.
    */
@@ -2191,7 +2191,7 @@ export class Sentinels {
   }
 }
 
-/** What deleting a run takes: its agents' chats only, or the whole run (ACME-577). */
+/** What deleting a run takes: its agents' chats only, or the whole run. */
 export type RunDeleteWhat = 'chat' | 'run';
 /** Which of a sentinel's runs: these ids, those that ended so, those that started before then. */
 export interface RunsWhich {

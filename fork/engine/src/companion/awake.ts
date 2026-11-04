@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import type { KeepAwake } from '../shared/settings-schema.js';
 
 /**
- * Keeping the Mac awake for your phone (docs/companion.md, "Keeping your Mac awake", ACME-127).
+ * Keeping the Mac awake for your phone (docs/companion.md, "Keeping your Mac awake").
  * A sleeping Mac can't be woken over the internet (Wake-on-LAN needs the same network, and a dorm
  * or café Wi-Fi drops it), so instead it doesn't fall asleep while a phone is paired and you asked:
  * `caffeinate` holds the assertion, `-s` only on power (macOS drops it on battery by itself) or

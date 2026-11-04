@@ -7,7 +7,7 @@ import { type AgentMark, agentMark } from './agent-marks.js';
 const defaultAgentOf = (p: { readonly agents?: readonly AgentRef[]; readonly defaultAgent?: AgentRef } | undefined): AgentRef => p?.defaultAgent ?? p?.agents?.[0] ?? { runtime: 'claude', label: 'Claude' };
 
 /**
- * The room's agent tags (ACME-520), as the Mac's composer and the phone list them after "@": your
+ * The room's agent tags, as the Mac's composer and the phone list them after "@": your
  * own agents by runtime ("@codex"), and each person's by name and runtime ("@bob:codex",
  * "@bob:claude"), each with its mark. Only agents that person runs: what their card lists (an older
  * Mac's: its one agent); yours: what runs on this Mac. Browser-safe, types only.

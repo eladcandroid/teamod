@@ -67,7 +67,7 @@ export const Expects = z.union([z.literal('files'), z.record(z.string(), z.unkno
 export type Expects = z.infer<typeof Expects>;
 
 /**
- * A turn of a chaired dialogue (core/dialogues, ACME-468) riding a task: which dialogue, turn n of
+ * A turn of a chaired dialogue (core/dialogues) riding a task: which dialogue, turn n of
  * its cap, who chairs it, and what was said since this side last spoke, so both threads match.
  * Declared by the chair only (never by an agent's tools): the gateway counts its asks against the
  * dialogue's own cap instead of the per-conversation limit, and its mode keeps talk read-only.
@@ -115,7 +115,7 @@ export const TaskRequest = z.object({
   /** A turn of a chaired dialogue (an older Mac drops it and runs it as a plain ask). */
   dialogue: DialogueEnvelope.optional(),
   /**
-   * ask: which of their agents (one their card lists, ACME-503). Their Mac runs it there when it's set
+   * ask: which of their agents (one their card lists). Their Mac runs it there when it's set
    * up, else on their default agent and says so; an older Mac drops it and runs its default.
    */
   agent: AgentRef.optional(),
@@ -156,7 +156,7 @@ export const TaskResult = z.object({
   log: z.array(z.string().max(300)).max(60).default([]),
   /** A file request for a secret that its owner approved, that one time ("private SSH key id_ed25519"): the requester's Claude is told so. */
   secret: z.string().min(1).max(200).optional(),
-  /** An ask: which of their agents answered (runtime and model; ACME-448). An older Mac leaves it out: Claude. */
+  /** An ask: which of their agents answered (runtime and model). An older Mac leaves it out: Claude. */
   agent: AgentRef.optional(),
   ts: z.number().int().min(0),
 });
@@ -165,7 +165,7 @@ export type TaskResult = z.infer<typeof TaskResult>;
 export const TaskCancel = z.object({
   t: z.literal('task_cancel'),
   id: TaskId,
-  /** A dialogue stopped on this side (ACME-468): it ends on the other side too, whichever way the task went. */
+  /** A dialogue stopped on this side: it ends on the other side too, whichever way the task went. */
   dialogue: z.object({ id: z.string().regex(/^dlg_[\w-]{6,40}$/), why: z.string().max(300) }).optional(),
   ts: z.number().int().min(0),
 });
@@ -222,7 +222,7 @@ export const PeerCardMsg = z.object({
   projects: z.array(z.string().min(1).max(80)).max(60).default([]),
   /** My Claude is on. */
   claude: z.boolean().default(true),
-  /** How much of my plans I have left, one per provider (ACME-597): only to people I share it with. */
+  /** How much of my plans I have left, one per provider: only to people I share it with. */
   usages: z.array(ProviderUsage).max(8).optional(),
 });
 export type PeerCardMsg = z.infer<typeof PeerCardMsg>;

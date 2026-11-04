@@ -5,7 +5,7 @@ import { COMPANION_PIECE } from './protocol.js';
 export { mediaPath } from './media.js';
 
 /**
- * Videos on the phone, streamed (ACME-100, ACME-103). The phone's video player (expo-video: ExoPlayer,
+ * Videos on the phone, streamed. The phone's video player (expo-video: ExoPlayer,
  * AVPlayer) only plays a URL, so the link worklet runs a tiny HTTP server on the phone's loopback
  * (127.0.0.1, a random port and a random token in every URL) and answers the player's range
  * requests with pieces of the file fetched over the encrypted link (`get {ref, 'full', off}`, the

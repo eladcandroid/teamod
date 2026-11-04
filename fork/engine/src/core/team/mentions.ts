@@ -2,9 +2,9 @@ import type { Issue } from '../board/model.js';
 import type { TeamState } from './model.js';
 
 /**
- * Team tasks in chats with friends (ACME-263): "@ACME-12" names a task of a repository you're
+ * Team tasks in chats with friends: "@ACME-12" names a task of a repository you're
  * teamed up on with someone in the chat, so you ask their Claude about it there instead of giving
- * it a task (ACME-262). A team task keeps one id on every Mac but a key of each Mac's own
+ * it a task. A team task keeps one id on every Mac but a key of each Mac's own
  * ("ACME-12" here, "API-40" on theirs: board-sync.ts), so a message carries the id:
  * `[@ACME-12](teamod-task-id:<id>)` on the wire, and every Mac shows (and its Claude reads) its own
  * key. A teamod that doesn't know the link shows the words, "@ACME-12". Pure and browser-safe.

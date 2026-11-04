@@ -205,7 +205,7 @@ export const TileInputSchema = z.object({
   sentinelId: id.optional(),
   text: z.enum(['headline', 'report']).optional(),
   compare: z.enum(COMPARE).optional(),
-  // A table's own columns (ACME-347): in order, renamed or hidden.
+  // A table's own columns: in order, renamed or hidden.
   columns: z.array(z.object({ key: z.string().min(1).max(80), label: z.string().max(80).optional(), hidden: z.boolean().optional() })).max(40).optional(),
 });
 

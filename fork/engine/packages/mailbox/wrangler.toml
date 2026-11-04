@@ -1,4 +1,4 @@
-# teamod's mailbox (ACME-272): see src/net/mailbox/handler.ts. Deploy with `npx wrangler deploy`.
+# teamod's mailbox: see src/net/mailbox/handler.ts. Deploy with `npx wrangler deploy`.
 name = "teamod-mailbox"
 main = "src/worker.ts"
 compatibility_date = "2025-09-01"

@@ -1,7 +1,7 @@
 /**
  * When a push or a GitHub step fails because of how this Mac reaches GitHub (an SSH key GitHub
  * doesn't know, the GitHub CLI missing or logged out, no network…), what it means in plain words
- * and what can fix it (ACME-213). Pure and browser-safe: the daemon classifies, the Mac shows the
+ * and what can fix it. Pure and browser-safe: the daemon classifies, the Mac shows the
  * card, the phone shows the sentence.
  */
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { SystemPort } from '../core/gateway/device.js';
 
 /**
- * Finding and running Android's `adb` on this Mac, for driving a paired phone (ACME-150). Nothing
+ * Finding and running Android's `adb` on this Mac, for driving a paired phone. Nothing
  * here knows about the link or the agent: it only locates the tool and runs it against one serial.
  * Every call goes through a SystemPort, so tests pass a fake adb and never touch a real phone.
  */
@@ -92,7 +92,7 @@ const ANDROID_VENDORS: ReadonlySet<number> = new Set([0x04e8, 0x18d1, 0x2717, 0x
 
 /**
  * `ioreg -p IOUSB -l -w0` → the Android phones on this Mac's USB, seen by macOS itself: so a phone
- * shows even while USB debugging is off and adb can't see it (ACME-190). Its name ("SAMSUNG Android")
+ * shows even while USB debugging is off and adb can't see it. Its name ("SAMSUNG Android")
  * and serial (the same one adb shows, when it does).
  */
 export function parseUsbPhones(ioreg: string): Array<{ name: string; serial?: string }> {

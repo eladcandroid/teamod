@@ -2,7 +2,7 @@ import type { MetricLine } from './metrics.js';
 import type { MetricKind } from './model.js';
 
 /**
- * A metric's whole history as a file you can take away (ACME-392): every line its file keeps, oldest
+ * A metric's whole history as a file you can take away: every line its file keeps, oldest
  * first, as CSV (a number's value per run; a kept table's rows, run by run, with when each was kept;
  * a kept array's points; an output's text) or as JSON (the lines as they are, times in ISO). Pure:
  * Sentinels writes it to Downloads, or streams it to the phone.

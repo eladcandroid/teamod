@@ -110,7 +110,7 @@ export type PeerInfo = z.infer<typeof PeerInfo>;
  * Mac"'s chats ("mac:assistant", "mac:assistant:<id>", core/assistant). Your own messages to your Claude are parsed by this too
  * (session's loopback), so a channel it refuses never reaches Claude.
  */
-// `dm:`/`group:`: your own Claude acting in a friends' chat (ACME-207); its events only go to you.
+// `dm:`/`group:`: your own Claude acting in a friends' chat; its events only go to you.
 // `sentinel-chat:<id>`: the Sentinel chat (docs/sentinel.md §12), yours only; its events only go to you.
 export const Channel = z.string().regex(/^(room|mac:assistant(:[a-z0-9]{1,24})?|sentinel-chat:[a-z0-9]{1,24}|ws:[\w:.-]{1,80}|dm:[\w-]{8,64}|group:[\w-]{1,80})$/).default('room');
 
@@ -144,7 +144,7 @@ export const AgentRequestBody = z.object({
   /** Run in one of the owner's projects (by name) instead of their shared folder. */
   project: z.string().min(1).max(80).optional(),
   /**
-   * ACME-520: the agent a room message named ("@codex", "@bob:codex"). Their Mac runs it when its
+   * the agent a room message named ("@codex", "@bob:codex"). Their Mac runs it when its
    * card lists it and it runs there (your own: any that runs here), else its default, and says so
    * (`AgentEventBody.fallback`). Only for the room; a place's pin (a worktree's agent) still wins
    * there. An older Mac drops it and its default answers; a malformed one is dropped alone.
@@ -187,7 +187,7 @@ export const AgentEventBody = z.object({
   slotWait: z.object({ running: z.number().int().min(0).max(1000), limit: z.number().int().min(0).max(1000) }).optional(),
   /** The agent doing the run (an older Mac leaves it out: Claude). */
   agent: AgentRef.optional(),
-  /** ACME-520: the request named another agent, which doesn't run there: why `agent` answers instead (in words). */
+  /** the request named another agent, which doesn't run there: why `agent` answers instead (in words). */
   fallback: z.string().max(300).optional(),
 });
 
@@ -196,7 +196,7 @@ export const FsListBody = z.object({
   reqId: shortStr,
   share: shortStr,
   path: relPath,
-  /** Say when each file last changed (`mtime`): a friend's Scratch tab, newest first (ACME-259). */
+  /** Say when each file last changed (`mtime`): a friend's Scratch tab, newest first. */
   times: z.boolean().optional(),
 });
 
@@ -264,7 +264,7 @@ export const RoomClearedBody = z.object({ kind: z.literal('room_cleared') });
 /** The gateway (tasks between Claudes, core/gateway) over a room: one frame, to one person; it checks the frame itself. */
 export const GatewayBody = z.object({ kind: z.literal('gateway'), frame: z.unknown() });
 /**
- * Someone in the room wants to be friends on the teamod network (ACME-202): a one-time friend
+ * Someone in the room wants to be friends on the teamod network: a one-time friend
  * invitation made only for you. Accepting it pairs your Macs over the network. Older Macs drop it.
  */
 export const FriendOfferBody = z.object({ kind: z.literal('friend_offer'), link: z.string().regex(/^teamod:\/\/add#[\w-]{22}$/), expiresAt: z.number().int().positive() });

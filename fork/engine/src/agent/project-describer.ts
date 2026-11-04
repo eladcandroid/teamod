@@ -30,7 +30,7 @@ export function parseDescription(raw: string): string | undefined {
 }
 
 /**
- * What a project is about, from a quick read-only look at its folder (ACME-298): on your own Claude
+ * What a project is about, from a quick read-only look at its folder: on your own Claude
  * login, no saved session. Undefined on any trouble.
  */
 export async function describeProject(dir: string, project: string, opts: { complete: Complete; model?: string; timeoutMs?: number }): Promise<string | undefined> {

@@ -1,7 +1,7 @@
 /**
  * Environment variables you set for your shells, setup and run commands, and your Claude:
  * your own (everywhere) and per project (over yours). A project's main folder .env (and
- * .env.local) loads by default under its own, so you rarely set anything by hand (ACME-369). They're kept in ~/.teamod/env.json,
+ * .env.local) loads by default under its own, so you rarely set anything by hand. They're kept in ~/.teamod/env.json,
  * readable only by you, and never leave this computer: screens get their names, and the
  * values only when one asks (Settings), never in the shared state or anything sent to the room.
  */
@@ -39,7 +39,7 @@ export const EnvFile = z.object({
    */
   projects: z.record(z.string(), z.object({ vars: Vars.default({}), dotenv: z.boolean().optional(), claudeDotenv: z.boolean().default(false), newKeysBack: z.boolean().optional() })).default({}),
   /**
-   * Anthropic-compatible endpoints your Claude Code can run against (ACME-449): kept here with your
+   * Anthropic-compatible endpoints your Claude Code can run against: kept here with your
    * other secrets, never published. Screens get them without the key (local-endpoints.ts).
    */
   endpoints: z.array(Endpoint).max(MAX_ENDPOINTS).default([]),
@@ -190,7 +190,7 @@ export class EnvVars {
 
   /**
    * The variables, read again when env.json changed on disk (edited by hand, or by another teamod),
-   * so a run uses them at once without a restart (ACME-302). A file that doesn't read keeps the last good ones.
+   * so a run uses them at once without a restart. A file that doesn't read keeps the last good ones.
    */
   private get data(): EnvFile {
     const now = stampOf(this.file);
@@ -309,7 +309,7 @@ export class EnvVars {
   }
 
   /**
-   * Copy the main folder's .env values into the project's own (ACME-369), so they're kept in teamod
+   * Copy the main folder's .env values into the project's own, so they're kept in teamod
    * even if the file goes. A value you set here already stays. → how many were added.
    */
   importDotenv(projectId: string): number {

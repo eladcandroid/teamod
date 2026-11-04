@@ -166,7 +166,7 @@ export function launchBoard(host: BoardHost): () => void {
       // Plans you choose to share with the team: teammates review them, you apply what you like.
       const teamPlans = new TeamPlans(team, { edit: (id, ops) => void planWork.edit(id, ops), dir: teamDir });
       // What the project is about (for Claude writing tasks): one text for the whole team.
-      // Knocking on a teammate's worktree: let in, it's shared with them the friend-share way (ACME-416).
+      // Knocking on a teammate's worktree: let in, it's shared with them the friend-share way.
       const knocks = new TeamKnocks(team, {
         board,
         store,

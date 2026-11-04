@@ -8,12 +8,12 @@ import type { Result } from './handlers.js';
  * How a screen talks to teamod, whether teamod runs in the same process (tests) or in
  * the daemon (several screens at once, the Mac app). Browser-safe.
  */
-/** A phone's live screen as this screen sees it (ACME-173): frames in, status, and stop. */
+/** A phone's live screen as this screen sees it: frames in, status, and stop. */
 export interface PhoneMirror {
   onFrame(listener: (f: { b64: string; mime: string; w: number; h: number }) => void): () => void;
   /** Live video pieces (when watched with `video`): H.264 Annex B, `w`×`h` of a `sw`×`sh` screen. */
   onVideo(listener: (p: PhoneVideoPiece) => void): () => void;
-  /** What Claude does on the phone meanwhile (ACME-186), in the screen's pixels. */
+  /** What Claude does on the phone meanwhile, in the screen's pixels. */
   onTouch(listener: (t: PhoneTouchData) => void): () => void;
   onStatus(listener: (s: PhoneMirrorStatus) => void): () => void;
   close(): void;
@@ -54,7 +54,7 @@ export interface TeamodClient {
   onIntent(listener: (intent: Intent) => void): () => void;
   /** Attach to a terminal program by key (bytes both ways). */
   attachTerminal(key: string): PtyLink;
-  /** Watch a phone's screen live (ACME-173): frames in, until close(). */
+  /** Watch a phone's screen live: frames in, until close(). */
   watchPhone(device: string, opts?: { fps?: number; max?: number; video?: boolean }): PhoneMirror;
   /** Folder this screen was started in (new stand-alone chats run here). */
   readonly launchDir: string;

@@ -94,7 +94,7 @@ const SCRIPTS: readonly Script[] = [
     answer: MOCK_VIEWS_ANSWER,
   },
   {
-    // Asking about tasks: the demo board's tasks as chips and cards that open them (ACME-26).
+    // Asking about tasks: the demo board's tasks as chips and cards that open them.
     match: /where do (my |the )?tasks stand|task cards/i,
     steps: ['Read NOTES.md'],
     answer: [
@@ -110,7 +110,7 @@ const SCRIPTS: readonly Script[] = [
     ].join('\n'),
   },
   {
-    // Asking what reviewers said: the PR's comments as cards, and the code they're about (ACME-514).
+    // Asking what reviewers said: the PR's comments as cards, and the code they're about.
     match: /comments on (this|the) (pr|pull request)|what did (the )?reviewers? say/i,
     steps: ['Bash gh pr view --comments'],
     answer: [
@@ -145,7 +145,7 @@ const SCRIPTS: readonly Script[] = [
     answer: 'Walked the codebase, with your notes in mind. **Webhook retries** are the weak spot (not idempotent); the rest is small and well tested.',
   },
   {
-    // A step that runs long while you steer: your message waits, sent but not read, until you Send it now (ACME-54).
+    // A step that runs long while you steer: your message waits, sent but not read, until you Send it now.
     match: /full test suite/i,
     stepMs: 1200,
     steerable: true,
@@ -656,7 +656,7 @@ export function mockAbout(project: string): string {
 
 /** The demo's task writer: a tidy title from the first line, a goal and criteria, labels the words name. */
 export function mockDraft(text: string, ctx: DraftContext): TaskDraft {
-  // New Task (ACME-319): a list makes one task per line ("for Ata" gives it to Ata), under an epic
+  // New Task: a list makes one task per line ("for Ata" gives it to Ata), under an epic
   // when the words say so.
   const items = ctx.several ? text.split('\n').flatMap((l) => /^\s*(?:[-*•]|\d+[.)])\s+(.+)/.exec(l)?.[1]?.trim() ?? []).slice(0, MAX_TASKS) : [];
   if (items.length > 1) {
@@ -737,7 +737,7 @@ export function createMockBackend(bridge: RoomBridge, pace = 1): AgentBackend {
   let mcp = DEMO_MCP;
   const signing = new Map<string, Promise<boolean>>();
   return {
-    // The terminal view (ACME-534) on the demo's stand-in for Claude Code's terminal app.
+    // The terminal view on the demo's stand-in for Claude Code's terminal app.
     terminal: async (input, sink) => mockTerminal(input, sink),
     mcpServers: async () => {
       await new Promise((r) => setTimeout(r, 300 * pace));
@@ -762,7 +762,7 @@ export function createMockBackend(bridge: RoomBridge, pace = 1): AgentBackend {
       return slugify(prompt);
     },
     draftTask: async (text, ctx) => {
-      // "Take your time" in what you wrote: slow enough, at any pace, to watch the task being written (ACME-598).
+      // "Take your time" in what you wrote: slow enough, at any pace, to watch the task being written.
       const watch = /take your time/i.test(text) ? 5000 : 0;
       await new Promise((r) => setTimeout(r, Math.max(watch, (ctx.look ? 6000 : 1500) * pace)));
       return mockDraft(text, ctx);
@@ -807,7 +807,7 @@ export function createMockBackend(bridge: RoomBridge, pace = 1): AgentBackend {
   async function runScript(input: AgentRunInput): Promise<string> {
     const script = SCRIPTS.find((s) => s.match.test(input.prompt)) ?? FALLBACK;
     if (/^\/compact/.test(input.prompt.trim())) return context.compact(input, (ms) => sleep(ms * pace, input.signal));
-    // Claude Code's sign-in ran out mid-run (ACME-589): the failed card offers Sign In's choices.
+    // Claude Code's sign-in ran out mid-run: the failed card offers Sign In's choices.
     if (/^sign-in expired$/i.test(input.prompt.trim())) throw new RunFailedError(classifyRun({ result: 'Failed to authenticate: Auth session expired and could not be refreshed', apiError: 'authentication_failed' }));
     // Updating main (the one thing a main-folder run may change): what real Claude would report.
     if (input.place?.syncMain) return mockSyncMain(input, input.place.syncMain, pace);

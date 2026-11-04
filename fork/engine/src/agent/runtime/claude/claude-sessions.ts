@@ -156,7 +156,7 @@ export async function listConversations(dir: string, limit = 50): Promise<Conver
   return [...found.values()].sort((a, b) => b.lastModified - a.lastModified).slice(0, limit);
 }
 
-/** A conversation found under a folder (ACME-321): where it ran, and how big its transcript is. */
+/** A conversation found under a folder: where it ran, and how big its transcript is. */
 export interface FoundConversation extends ConversationSummary {
   readonly cwd: string;
   readonly bytes: number;
@@ -237,7 +237,7 @@ export async function dropSession(dir: string, sessionId: string, root: string =
 }
 
 /**
- * Forget every Claude Code session that ran in a folder being deleted for good (ACME-532): its
+ * Forget every Claude Code session that ran in a folder being deleted for good: its
  * transcripts, their sub-agent and tool-result folders, and what Claude Code keeps per session
  * elsewhere. A transcript filed alike that ran in another folder ("a/b-c" and "a-b/c" are filed
  * alike) stays, and so does the folder then. Returns the bytes freed.

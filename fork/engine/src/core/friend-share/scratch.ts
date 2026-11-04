@@ -4,7 +4,7 @@ import { shareNameOf } from '../../shared/share-names.js';
 import type { Location } from '../store.js';
 
 /**
- * A friend's worktree's scratch folder, as your Scratch tab shows your own (ACME-259): what their
+ * A friend's worktree's scratch folder, as your Scratch tab shows your own: what their
  * Claude saved while it worked, newest first, listed over the link (`fs_list` with times) and read
  * file by file when you open one, so nothing is downloaded ahead.
  */

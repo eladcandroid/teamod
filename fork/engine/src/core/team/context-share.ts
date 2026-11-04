@@ -5,7 +5,7 @@ import type { TeamMsg } from './protocol.js';
 import type { TeamBoards, TeamLink, TeamPart } from './service.js';
 
 /**
- * A teamed project's About This Project (ACME-298): one text for the whole team, the newest edit
+ * A teamed project's About This Project: one text for the whole team, the newest edit
  * winning on every Mac. It goes to each teammate when it changes here (yours, or one a teammate
  * sent, so a team of three agrees even where two aren't linked), when a link forms, and when a
  * teammate's Mac comes online (a Mac that couldn't take it before may now). Nothing to keep of

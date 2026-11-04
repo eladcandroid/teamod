@@ -55,7 +55,7 @@ const ALWAYS_OK = new Set([
   // this Mac or start work you asked for (a worktree, a task, a plan), the way the board's tools do,
   // or archive a worktree you asked to (lossless; one with Claude still working waits for your yes).
   ...['screenshot', 'device_info', 'list_work', 'start_worktree', 'start_task', 'start_plan', 'archive_worktree'].map((n) => `mcp__teamod_mac__${n}`),
-  // Your phone (ACME-150): looking at it never asks (like the Mac's screenshot). Acting on it falls
+  // Your phone: looking at it never asks (like the Mac's screenshot). Acting on it falls
   // to 'ask', then the owner-approval gate honours the phone's own setting (Off · Ask · Use · Full).
   ...['phone_status', 'phone_screenshot', 'phone_screen', 'phone_apps', 'phone_info', 'phone_pull', 'phone_notifications', 'phone_macro_list'].map((n) => `mcp__teamod_phone__${n}`),
 ]);
@@ -117,7 +117,7 @@ export interface PolicyContext {
 }
 
 const inside = (root: string, target: string): boolean => target === root || target.startsWith(root + path.sep);
-/** Inside a folder where it really is (links followed), so a link in a shared folder can't reach past it (ACME-414). */
+/** Inside a folder where it really is (links followed), so a link in a shared folder can't reach past it. */
 const within = (root: string, target: string): boolean => inside(realOf(path.resolve(root)), realOf(target));
 /** A secret by its name or by where it really is (a harmless-looking link to a key is still the key). */
 const secretAt = (target: string): boolean => isSecretPath(target) || isSecretPath(realOf(target));
@@ -125,7 +125,7 @@ const resolveTarget = (cwd: string, raw: unknown): string => path.resolve(cwd, t
 
 /**
  * Files that make something run later, as you: git hooks and config, Claude Code's settings and MCP
- * servers, editor tasks, direnv, npm scripts, make, shell start-up files, login items, CI (ACME-413).
+ * servers, editor tasks, direnv, npm scripts, make, shell start-up files, login items, CI.
  * Changing one from someone else's request asks you every time, so "may edit files" never quietly
  * becomes "may run commands".
  */
@@ -203,7 +203,7 @@ function decideToolPlain(toolName: string, input: Record<string, unknown>, ctx: 
   const readField = READ_TOOLS[toolName];
   if (readField) {
     const target = resolveTarget(ctx.cwd, input[readField]);
-    // A secret a friend approved sending you (ACME-209) is your user's file now: your own Claude may read it, once you say so.
+    // A secret a friend approved sending you is your user's file now: your own Claude may read it, once you say so.
     if (ctx.dotenv && isReceivedTaskFile(target) && !namesOf(input).some(isSecretPath)) return 'ask';
     const real = realOf(target);
     if (!dotenv && (isSecretPath(target) || isSecretPath(real) || namesOf(input).some(isSecretPath))) return 'deny';
@@ -289,7 +289,7 @@ export const ASK_ONLY_REASON =
   "teamod blocked this: you're in the project's main folder, which is read-only (questions only; work happens in worktrees). " +
   "Don't try another way to change it here. If a change is wanted, call mcp__teamod__continue_in_worktree with the task.";
 
-/** A write outside the folders this request may change (not a credential file): say so, and what to do (ACME-348). */
+/** A write outside the folders this request may change (not a credential file): say so, and what to do. */
 export const OUTSIDE_REASON =
   'teamod blocked this: that file is outside the shared folders this request may write to. ' +
   "Don't try another way to write it. Write inside the working folder (or the scratch folder), or ask the machine owner in chat to save it where they want it.";

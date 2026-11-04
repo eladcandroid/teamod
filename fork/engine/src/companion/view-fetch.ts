@@ -8,7 +8,7 @@ import { stripCode } from './strip.js';
 import { phoneChannel } from './views.js';
 
 /**
- * A live view's rows for the phone (ACME-68): the phone never fetches a source itself; it names the
+ * A live view's rows for the phone: the phone never fetches a source itself; it names the
  * view (its conversation, its turn, which block) and the Mac runs the source as the Mac app's
  * window would (src/core/views/sources.ts, view.fetch): the same refusals (credential files, a
  * command that hasn't run before waits for a yes), {{slots}} filled by its controls, paging,

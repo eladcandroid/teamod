@@ -59,7 +59,7 @@ export class DaemonServer {
 
   constructor(private readonly opts: DaemonServerOptions) {}
 
-  /** The frame just encoded, and its text: one going to every screen is encoded once, not once per screen (ACME-407). */
+  /** The frame just encoded, and its text: one going to every screen is encoded once, not once per screen. */
   private lastFrame?: DaemonFrame;
   private lastText = '';
 
@@ -165,7 +165,7 @@ export class DaemonServer {
       }
       ws.send(this.encoded(frame));
     };
-    // Phone mirrors this screen is watching (ACME-173), by device id → stop().
+    // Phone mirrors this screen is watching, by device id → stop().
     const mirrors = new Map<string, () => void>();
     const helloTimer = setTimeout(() => ws.close(4001, 'No hello'), this.opts.helloTimeoutMs ?? 5000);
     helloTimer.unref?.();
