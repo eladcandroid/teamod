@@ -66,6 +66,16 @@ export function workspaceRow(ctx: Ctx, ws: Workspace): Node {
   return ctx.surface === 'terminal' ? press : row([icon(ws.kind === 'chat' ? 'chat' : 'branch'), press], { gap: 1, wrap: false, key: `wsrow:${ws.id}`, hover: true, padX: 1 });
 }
 
+/**
+ * How long ago, for a time that may be missing (a worktree made outside teamod) or in seconds
+ * rather than milliseconds: never "20761d" for a time that isn't one.
+ */
+function whenOf(ts: number | undefined): string | undefined {
+  if (!ts || ts <= 0) return undefined;
+  const ms = ts < 1e12 ? ts * 1000 : ts;
+  return ms < Date.UTC(2015, 0, 1) || ms > Date.now() + 86_400_000 ? undefined : ago(ms);
+}
+
 /** A worktree or chat in progress, as a card: its name, its state and when, what was said last, and Open. */
 export function workspaceCard(ctx: Ctx, ws: Workspace): Node {
   const act = activityOf(ctx.state.log, `ws:${ws.id}`);
@@ -75,7 +85,7 @@ export function workspaceCard(ctx: Ctx, ws: Workspace): Node {
   return card(
     [
       row([ctx.draw.button(`ws:${ws.id}`, ws.name, open, { plain: true, spans: [span(ws.name, { weight: 'bold' })] }), ctx.draw.button(`ws:${ws.id}:open`, 'Open', open, { plain: true, spans: [span('Open ›', { color: 'claude' })] })], { justify: 'space-between', gap: 2 }),
-      meta(wsPill(ctx.state, ws), ws.kind !== 'chat' && ago(act.lastTs ?? ws.createdAt), unread ? span(`${unread} new`, { color: 'claude' }) : undefined),
+      meta(wsPill(ctx.state, ws), ws.kind !== 'chat' && whenOf(act.lastTs ?? ws.createdAt), unread ? span(`${unread} new`, { color: 'claude' }) : undefined),
       last ? dim(last) : undefined,
     ],
     { tone: wsTone(ctx.state, ws) },

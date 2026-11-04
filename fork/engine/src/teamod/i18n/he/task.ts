@@ -2,6 +2,10 @@ import type { Catalog } from '../i18n.js';
 
 /** Hebrew for the task screens' words (see ../i18n.ts for how keys and holes work). */
 export const TASK: Catalog = {
+  'Nothing in progress. Describe a task in a project and it gets its own worktree and agent.': 'אין משימות בתהליך. תארו משימה בפרויקט, והיא תקבל עותק עבודה וסוכן משלה.',
+  'Start a Task': 'משימה חדשה',
+  'No tasks yet': 'אין משימות עדיין',
+  'In progress': 'בתהליך',
   // The chat: who said what, and the agent's runs
   'Pick a worktree or chat in Work.': 'בחרו עותק עבודה או צ׳אט במסך עבודה.',
   'That worktree is gone.': 'עותק העבודה הזה כבר לא קיים.',

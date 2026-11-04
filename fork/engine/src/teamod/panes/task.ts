@@ -20,6 +20,8 @@ import { changesPage, commitPage, historyPage, mergePage, mergePrPage, prPage } 
 import { filePage, filesPage, scratchPage } from './task-files.js';
 import { agentOutputPage, agentPage, agentStepPage, agentTaskPage, agentsPage } from './task-agents.js';
 import { scriptsPage, terminalPage, visualPage } from './task-terminal.js';
+import { activityOf } from '../../ui/workspace-models.js';
+import { CARD_LIMIT, activeOf, workspaceCard, workspaceRow } from './work-common.js';
 import { brandWords } from '../brand.js';
 import { richNodes } from '../rich/rich.js';
 
@@ -494,9 +496,45 @@ function headerCard(ctx: Ctx, ws: Workspace, channel: string, running: boolean):
   );
 }
 
+/**
+ * The Task screen with nothing open yet: every worktree and chat in progress, newest first, under
+ * its project, to open one; or, with none, the way to start one.
+ */
+function taskHome(ctx: Ctx): Node {
+  const groups = ctx.state.projects
+    .map((p) => ({ project: p, items: activeOf(p) }))
+    .filter((g) => g.items.length > 0)
+    .sort((a, b) => latest(ctx, b.items) - latest(ctx, a.items));
+  const count = groups.reduce((n, g) => n + g.items.length, 0);
+  if (!count) {
+    return page(
+      chrome(ctx),
+      card([dim('Nothing in progress. Describe a task in a project and it gets its own worktree and agent.'), actions(ctx.draw.button('task:start', 'Start a Task', () => ctx.show('work'), { primary: true }))], { title: 'No tasks yet' }),
+    );
+  }
+  const asCards = count <= CARD_LIMIT;
+  return page(
+    chrome(ctx),
+    line(span('In progress', { weight: 'bold', size: 'heading' }), span(`  ${count}`, { dim: true, size: 'heading' })),
+    ...groups.map((g) =>
+      section(
+        g.project.root ? g.project.name : 'Chats',
+        [...g.items].sort((a, b) => latest(ctx, [b]) - latest(ctx, [a])).map((ws) => (asCards ? workspaceCard(ctx, ws) : workspaceRow(ctx, ws))),
+        g.items.length,
+      ),
+    ),
+    actions(undefined, ctx.draw.button('task:start', 'Start a Task', () => ctx.show('work'), { plain: true, dim: true })),
+  );
+}
+
+/** When anything among these was last touched. */
+function latest(ctx: Ctx, items: readonly Workspace[]): number {
+  return Math.max(0, ...items.map((ws) => activityOf(ctx.state.log, `ws:${ws.id}`).lastTs ?? ws.createdAt ?? 0));
+}
+
 export const taskPane: Screen = (ctx) => {
   const id = ctx.route.params?.id;
-  if (!id) return page(chrome(ctx), empty('Pick a worktree or chat in Work.'));
+  if (!id) return taskHome(ctx);
   const ws = findWorkspace(ctx.state, id);
   if (!ws) return page(chrome(ctx), back(ctx), empty('That worktree is gone.'));
   const channel = `ws:${ws.id}`;

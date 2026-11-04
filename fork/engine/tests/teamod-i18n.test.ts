@@ -172,3 +172,20 @@ describe('the header on a desktop', () => {
     expect(flat(s.screens.view('work', { surface: 'desktop', columns: 60, rows: 40 })).some((n) => n.k === 'select' && n.key === 'nav:screen' && n.value === 'board')).toBe(true);
   });
 });
+
+describe('the Task screen with nothing open', () => {
+  it('lists the work in progress to open, or offers to start a task', async () => {
+    const { start, words } = await import('./teamod-helpers.js');
+    const vp = { surface: 'desktop' as const, columns: 120, rows: 40 };
+    const empty = start();
+    await empty.screens.press('work', 'screen:task', undefined, vp);
+    expect(words(empty.screens.view('work', vp))).toContain('No tasks yet');
+    const ws = { id: 'w1', projectId: 'p1', projectRoot: '/r/alpha', name: 'add-login', path: '/r/w1', kind: 'worktree', createdAt: 1, external: false };
+    const busy = start({ projects: [{ id: 'p1', name: 'alpha', root: '/r/alpha', base: 'main', workspaces: [ws] }] as never });
+    await busy.screens.press('work', 'screen:task', undefined, vp);
+    const tree = busy.screens.view('work', vp);
+    expect(words(tree)).toContain('add-login');
+    expect(await busy.screens.press('work', 'ws:w1', undefined, vp)).toMatchObject({ ok: true });
+    expect(busy.calls).toContainEqual(['workspaces.load', ['w1']]);
+  });
+});

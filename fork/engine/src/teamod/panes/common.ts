@@ -168,7 +168,10 @@ export function findWorkspace(state: AppState, id: string): Workspace | undefine
 
 /** Short for a time gone by. */
 export function ago(ts: number, now = Date.now()): string {
-  const s = Math.max(0, Math.round((now - ts) / 1000));
+  // A time in seconds reads as one; no time (0, missing) says nothing rather than "20761d".
+  const ms = ts > 0 && ts < 1e12 ? ts * 1000 : ts;
+  if (!(ms > Date.UTC(2015, 0, 1))) return '';
+  const s = Math.max(0, Math.round((now - ms) / 1000));
   if (s < 60) return 'now';
   if (s < 3600) return `${Math.round(s / 60)}m`;
   if (s < 86_400) return `${Math.round(s / 3600)}h`;
