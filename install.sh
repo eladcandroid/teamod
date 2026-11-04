@@ -42,7 +42,9 @@ main() {
   say "Adding the mod to Claude Code"
   claude plugin marketplace add "$marketplace" >/dev/null 2>&1 || true
   claude plugin marketplace update teamod >/dev/null
-  claude plugin install teamod@teamod >/dev/null 2>&1 || claude plugin update teamod@teamod >/dev/null
+  claude plugin install teamod@teamod >/dev/null 2>&1 || true
+  # Already installed: install does nothing, so bring it up to date.
+  claude plugin update teamod@teamod >/dev/null
 
   printf '\nDone. In any git project, run:\n\n  claude\n  /teamod\n\nRun this script again to update.\n'
 }
