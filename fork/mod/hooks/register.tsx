@@ -121,49 +121,52 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  on('command.run', { command: 'teamod' }, async ($, e) => {
-    const words = e.args.trim()
-    const verb = words.split(/\s+/)[0] ?? ''
-    const isFirstOpen = !NEEDS_NO_ENGINE.has(verb) && !(await runtimeOf($))
-    if (verb === 'setup' || isFirstOpen) {
-      return { text: await setup($, String(options.engineRepo || ENGINE_REPO)) }
-    }
-    void ensureBridge($)
-    if (verb === 'status') {
-      const current = await readLink($)
-      const issue = await readProblem($)
-      const state = current
-        ? current.connected
-          ? 'connected'
-          : 'reconnecting'
-        : (issue?.text ?? 'starting')
-      const { version } = await $.session.version()
-
-      return { text: `teamod: ${state}${version === TESTED_ON ? '' : ` (tested on Claude Code ${TESTED_ON}; this is ${version})`}` }
-    }
-    if (verb === 'stop' || verb === 'service') {
-      const runtime = await runtimeOf($)
-      if (!runtime) return { text: 'The teamod engine is not set up yet. Run /teamod setup.' }
-      const argv = verb === 'stop' ? ['stop'] : ['service', words.split(/\s+/)[1] === 'off' ? 'off' : 'on']
-      const ran = await $.process.run([runtime.node, runtime.cli, ...argv], { env: { TEAMOD_HOME: await homeOf($) } })
-
-      return { text: ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran) }
-    }
-    // The first /teamod of a desktop session starts the bridge: wait for it rather than say "try again".
-    let answer = await commandOf($, words)
-    if (!answer && (await linkSoon($))) answer = await commandOf($, words)
-    if (!answer) {
-      return { text: (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.' }
-    }
-    if (answer.open) {
-      const title = answer.title ?? TITLES[answer.open] ?? answer.open
-      const opened = await $.ui.open({ id: answer.open, title, focus: true })
-
-      return { text: opened.isPlaced ? (answer.said ?? `${title} opened.`) : `${title} waits: ${opened.reason}` }
-    }
-
-    return { text: answer.text ?? '' }
-  })
+  // `/teamod`, and `/teamod:teamod`: the name the desktop app's menu lists it by (commands/teamod.md).
+  for (const command of ['teamod', 'teamod:teamod']) {
+    on('command.run', { command }, async ($, e) => {
+      const words = e.args.trim()
+      const verb = words.split(/\s+/)[0] ?? ''
+      const isFirstOpen = !NEEDS_NO_ENGINE.has(verb) && !(await runtimeOf($))
+      if (verb === 'setup' || isFirstOpen) {
+        return { text: await setup($, String(options.engineRepo || ENGINE_REPO)) }
+      }
+      void ensureBridge($)
+      if (verb === 'status') {
+        const current = await readLink($)
+        const issue = await readProblem($)
+        const state = current
+          ? current.connected
+            ? 'connected'
+            : 'reconnecting'
+          : (issue?.text ?? 'starting')
+        const { version } = await $.session.version()
+  
+        return { text: `teamod: ${state}${version === TESTED_ON ? '' : ` (tested on Claude Code ${TESTED_ON}; this is ${version})`}` }
+      }
+      if (verb === 'stop' || verb === 'service') {
+        const runtime = await runtimeOf($)
+        if (!runtime) return { text: 'The teamod engine is not set up yet. Run /teamod setup.' }
+        const argv = verb === 'stop' ? ['stop'] : ['service', words.split(/\s+/)[1] === 'off' ? 'off' : 'on']
+        const ran = await $.process.run([runtime.node, runtime.cli, ...argv], { env: { TEAMOD_HOME: await homeOf($) } })
+  
+        return { text: ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran) }
+      }
+      // The first /teamod of a desktop session starts the bridge: wait for it rather than say "try again".
+      let answer = await commandOf($, words)
+      if (!answer && (await linkSoon($))) answer = await commandOf($, words)
+      if (!answer) {
+        return { text: (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.' }
+      }
+      if (answer.open) {
+        const title = answer.title ?? TITLES[answer.open] ?? answer.open
+        const opened = await $.ui.open({ id: answer.open, title, focus: true })
+  
+        return { text: opened.isPlaced ? (answer.said ?? `${title} opened.`) : `${title} waits: ${opened.reason}` }
+      }
+  
+      return { text: answer.text ?? '' }
+    })
+  }
 
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
