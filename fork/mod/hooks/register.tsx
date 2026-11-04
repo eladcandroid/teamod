@@ -89,6 +89,17 @@ const setup = async ($: EngineInterface, repository: string): Promise<string> =>
   return 'teamod is set up. Run /teamod to open it.'
 }
 
+/** Whether the bridge comes up within a few seconds (a problem it reports ends the wait). */
+async function linkSoon($: EngineInterface): Promise<boolean> {
+  for (let i = 0; i < 40; i++) {
+    if (await readLink($)) return true
+    if (await readProblem($)) return false
+    await $.clock.sleep(250)
+  }
+
+  return false
+}
+
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -138,7 +149,9 @@ export const register: Register = (on, options) => {
 
       return { text: ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran) }
     }
-    const answer = await commandOf($, words)
+    // The first /teamod of a desktop session starts the bridge: wait for it rather than say "try again".
+    let answer = await commandOf($, words)
+    if (!answer && (await linkSoon($))) answer = await commandOf($, words)
     if (!answer) {
       return { text: (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.' }
     }

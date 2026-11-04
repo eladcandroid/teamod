@@ -59,6 +59,11 @@ async function waitForDaemon(timeoutMs: number): Promise<DaemonInfo | undefined>
  * The running daemon, started if there is none. It is detached and kept alive: it has to outlive
  * this session for schedules and teammates' requests, and a second session finds and reuses it.
  */
+/** Starts the engine, detached and with this process's output, and exits. */
+const LAUNCHER = `const { spawn } = require('node:child_process');
+const [cli, cwd] = JSON.parse(process.argv[1]);
+spawn(process.execPath, [cli, 'daemon', '--keep-alive'], { detached: true, stdio: 'inherit', cwd }).unref();`;
+
 export async function ensureDaemon(): Promise<DaemonInfo> {
   const running = runningDaemon();
   if (running) return running;
@@ -72,7 +77,9 @@ export async function ensureDaemon(): Promise<DaemonInfo> {
   try {
     const log = openDaemonLog();
     try {
-      const child = spawn(process.execPath, [path.join(here, '..', 'cli.js'), 'daemon', '--keep-alive'], {
+      // Started through a launcher that exits at once: the engine then belongs to no session. Claude
+      // Code ends a session's processes when it closes, and the engine must outlive every session.
+      const child = spawn(process.execPath, ['-e', LAUNCHER, JSON.stringify([path.join(here, '..', 'cli.js'), home])], {
         detached: true,
         stdio: ['ignore', log, log],
         env: daemonEnv(process.env, home, loginPath()),

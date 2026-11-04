@@ -52,6 +52,9 @@ export function clearDaemonInfo(pid = process.pid, file = daemonInfoPath()): voi
  * Take the start-up lock (true), or learn that another live process holds it (false).
  * A lock left by a process that died is taken over.
  */
+/** How long a start may hold the lock before others may take it (the start waits 60 s at most). */
+export const LOCK_STALE_MS = 90_000;
+
 export function takeLock(file = daemonLockPath()): boolean {
   mkdirSync(path.dirname(file), { recursive: true });
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -63,7 +66,10 @@ export function takeLock(file = daemonLockPath()): boolean {
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
       const holder = Number(readFileSync(file, 'utf8').trim());
-      if (Number.isFinite(holder) && holder > 0 && alive(holder)) return false;
+      // A start takes seconds: a lock older than that was left by a start that got stuck, even if
+      // the process holding it is still alive, and would keep every other session from starting one.
+      const stuck = Date.now() - statSync(file).mtimeMs > LOCK_STALE_MS;
+      if (Number.isFinite(holder) && holder > 0 && alive(holder) && !stuck) return false;
       rmSync(file, { force: true });
     }
   }

@@ -1,7 +1,7 @@
-import { rmSync, writeFileSync } from 'node:fs';
+import { rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { afterEach, describe, expect, it } from 'vitest';
 import { parseConfig } from '../src/config.js';
-import { daemonInfoPath, daemonLockPath, readDaemonInfo, releaseLock, runningDaemon, takeLock, writeDaemonInfo, clearDaemonInfo } from '../src/daemon/files.js';
+import { LOCK_STALE_MS, daemonInfoPath, daemonLockPath, readDaemonInfo, releaseLock, runningDaemon, takeLock, writeDaemonInfo, clearDaemonInfo } from '../src/daemon/files.js';
 import { type RunningDaemon, roomKeyOf, startDaemon } from '../src/daemon/main.js';
 import { IPC_VERSION } from '../src/ipc/protocol.js';
 import { SocketClient } from '../src/ipc/socket-client.js';
@@ -31,7 +31,11 @@ describe('daemon files', () => {
     releaseLock();
     writeFileSync(daemonLockPath(), String(process.ppid));
     expect(takeLock()).toBe(false);
-    rmSync(daemonLockPath());
+    // A live holder whose start got stuck long ago keeps nobody out.
+    const old = (Date.now() - LOCK_STALE_MS - 1000) / 1000;
+    utimesSync(daemonLockPath(), old, old);
+    expect(takeLock()).toBe(true);
+    releaseLock();
   });
 
   it('only trusts daemon.json while its process lives', () => {
