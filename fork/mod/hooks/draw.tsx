@@ -101,19 +101,20 @@ export function draw(
         })
       case 'text':
         return make('Text', { ...(n.dir ? { dir: n.dir } : {}), children: asText(Text, n.spans, desktop) })
-      case 'button':
-        return make('Button', {
+      case 'button': {
+        const button = make('Button', {
           key: n.key,
           label: n.label,
           ...(n.hotkey ? { hotkey: n.hotkey } : {}),
           ...(n.plain ? { plain: true } : {}),
           ...(n.primary ? { variant: 'primary' } : {}),
           ...(n.dim ? { dimColor: true } : {}),
-          // A pill, on a desktop: the open tab filled and rounded; the whole pill is the press.
-          ...(desktop && n.pill === 'on' ? { backgroundColor: FILL.strong, borderStyle: 'round', borderDimColor: true } : {}),
           ...(n.spans ? { children: asText(Text, n.spans, desktop) } : {}),
           onPress: () => void press($, site, n.key, undefined, viewport),
         })
+        // A pill, on a desktop: the open one on a filled, rounded box (a desktop fills no button).
+        return desktop && n.pill === 'on' ? make('Box', { backgroundColor: FILL.strong, borderStyle: 'round', borderDimColor: true, paddingX: 'sm', children: [button] }) : button
+      }
       case 'input':
         if (!elements.Input) return make('Text', { dimColor: true, children: 'Open this on the terminal or desktop to type here.' })
 

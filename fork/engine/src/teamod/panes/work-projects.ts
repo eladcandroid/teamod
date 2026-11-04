@@ -159,8 +159,14 @@ function drawList(ctx: Ctx, rows: readonly ListRow[], quietCards: boolean, folde
       case 'project':
         flush();
         if (!item.quiet) open = { head: [projectHead(ctx, item.project), projectFacts(ctx, item.project)], body: [] };
-        else if (quietCards) out.push(card([projectHead(ctx, item.project), projectFacts(ctx, item.project)]));
-        else out.push(quietRow(ctx, item.project));
+        else if (quietCards && ctx.surface === 'terminal') out.push(card([projectHead(ctx, item.project), projectFacts(ctx, item.project)]));
+        else if (ctx.surface === 'terminal') out.push(quietRow(ctx, item.project));
+        else {
+          // A desktop: the quiet ones as compact rows, together in one card.
+          const last = out.at(-1);
+          if (last?.k === 'box' && last.key === 'quiet-list') out[out.length - 1] = { ...last, children: [...last.children, quietRow(ctx, item.project)] };
+          else out.push({ ...(card([quietRow(ctx, item.project)]) as Extract<Node, { k: 'box' }>), key: 'quiet-list' });
+        }
         break;
       case 'more':
         flush();

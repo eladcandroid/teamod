@@ -158,3 +158,17 @@ describe('a choice among many', () => {
     expect(picked).toEqual(['p72']);
   });
 });
+
+describe('the header on a desktop', () => {
+  it('is pill tabs where they fit, and two choices in a narrow pane', async () => {
+    const { start } = await import('./teamod-helpers.js');
+    const s = start();
+    const wide = flat(s.screens.view('work', { surface: 'desktop', columns: 120, rows: 40 }));
+    expect(wide.some((n) => n.k === 'button' && n.key === 'screen:team' && n.pill === 'off')).toBe(true);
+    const narrow = flat(s.screens.view('work', { surface: 'desktop', columns: 60, rows: 40 }));
+    expect(narrow.some((n) => n.k === 'select' && n.key === 'nav:screen' && n.value === 'work')).toBe(true);
+    expect(narrow.some((n) => n.k === 'button' && n.key === 'screen:team')).toBe(false);
+    await s.screens.press('work', 'nav:screen', 'board', { surface: 'desktop', columns: 60, rows: 40 });
+    expect(flat(s.screens.view('work', { surface: 'desktop', columns: 60, rows: 40 })).some((n) => n.k === 'select' && n.key === 'nav:screen' && n.value === 'board')).toBe(true);
+  });
+});

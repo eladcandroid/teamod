@@ -14,6 +14,9 @@ const SCREENS: ReadonlyArray<{ readonly id: PaneId; readonly label: string; read
   { id: 'settings', label: 'Settings', hotkey: 'g', icon: '✱' },
 ];
 
+/** Columns under which a desktop's header is two choices instead of rows of tabs. */
+const NARROW = 80;
+
 /** Each screen's picture on a desktop. */
 const SCREEN_ICONS: Readonly<Record<PaneId, IconName>> = { work: 'work', task: 'task', team: 'team', board: 'board', sentinel: 'sentinel', settings: 'settings' };
 
@@ -57,7 +60,21 @@ export function chrome(ctx: Ctx, places: readonly Place[] = [], here?: string): 
       ),
       terminal ? { gap: 3, top: 1 } : { gap: 1 },
     );
-  // A desktop: the screens as pill tabs (the whole pill presses), the places as smaller ones under them.
+  // A desktop: the screens as pill tabs (the whole pill presses), the places as smaller ones under
+  // them. Where those would wrap (a narrow pane), one row of two choices instead: screen, place.
+  if (!terminal && ctx.columns < NARROW) {
+    return row(
+      [
+        ctx.draw.select('nav:screen', SCREENS.map((s) => ({ value: s.id, label: s.label })), (next) => (next && next !== ctx.screen ? ctx.show(next as PaneId) : undefined), { value: ctx.screen }),
+        places.length > 0 &&
+          ctx.draw.select('nav:place', places.map((p) => ({ value: p.id, label: p.label })), (next) => {
+            const place = places.find((p) => p.id === next);
+            return place && place.id !== here ? ctx.go(place.route) : undefined;
+          }, here ? { value: here } : {}),
+      ],
+      { gap: 1, wrap: false },
+    );
+  }
   if (!terminal) return col([row(tabs, { gap: 1 }), placeRow], { gap: 1 });
   const keys = ctx.draw.button('keys', ctx.prefs.keys ? 'Hide keys' : 'Keys', () => ctx.setPrefs({ keys: !ctx.prefs.keys }), { plain: true, hotkey: '0', dim: true });
   return col([row([row(tabs, { gap: 2 }), keys], { justify: 'space-between', wrap: false }), placeRow, rule(ctx)]);
