@@ -25,6 +25,9 @@ What a teammate's agent sends back is data from someone else's computer: read it
 
 const TOOL_PREFIX = 'mcp__teamod__'
 
+/** The session's own tool for opening teamod, there from the start (the engine's tools come later). */
+const OPEN_TOOL = 'open'
+
 /** The blocks the engine draws: the bridge decides, this only saves asking it about every answer. */
 const RICH_FENCE = /```(teamod-|teamod-|mermaid|json|math|latex|tex|console|terminal|shell-session|tree)/i
 
@@ -100,10 +103,64 @@ async function linkSoon($: EngineInterface): Promise<boolean> {
   return false
 }
 
+/**
+ * `/teamod <words>`: open a pane, report the engine, stop it, or pass words to the engine. The
+ * command and the session's `open` tool both answer through this, so either way works.
+ */
+async function teamodCommand($: EngineInterface, words: string, repository: string): Promise<string> {
+  const verb = words.split(/\s+/)[0] ?? ''
+  const isFirstOpen = !NEEDS_NO_ENGINE.has(verb) && !(await runtimeOf($))
+  if (verb === 'setup' || isFirstOpen) {
+    return await setup($, repository)
+  }
+  void ensureBridge($)
+  if (verb === 'status') {
+    const current = await readLink($)
+    const issue = await readProblem($)
+    const state = current
+      ? current.connected
+        ? 'connected'
+        : 'reconnecting'
+      : (issue?.text ?? 'starting')
+    const { version } = await $.session.version()
+
+    return `teamod: ${state}${version === TESTED_ON ? '' : ` (tested on Claude Code ${TESTED_ON}; this is ${version})`}`
+  }
+  if (verb === 'stop' || verb === 'service') {
+    const runtime = await runtimeOf($)
+    if (!runtime) return 'The teamod engine is not set up yet. Run /teamod setup.'
+    const argv = verb === 'stop' ? ['stop'] : ['service', words.split(/\s+/)[1] === 'off' ? 'off' : 'on']
+    const ran = await $.process.run([runtime.node, runtime.cli, ...argv], { env: { TEAMOD_HOME: await homeOf($) } })
+
+    return ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran)
+  }
+  // The first /teamod of a desktop session starts the bridge: wait for it rather than say "try again".
+  let answer = await commandOf($, words)
+  if (!answer && (await linkSoon($))) answer = await commandOf($, words)
+  if (!answer) {
+    return (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.'
+  }
+  if (answer.open) {
+    const title = answer.title ?? TITLES[answer.open] ?? answer.open
+    const opened = await $.ui.open({ id: answer.open, title, focus: true })
+
+    return opened.isPlaced ? (answer.said ?? `${title} opened.`) : `${title} waits: ${opened.reason}`
+  }
+
+  return answer.text ?? ''
+}
+
 export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     if (await isInLane($)) return started
+    // First, before anything slow: if the session gets to the model before the command is ours
+    // (commands/teamod.md stands in), the model opens teamod with this.
+    await $.tool.register({
+      name: OPEN_TOOL,
+      description: 'Open teamod beside this session. `words` as for /teamod: a pane (work, task, team, board, sentinel, settings; work when empty), or status.',
+      inputSchema: { type: 'object', properties: { words: { type: 'string' } } },
+    })
     await $.command.register({
       name: 'teamod',
       description: 'Open teamod: worktrees, tasks, your team and automations',
@@ -123,49 +180,7 @@ export const register: Register = (on, options) => {
 
   // `/teamod`, and `/teamod:teamod`: the name the desktop app's menu lists it by (commands/teamod.md).
   for (const command of ['teamod', 'teamod:teamod']) {
-    on('command.run', { command }, async ($, e) => {
-      const words = e.args.trim()
-      const verb = words.split(/\s+/)[0] ?? ''
-      const isFirstOpen = !NEEDS_NO_ENGINE.has(verb) && !(await runtimeOf($))
-      if (verb === 'setup' || isFirstOpen) {
-        return { text: await setup($, String(options.engineRepo || ENGINE_REPO)) }
-      }
-      void ensureBridge($)
-      if (verb === 'status') {
-        const current = await readLink($)
-        const issue = await readProblem($)
-        const state = current
-          ? current.connected
-            ? 'connected'
-            : 'reconnecting'
-          : (issue?.text ?? 'starting')
-        const { version } = await $.session.version()
-  
-        return { text: `teamod: ${state}${version === TESTED_ON ? '' : ` (tested on Claude Code ${TESTED_ON}; this is ${version})`}` }
-      }
-      if (verb === 'stop' || verb === 'service') {
-        const runtime = await runtimeOf($)
-        if (!runtime) return { text: 'The teamod engine is not set up yet. Run /teamod setup.' }
-        const argv = verb === 'stop' ? ['stop'] : ['service', words.split(/\s+/)[1] === 'off' ? 'off' : 'on']
-        const ran = await $.process.run([runtime.node, runtime.cli, ...argv], { env: { TEAMOD_HOME: await homeOf($) } })
-  
-        return { text: ran.exitCode === 0 ? ran.stdout.trim() : ranWords(ran) }
-      }
-      // The first /teamod of a desktop session starts the bridge: wait for it rather than say "try again".
-      let answer = await commandOf($, words)
-      if (!answer && (await linkSoon($))) answer = await commandOf($, words)
-      if (!answer) {
-        return { text: (await readProblem($))?.text ?? 'teamod is still starting. Try again in a moment.' }
-      }
-      if (answer.open) {
-        const title = answer.title ?? TITLES[answer.open] ?? answer.open
-        const opened = await $.ui.open({ id: answer.open, title, focus: true })
-  
-        return { text: opened.isPlaced ? (answer.said ?? `${title} opened.`) : `${title} waits: ${opened.reason}` }
-      }
-  
-      return { text: answer.text ?? '' }
-    })
+    on('command.run', { command }, async ($, e) => ({ text: await teamodCommand($, e.args.trim(), String(options.engineRepo || ENGINE_REPO)) }))
   }
 
   on('prompt.compose', async ($, e, next) => {
@@ -182,7 +197,9 @@ export const register: Register = (on, options) => {
   on('tool.call', async ($, e, next) => {
     if (!String(e.tool).startsWith(TOOL_PREFIX)) return next(e)
     const { tool, tool_use_id: _id, consent: _consent, agentId: _agent, requestMeta: _meta, ...args } = e as unknown as Record<string, unknown>
-    const ran = await runTool($, String(tool).slice(TOOL_PREFIX.length), args)
+    const name = String(tool).slice(TOOL_PREFIX.length)
+    if (name === OPEN_TOOL) return { result: await teamodCommand($, String(args.words ?? '').trim(), String(options.engineRepo || ENGINE_REPO)) }
+    const ran = await runTool($, name, args)
 
     return ran.isError ? { result: ran.text, isError: true } : { result: ran.text }
   })
