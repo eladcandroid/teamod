@@ -30,9 +30,26 @@ export const ALWAYS_KEYED = new Set(['keys']);
 
 export function present(tree: Node, p: Presentation): Node {
   const rtl = p.layoutRtl ?? isRtlLang(p.lang);
-  let out = localize(tree, p.lang);
+  let out = capitalize(localize(tree, p.lang));
   if (!p.keys) out = hideKeys(out, p.surface !== undefined && p.surface !== 'terminal');
   return arrange(out, { rtl, fix: p.fixRtl, width: p.columns, inRow: false });
+}
+
+const upper = (t: string): string => (/^[a-z]/.test(t) ? t[0]!.toUpperCase() + t.slice(1) : t);
+
+/** An action's words start with a capital ("Create", not "create"), however a screen wrote them. */
+function capitalize(node: Node): Node {
+  switch (node.k) {
+    case 'box':
+      return { ...node, children: node.children.map(capitalize) };
+    case 'button':
+      // An action's button, not a name drawn as one (a project, a worktree: those stay as named).
+      return node.plain || node.spans ? node : { ...node, label: upper(node.label) };
+    case 'input':
+      return node.submitLabel ? { ...node, submitLabel: upper(node.submitLabel) } : node;
+    default:
+      return node;
+  }
 }
 
 /**

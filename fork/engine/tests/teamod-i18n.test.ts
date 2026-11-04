@@ -189,3 +189,21 @@ describe('the Task screen with nothing open', () => {
     expect(busy.calls).toContainEqual(['workspaces.load', ['w1']]);
   });
 });
+
+describe('action words', () => {
+  it('start with a capital on actions, and names stay as named', () => {
+    const tree: Node = {
+      k: 'box',
+      dir: 'column',
+      children: [
+        { k: 'input', key: 'new', placeholder: 'Say what you want done', submitLabel: 'create' },
+        { k: 'button', key: 'go', label: 'make it' },
+        { k: 'button', key: 'project:p1', label: 'anatomy', plain: true },
+      ],
+    };
+    const out = flat(present(tree, { lang: 'en', fixRtl: false, keys: true, columns: 80 }));
+    expect(out.find((n) => n.k === 'input')).toMatchObject({ submitLabel: 'Create' });
+    expect(out.find((n) => n.k === 'button' && n.key === 'go')).toMatchObject({ label: 'Make it' });
+    expect(out.find((n) => n.k === 'button' && n.key === 'project:p1')).toMatchObject({ label: 'anatomy' });
+  });
+});
