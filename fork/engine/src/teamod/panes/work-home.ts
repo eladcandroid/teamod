@@ -52,7 +52,7 @@ export function syncParts(sync: ProjectSync | undefined): Span[] {
   if (!sync.local) return [branch, pill('New on the remote', 'info', '↓')];
   if (!sync.ahead && !sync.behind) return [branch, pill('Up to date', 'ok', '✓')];
   const arrows = [sync.ahead ? `↑ ${sync.ahead}` : '', sync.behind ? `↓ ${sync.behind}` : ''].filter(Boolean).join('  ');
-  return [branch, span(arrows, sync.ahead ? { color: 'warning' } : { color: 'claude' })];
+  return [branch, span(arrows, sync.ahead ? { color: 'warning', tone: 'warn' } : { color: 'claude', tone: 'accent' })];
 }
 
 /** What an update came back with that needs you (the rest the engine already said). */

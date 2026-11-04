@@ -28,6 +28,20 @@ const WORK = {
       { k: 'md', text: '**hello**' },
       { k: 'code', source: '@@ -1 +1 @@\n-a\n+b\n', diff: true },
       { k: 'select', key: 'pick', options: [{ value: 'a', label: 'A' }], value: 'a' },
+      { k: 'box', dir: 'row', bg: 'strong', border: 'round', padX: 1, children: [{ k: 'icon', name: 'work', tone: 'accent' }, { k: 'button', key: 'screen:work', label: 'Work', plain: true }] },
+      {
+        k: 'box',
+        dir: 'column',
+        card: true,
+        key: 'card:alpha',
+        hover: true,
+        border: 'round',
+        padX: 1,
+        children: [
+          { k: 'box', dir: 'row', children: [{ k: 'avatar', name: 'cc-zol' }, { k: 'text', spans: [{ t: 'cc-zol', weight: 'bold' }] }] },
+          { k: 'text', spans: [{ t: '● Ready to merge', color: 'success', tone: 'ok' }] },
+        ],
+      },
     ],
   },
 }
@@ -57,6 +71,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect((await ui.find({ type: 'Text', text: /2 worktrees/ }))?.text).toBe('/r/alpha · 2 worktrees')
     expect(await ui.find({ type: 'Input', key: 'path' })).toBeDefined()
     expect(await ui.find({ type: 'Select', key: 'pick' })).toBeDefined()
+    if (surface === 'desktop') {
+      // Pictures as pictures, the state as a chip without the terminal's dot.
+      expect((await ui.findAll({ type: 'Svg' })).length).toBe(2)
+      expect((await ui.find({ type: 'Text', text: /Ready to merge/ }))?.text).toBe(' Ready to merge ')
+    } else {
+      expect((await ui.find({ type: 'Text', text: '◆' }))?.text).toBe('◆')
+      expect((await ui.find({ type: 'Text', text: /Ready to merge/ }))?.text).toBe('● Ready to merge')
+    }
     await ui.unmount()
   })
 }

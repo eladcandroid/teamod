@@ -5,6 +5,9 @@
  */
 export type Surface = 'terminal' | 'desktop' | 'vscode' | 'mobile';
 
+/** What a thing's state means, for its color: done, waits for you, failed, in focus, quiet. */
+export type Tone = 'ok' | 'warn' | 'error' | 'accent' | 'info' | 'quiet';
+
 export interface Span {
   readonly t: string;
   readonly dim?: boolean;
@@ -14,6 +17,8 @@ export interface Span {
   readonly inverse?: boolean;
   /** A step on the surface's type scale; the terminal has one size and ignores it. */
   readonly size?: 'caption' | 'footnote' | 'body' | 'heading' | 'title';
+  /** A state chip: a desktop fills it with the tone's tint; the terminal colors the words. */
+  readonly tone?: Tone;
 }
 
 export type Node =
@@ -37,6 +42,13 @@ export type Node =
       readonly align?: 'flex-start' | 'center' | 'flex-end' | 'stretch';
       /** Children in the opposite order: a row of a right-to-left screen. */
       readonly reverse?: boolean;
+      /** One thing in its own card: a desktop fills and rounds it, and lights it under the pointer. */
+      readonly card?: boolean;
+      /** A desktop's fill behind it (a tab that's open), and under the pointer. Terminal: none. */
+      readonly bg?: 'subtle' | 'strong';
+      readonly hover?: boolean;
+      /** Its address for a desktop's hover: one per box that lights up. */
+      readonly key?: string;
       readonly children: readonly Node[];
     }
   | { readonly k: 'text'; readonly spans: readonly Span[]; readonly dir?: 'ltr' | 'rtl' }
@@ -48,7 +60,14 @@ export type Node =
   | { readonly k: 'link'; readonly href: string; readonly text: string }
   | { readonly k: 'image'; readonly key?: string; readonly png: string; readonly columns: number; readonly rows: number; readonly alt: string }
   | { readonly k: 'svg'; readonly source: string; readonly alt: string; readonly width?: number; readonly height?: number; readonly interactive?: boolean }
-  | { readonly k: 'term'; readonly key: string; readonly term: string; readonly height?: number };
+  | { readonly k: 'term'; readonly key: string; readonly term: string; readonly height?: number }
+  /** A small picture for a thing (a screen, a folder, a branch): drawn on a desktop, a glyph on the terminal. */
+  | { readonly k: 'icon'; readonly name: IconName; readonly tone?: Tone; readonly size?: number }
+  /** A project's or a person's badge, their initials on their own color: desktop only. */
+  | { readonly k: 'avatar'; readonly name: string; readonly size?: number };
+
+export const ICON_NAMES = ['work', 'task', 'team', 'board', 'sentinel', 'settings', 'folder', 'branch', 'plus', 'search', 'check', 'alert', 'chat', 'clock'] as const;
+export type IconName = (typeof ICON_NAMES)[number];
 
 export type Handler = (value?: string) => unknown | Promise<unknown>;
 
@@ -135,6 +154,8 @@ export function inert(node: Node): Node {
       return { ...node, source: clean(node.source) };
     case 'image':
       return { ...node, alt: oneRow(node.alt) };
+    case 'avatar':
+      return { ...node, name: oneRow(node.name) };
     default:
       return node;
   }

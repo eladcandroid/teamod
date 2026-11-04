@@ -2,7 +2,7 @@ import type { AppState } from '../../core/store.js';
 import type { Workspace } from '../../workspaces/types.js';
 import { stateOf } from '../../ui/workspace-models.js';
 import type { Ctx, PaneId, Route } from '../screens.js';
-import { type Node, type Span, col, dim, line, row, span, text } from '../tree.js';
+import { type IconName, type Node, type Span, type Tone, col, dim, line, row, span, text } from '../tree.js';
 
 /** The screens, in the order they read: one tap or one key from anywhere. */
 const SCREENS: ReadonlyArray<{ readonly id: PaneId; readonly label: string; readonly hotkey: string; readonly icon: string }> = [
@@ -13,6 +13,9 @@ const SCREENS: ReadonlyArray<{ readonly id: PaneId; readonly label: string; read
   { id: 'sentinel', label: 'Sentinel', hotkey: 'l', icon: '◷' },
   { id: 'settings', label: 'Settings', hotkey: 'g', icon: '✱' },
 ];
+
+/** Each screen's picture on a desktop. */
+const SCREEN_ICONS: Readonly<Record<PaneId, IconName>> = { work: 'work', task: 'task', team: 'team', board: 'board', sentinel: 'sentinel', settings: 'settings' };
 
 export interface Place {
   readonly id: string;
@@ -31,13 +34,16 @@ export function chrome(ctx: Ctx, places: readonly Place[] = [], here?: string): 
   const terminal = ctx.surface === 'terminal';
   const tabs = SCREENS.map((s) => {
     const current = s.id === ctx.screen;
-    return ctx.draw.button(`screen:${s.id}`, s.label, () => ctx.show(s.id), {
+    const press = ctx.draw.button(`screen:${s.id}`, s.label, () => ctx.show(s.id), {
       hotkey: s.hotkey,
       plain: true,
       ...(terminal
         ? { spans: current ? [span(` ${s.icon} ${s.label} `, { inverse: true, weight: 'bold' })] : [span(`${s.icon} ${s.label}`, { dim: true })] }
         : current ? {} : { dim: true }),
     });
+    if (terminal) return press;
+    // A desktop: the screen's picture beside its name, the open one on a filled, rounded tab.
+    return row([icon(SCREEN_ICONS[s.id], current ? 'accent' : 'quiet'), press], { gap: 1, wrap: false, padX: 1, ...(current ? { bg: 'strong' as const, border: 'round' as const, borderDim: true } : {}) });
   });
   const placeRow =
     places.length > 0 &&
@@ -61,7 +67,7 @@ export const rule = (ctx: Ctx): Node =>
   // A desktop wraps a row of characters wider than its pane: it gets space instead.
   ctx.surface === 'terminal' ? dim('─'.repeat(Math.max(8, Math.min(ctx.columns - 2, 200)))) : col([], { top: 1 });
 
-export type Tone = 'ok' | 'warn' | 'error' | 'accent' | 'info' | 'quiet';
+export type { Tone };
 // Only the theme's own status colors: they follow the person's theme, light or dark.
 const TONE_COLOR: Readonly<Record<Tone, string | undefined>> = { ok: 'success', warn: 'warning', error: 'error', accent: 'claude', info: 'claude', quiet: undefined };
 
@@ -72,11 +78,17 @@ const TONE_COLOR: Readonly<Record<Tone, string | undefined>> = { ok: 'success', 
 export function card(children: ReadonlyArray<Node | false | undefined | null>, opts: { readonly title?: string | readonly Span[]; readonly tone?: Tone; readonly key?: string } = {}): Node {
   const color = opts.tone ? TONE_COLOR[opts.tone] : undefined;
   const head = opts.title === undefined ? undefined : typeof opts.title === 'string' ? text(opts.title, { weight: 'bold' }) : line(...opts.title);
-  return col([head, ...children], { border: 'round', padX: 1, ...(color ? { borderColor: color } : { borderDim: true }) });
+  return col([head, ...children], { card: true, hover: Boolean(opts.key), ...(opts.key ? { key: opts.key } : {}), border: 'round', padX: 1, ...(color ? { borderColor: color } : { borderDim: true }) });
 }
 
 /** A state in a word or two, colored: `● Ready to merge`. */
-export const pill = (label: string, tone: Tone = 'quiet', icon = '●'): Span => span(`${icon} ${label}`, TONE_COLOR[tone] ? { color: TONE_COLOR[tone] } : { dim: true });
+export const pill = (label: string, tone: Tone = 'quiet', icon = '●'): Span => span(`${icon} ${label}`, { tone, ...(TONE_COLOR[tone] ? { color: TONE_COLOR[tone] } : { dim: true }) });
+
+/** A small picture: a screen's, a folder's, a branch's. A desktop draws it; the terminal a glyph. */
+export const icon = (name: IconName, tone?: Tone): Node => ({ k: 'icon', name, ...(tone ? { tone } : {}) });
+
+/** A project's or a person's badge, on surfaces that draw pictures (none on the terminal). */
+export const avatar = (ctx: Ctx, name: string, size?: number): Node | undefined => (ctx.surface === 'terminal' ? undefined : { k: 'avatar', name, ...(size ? { size } : {}) });
 
 /** Small print after a name: parts joined by a dim dot. */
 export function meta(...parts: ReadonlyArray<string | Span | false | undefined | null>): Node {

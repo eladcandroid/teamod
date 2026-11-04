@@ -2,7 +2,7 @@ import { groupOfKey, isGroupKey, topLevel } from '../../workspaces/arrange.js';
 import type { Project, ProjectGroup, Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, row, span, text } from '../tree.js';
-import { back, card, chrome, empty, homePath, meta, page, section } from './common.js';
+import { avatar, back, card, chrome, empty, homePath, meta, page, pill, section } from './common.js';
 import { CARD_LIMIT, activeOf, backTo, errorText, findField, heading, isReady, loadingWords, placesOf, plural, projectRoute, steady, twoPress, windowed, workspaceRow } from './work-common.js';
 import { syncParts } from './work-home.js';
 
@@ -64,10 +64,12 @@ type ListRow =
   | { readonly kind: 'project'; readonly project: Project; readonly quiet: boolean }
   | { readonly kind: 'ws'; readonly ws: Workspace }
   | { readonly kind: 'group'; readonly name: string; readonly count: number; readonly folded: boolean }
-  | { readonly kind: 'label'; readonly words: string; readonly count?: number };
+  | { readonly kind: 'label'; readonly words: string; readonly count?: number }
+  /** The quiet projects past the first few, folded: how many, and whether they're showing. */
+  | { readonly kind: 'more'; readonly count: number; readonly open: boolean };
 
 /** Everything the list can show, flat and in order: a row is a row wherever it's from, so one window counts them all. */
-function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
+function listOf(ctx: Ctx, query: string, folded: readonly string[], allQuiet = true): ListRow[] {
   const shown = shownProjects(ctx);
   const q = query.toLowerCase();
   const said = (words: string): boolean => words.toLowerCase().includes(q);
@@ -83,11 +85,16 @@ function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
   const openChats = chats ? activeOf(chats).filter((w) => !q || said(w.name)) : [];
   if (openChats.length) out.push({ kind: 'label', words: 'Chats', count: openChats.length }, ...openChats.map((ws): ListRow => ({ kind: 'ws', ws })));
   if (quiet.size) out.push({ kind: 'label', words: 'Other projects', count: quiet.size });
+  // Dozens of quiet projects bury the page: the first few, then the rest behind Show All (a search
+  // shows every match).
+  const foldsQuiet = !q && quiet.size > QUIET_SHOWN;
+  let quietShown = 0;
+  const listed = (): boolean => !foldsQuiet || allQuiet || quietShown++ < QUIET_SHOWN;
   const byRoot = new Map(shown.map((p) => [p.root, p]));
   for (const key of topLevel({ order: ctx.state.projectOrder, groups: ctx.state.projectGroups }, shown.map((p) => p.root))) {
     if (!isGroupKey(key)) {
       const p = byRoot.get(key);
-      if (p && quiet.has(p)) out.push({ kind: 'project', project: p, quiet: true });
+      if (p && quiet.has(p) && listed()) out.push({ kind: 'project', project: p, quiet: true });
       continue;
     }
     const name = groupOfKey(key);
@@ -100,12 +107,26 @@ function listOf(ctx: Ctx, query: string, folded: readonly string[]): ListRow[] {
     out.push({ kind: 'group', name, count: members.length, folded: shut });
     if (!shut) out.push(...members.map((p): ListRow => ({ kind: 'project', project: p, quiet: true })));
   }
+  if (foldsQuiet) out.push({ kind: 'more', count: quiet.size, open: allQuiet });
   return out;
 }
 
-/** A project's name, bold: pressing it opens its home. */
+/** How many quiet projects show before the rest fold behind Show All. */
+const QUIET_SHOWN = 8;
+
+/** A project's name, bold: pressing it opens its home. A desktop puts its badge beside it. */
 function projectHead(ctx: Ctx, p: Project): Node {
-  return ctx.draw.button(`project:${p.id}`, p.name, () => ctx.go(projectRoute(p.id)), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] });
+  const name = ctx.draw.button(`project:${p.id}`, p.name, () => ctx.go(projectRoute(p.id)), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] });
+  const badge = avatar(ctx, p.name);
+  return badge ? row([badge, name], { gap: 1, wrap: false }) : name;
+}
+
+/** A quiet project in the list: its name and how its main branch stands, one row (lit under the pointer). */
+function quietRow(ctx: Ctx, p: Project): Node {
+  const name = ctx.draw.button(`project:${p.id}`, p.name, () => ctx.go(projectRoute(p.id)), { plain: true, spans: [span(p.name, { weight: 'bold' }), span('  ›', { dim: true })] });
+  const badge = avatar(ctx, p.name, 22);
+  if (!badge) return row([name, meta(...syncParts(p.sync))], { gap: 2 });
+  return row([badge, name, meta(...syncParts(p.sync))], { gap: 1, wrap: false, key: `row:${p.id}`, hover: true, padX: 1 });
 }
 
 /** Under a project's name: main against origin, and what's in progress. */
@@ -139,7 +160,22 @@ function drawList(ctx: Ctx, rows: readonly ListRow[], quietCards: boolean, folde
         flush();
         if (!item.quiet) open = { head: [projectHead(ctx, item.project), projectFacts(ctx, item.project)], body: [] };
         else if (quietCards) out.push(card([projectHead(ctx, item.project), projectFacts(ctx, item.project)]));
-        else out.push(row([projectHead(ctx, item.project), meta(...syncParts(item.project.sync))], { gap: 2 }));
+        else out.push(quietRow(ctx, item.project));
+        break;
+      case 'more':
+        flush();
+        out.push(
+          col(
+            [
+              ctx.draw.button('quiet:all', item.open ? 'Show Fewer' : `Show All ${item.count}`, () => ctx.local<boolean>('work:allQuiet', false)[1](!item.open), {
+                plain: true,
+                dim: true,
+                spans: [span(item.open ? 'Show fewer' : `Show all ${item.count}`, { dim: true }), span(item.open ? '  ▴' : '  ▾', { dim: true })],
+              }),
+            ],
+            { top: 1 },
+          ),
+        );
         break;
       case 'ws':
         if (open) open.body.push(workspaceRow(ctx, item.ws));
@@ -174,16 +210,21 @@ export function projectsPage(ctx: Ctx): Node {
   const shown = shownProjects(ctx);
   const [folded, setFolded] = ctx.local<readonly string[]>('work:folded', []);
   const find = findField(ctx, 'projects', 'Find a project or a worktree');
-  const rows = listOf(ctx, find.query, folded);
+  const [allQuiet] = ctx.local<boolean>('work:allQuiet', false);
+  const rows = listOf(ctx, find.query, folded, allQuiet);
   const window = windowed(ctx, 'projects', rows, { keys: true });
   const hiddenCount = ctx.state.hiddenProjects.length;
   const chats = ctx.state.projects.find((p) => !p.root);
   const quietCount = rows.filter((r) => r.kind === 'project' && r.quiet).length;
-  const heading = shown.length > 0 ? line(span('Projects', { weight: 'bold' }), span(`  ${shown.length}`, { dim: true })) : undefined;
+  const heading = shown.length > 0 ? line(span('Projects', { weight: 'bold', size: 'heading' }), span(`  ${shown.length}`, { dim: true, size: 'heading' })) : undefined;
+  const busy = shown.filter((p) => activeOf(p).length > 0);
+  const ready = busy.reduce((n, p) => n + activeOf(p).filter((w) => w.kind !== 'chat' && isReady(ctx.state, w)).length, 0);
+  const summary = busy.length > 0 ? meta(plural(busy.length, 'project') + ' with work in progress', ready ? pill(`${ready} ready to merge`, 'ok', '✓') : undefined) : undefined;
   const add = addProject(ctx);
   return page(
     chrome(ctx, placesOf(ctx), 'projects'),
     add.k === 'button' ? row([heading, add], { justify: 'space-between', gap: 2 }) : col([heading, add], { gap: 1 }),
+    summary,
     shown.length === 0 && empty('No projects yet. Add a repository to start.'),
     shown.length > 0 && find.node,
     find.query && rows.length === 0 ? empty(`Nothing called “${find.query}”.`) : undefined,

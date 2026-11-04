@@ -1,6 +1,6 @@
 {
   "name": "teamod",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "A worktree and an agent per task, shared boards and plans, teammates' agents, and automations, in panes beside your session.",
   "author": { "name": "Elad Cohen" },
   "license": "MIT",

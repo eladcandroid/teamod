@@ -14,7 +14,10 @@ export type Span = {
   weight?: 'semibold' | 'bold'
   inverse?: boolean
   size?: 'caption' | 'footnote' | 'body' | 'heading' | 'title'
+  tone?: Tone
 }
+
+export type Tone = 'ok' | 'warn' | 'error' | 'accent' | 'info' | 'quiet'
 
 /** A screen from the bridge, as data (engine/src/teamod/tree.ts). */
 export type Node =
@@ -35,6 +38,10 @@ export type Node =
       borderDim?: boolean
       align?: 'flex-start' | 'center' | 'flex-end' | 'stretch'
       reverse?: boolean
+      card?: boolean
+      bg?: 'subtle' | 'strong'
+      hover?: boolean
+      key?: string
       children: Node[]
     }
   | { k: 'text'; spans: Span[]; dir?: 'ltr' | 'rtl' }
@@ -85,6 +92,8 @@ export type Node =
       interactive?: boolean
     }
   | { k: 'term'; key: string; term: string; height?: number }
+  | { k: 'icon'; name: string; tone?: Tone; size?: number }
+  | { k: 'avatar'; name: string; size?: number }
 
 export type View = { tree: Node; active?: boolean }
 

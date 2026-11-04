@@ -119,8 +119,18 @@ describe('every page of the Work screen', () => {
 describe('the project list', () => {
   const many = Array.from({ length: 100 }, (_, i) => project(`p${i}`, `quiet-${String(i).padStart(3, '0')}`));
 
+  it('shows the first few quiet projects, and the rest behind Show All', async () => {
+    const s = start({ projects: many });
+    const folded = view(s);
+    expect(flat(folded).filter((n) => n.k === 'button' && n.key.startsWith('project:')).length).toBe(8);
+    expect(words(folded)).toContain('Show all 100');
+    await press(s, 'quiet:all');
+    expect(flat(view(s)).filter((n) => n.k === 'button' && n.key.startsWith('project:')).length).toBeGreaterThan(8);
+  });
+
   it('holds a window of a hundred projects, with More for the rest', async () => {
     const s = start({ projects: many });
+    await press(s, 'quiet:all');
     const first = view(s);
     expect(flat(first).filter((n) => n.k === 'button' && n.key.startsWith('project:')).length).toBeLessThanOrEqual(50);
     expect(words(first)).toContain('quiet-000');

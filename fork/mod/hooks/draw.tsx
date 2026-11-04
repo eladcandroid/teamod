@@ -2,11 +2,30 @@ import type { EngineInterface } from 'claude-code'
 
 import type { Node, Span, Viewport } from '../types'
 import { press } from './link'
+import { FILL, ICON_GLYPHS, TONE_HEX, TONE_TINT, avatarSvg, iconSvg } from './pictures'
 
 type Render = Parameters<EngineInterface['ui']['resolve']>[0]
 
-const asText = (Text: (props: never) => unknown, spans: readonly Span[]): unknown[] =>
+/**
+ * A tree's spacing is in character cells; a desktop sizes its own steps, and a cell there would be
+ * far wider than it reads on the terminal.
+ */
+const step = (cells: number): number | 'sm' | 'md' | 'lg' => (cells <= 0 ? 0 : cells === 1 ? 'sm' : cells === 2 ? 'md' : 'lg')
+
+const asText = (Text: (props: never) => unknown, spans: readonly Span[], desktop = false): unknown[] =>
   spans.map(s => {
+    // A state chip, on a desktop: its words on the tone's tint, without the terminal's dot.
+    if (desktop && s.tone) {
+      const words = s.t.replace(/^●\s*/, '')
+
+      return Text({
+        children: ` ${words} `,
+        backgroundColor: TONE_TINT[s.tone],
+        ...(s.tone === 'quiet' ? {} : { color: TONE_HEX[s.tone] }),
+        size: s.size ?? 'footnote',
+        weight: 'medium',
+      } as never)
+    }
     const props = {
       children: s.t,
       ...(s.dim ? { dimColor: true } : {}),
@@ -35,16 +54,38 @@ export function draw(
   const make = (name: string, props: Record<string, unknown>): unknown =>
     elements[name]!(props as never)
   const Text = elements.Text!
+  const desktop = viewport.surface !== 'terminal'
+  const space = (cells: number): unknown => (desktop ? step(cells) : cells)
   const walk = (n: Node): unknown => {
     switch (n.k) {
       case 'box':
+        if (desktop && n.card) {
+          // A card, on a desktop: filled and rounded, lit under the pointer when it opens something.
+          return make('Box', {
+            flexDirection: n.dir ?? 'column',
+            ...(n.key ? { key: n.key } : {}),
+            ...(n.key && n.hover ? { hover: { backgroundColor: FILL.hover } } : {}),
+            ...(n.align ? { alignItems: n.align } : {}),
+            gap: 'sm',
+            padding: 'md',
+            marginTop: 'sm',
+            backgroundColor: FILL.card,
+            borderStyle: 'round',
+            ...(n.borderColor ? { borderColor: n.borderColor } : { borderDimColor: true }),
+            children: n.children.map(walk),
+          })
+        }
         return make('Box', {
           ...(n.dir || n.reverse ? { flexDirection: `${n.dir ?? 'row'}${n.reverse ? '-reverse' : ''}` } : {}),
           ...(n.align ? { alignItems: n.align } : {}),
-          ...(n.gap !== undefined ? { gap: n.gap } : {}),
-          ...(n.pad !== undefined ? { padding: n.pad } : {}),
-          ...(n.padX !== undefined ? { paddingX: n.padX } : {}),
-          ...(n.top !== undefined ? { marginTop: n.top } : {}),
+          ...(desktop && n.dir === 'row' ? { alignItems: n.align ?? 'center' } : {}),
+          ...(n.gap !== undefined ? { gap: space(n.gap) } : {}),
+          ...(n.pad !== undefined ? { padding: space(n.pad) } : {}),
+          ...(n.padX !== undefined ? { paddingX: space(n.padX) } : {}),
+          ...(n.top !== undefined ? { marginTop: space(n.top) } : {}),
+          ...(desktop && n.bg ? { backgroundColor: FILL[n.bg] } : {}),
+          ...(desktop && n.key ? { key: n.key } : {}),
+          ...(desktop && n.key && n.hover ? { hover: { backgroundColor: FILL.hover } } : {}),
           ...(n.grow !== undefined ? { flexGrow: n.grow } : {}),
           ...(n.width !== undefined ? { width: n.width } : {}),
           ...(n.height !== undefined ? { height: n.height } : {}),
@@ -56,7 +97,7 @@ export function draw(
           children: n.children.map(walk),
         })
       case 'text':
-        return make('Text', { ...(n.dir ? { dir: n.dir } : {}), children: asText(Text, n.spans) })
+        return make('Text', { ...(n.dir ? { dir: n.dir } : {}), children: asText(Text, n.spans, desktop) })
       case 'button':
         return make('Button', {
           key: n.key,
@@ -65,7 +106,7 @@ export function draw(
           ...(n.plain ? { plain: true } : {}),
           ...(n.primary ? { variant: 'primary' } : {}),
           ...(n.dim ? { dimColor: true } : {}),
-          ...(n.spans ? { children: asText(Text, n.spans) } : {}),
+          ...(n.spans ? { children: asText(Text, n.spans, desktop) } : {}),
           onPress: () => void press($, site, n.key, undefined, viewport),
         })
       case 'input':
@@ -123,6 +164,14 @@ export function draw(
           ...(n.height !== undefined ? { height: n.height } : {}),
           ...(n.interactive ? { isInteractive: true } : {}),
         })
+      case 'icon':
+        if (desktop && elements.Svg) return make('Svg', { source: iconSvg(n.name, n.tone, n.size ?? 16), alt: n.name, width: n.size ?? 16, height: n.size ?? 16 })
+
+        return make('Text', { ...(n.tone && n.tone !== 'quiet' ? { color: TONE_HEX[n.tone] } : { dimColor: true }), children: ICON_GLYPHS[n.name] ?? '·' })
+      case 'avatar':
+        if (!desktop || !elements.Svg) return null
+
+        return make('Svg', { source: avatarSvg(n.name, n.size ?? 28), alt: n.name, width: n.size ?? 28, height: n.size ?? 28 })
       case 'term': {
         const Client = elements.Client as unknown as ((props: Record<string, unknown>) => JSX.Element) | undefined
         if (!Client) return make('Text', { dimColor: true, children: 'The terminal draws on the Claude Code terminal and desktop.' })
