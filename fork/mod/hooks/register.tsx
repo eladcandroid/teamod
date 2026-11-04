@@ -4,6 +4,7 @@ import { draw } from './draw'
 import {
   TITLES,
   commandOf,
+  press,
   ensureBridge,
   forgetView,
   homeOf,
@@ -226,6 +227,23 @@ export const register: Register = (on, options) => {
       if (isSuperseded(err)) return <Text dimColor>Starting teamod...</Text>
       throw err
     }
+  }).catch(async ($, e, next) => {
+    // A drawing Claude Code refused (or one that failed) would leave the pane blank, with no way
+    // out: say so, and offer the way back.
+    if (TITLES[e.requestId] === undefined) return next(e)
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const viewport = { surface: e.surface, columns: e.props.bodyColumns, rows: e.props.scroll.bodyRows }
+
+    return (
+      <Box flexDirection="column" gap={1}>
+        <Text>This screen couldn’t be drawn.</Text>
+        {next.error.message ? <Text dimColor>{next.error.message.slice(0, 300)}</Text> : null}
+        <Box flexDirection="row" gap={2}>
+          <Button key="fallback:back" label="Back" onPress={() => void press($, e.requestId, 'back', undefined, viewport)} />
+          <Button key="fallback:work" label="Work" plain onPress={() => void press($, e.requestId, 'screen:work', undefined, viewport)} />
+        </Box>
+      </Box>
+    )
   })
 
   on('ui.close', async ($, e, next) => {

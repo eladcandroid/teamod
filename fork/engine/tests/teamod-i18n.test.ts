@@ -133,3 +133,28 @@ describe('the bridge’s socket', () => {
     expect(socketDir(long)).toBe(moved);
   });
 });
+
+describe('a choice among many', () => {
+  it('pages past what a surface draws, keeping the picked one, and picks through', async () => {
+    const { Draw, MAX_OPTIONS } = await import('../src/teamod/tree.js');
+    const memory = new Map<string, unknown>();
+    const local = <T,>(key: string, initial: T): [T, (next: T) => void] => [(memory.has(key) ? memory.get(key) : initial) as T, (next: T) => void memory.set(key, next)];
+    const picked: string[] = [];
+    const options = Array.from({ length: 73 }, (_, i) => ({ value: `p${i}`, label: `project-${i}` }));
+    const drawOnce = () => {
+      const d = new Draw(local);
+      const node = d.select('scope', options, (v) => void picked.push(String(v)), { value: 'p70' });
+      return { d, node: node as Extract<Node, { k: 'select' }> };
+    };
+    const first = drawOnce();
+    expect(first.node.options.length).toBeLessThanOrEqual(MAX_OPTIONS);
+    expect(first.node.options[0]!.value).toBe('p70');
+    expect(first.node.options.some((o) => o.label.startsWith('More ›'))).toBe(true);
+    await first.d.handlers.get('scope')!('__teamod:later');
+    const second = drawOnce();
+    expect(second.node.options.some((o) => o.value === 'p72')).toBe(true);
+    expect(second.node.options.some((o) => o.label === '‹ Earlier')).toBe(true);
+    await second.d.handlers.get('scope')!('p72');
+    expect(picked).toEqual(['p72']);
+  });
+});

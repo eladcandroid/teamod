@@ -52,7 +52,18 @@ export type Node =
       readonly children: readonly Node[];
     }
   | { readonly k: 'text'; readonly spans: readonly Span[]; readonly dir?: 'ltr' | 'rtl' }
-  | { readonly k: 'button'; readonly key: string; readonly label: string; readonly hotkey?: string; readonly plain?: boolean; readonly primary?: boolean; readonly dim?: boolean; readonly spans?: readonly Span[] }
+  | {
+      readonly k: 'button';
+      readonly key: string;
+      readonly label: string;
+      readonly hotkey?: string;
+      readonly plain?: boolean;
+      readonly primary?: boolean;
+      readonly dim?: boolean;
+      readonly spans?: readonly Span[];
+      /** A desktop draws it as a pill: filled (the open tab) or only under the pointer. Terminal: as before. */
+      readonly pill?: 'on' | 'off';
+    }
   | { readonly k: 'input'; readonly key: string; readonly label?: string; readonly placeholder?: string; readonly value?: string; readonly rows?: number; readonly submitLabel?: string; readonly autoFocus?: boolean }
   | { readonly k: 'select'; readonly key: string; readonly label?: string; readonly value?: string; readonly options: ReadonlyArray<{ readonly value: string; readonly label: string }> }
   | { readonly k: 'md'; readonly text: string }
@@ -101,15 +112,25 @@ export const md = (t: string): Node => ({ k: 'md', text: t });
 export const code = (source: string, opts: Omit<Extract<Node, { k: 'code' }>, 'k' | 'source'> = {}): Node => ({ k: 'code', source, ...opts });
 
 /** One draw of a pane: its tree, and what its controls do. */
+/** The most choices a surface draws in one select. */
+export const MAX_OPTIONS = 64;
+const EARLIER = '__teamod:earlier';
+const LATER = '__teamod:later';
+
+/** A press's own memory, as a screen's `local` gives it. */
+type Memory = <T>(key: string, initial: T) => [T, (next: T) => void];
+
 export class Draw {
   readonly handlers = new Map<string, Handler>();
+
+  constructor(private readonly memory?: Memory) {}
 
   private add(key: string, handler: Handler): void {
     if (this.handlers.has(key)) throw new Error(`Two controls share the key ${key}`);
     this.handlers.set(key, handler);
   }
 
-  button(key: string, label: string, onPress: Handler, opts: { hotkey?: string; plain?: boolean; primary?: boolean; dim?: boolean; spans?: readonly Span[] } = {}): Node {
+  button(key: string, label: string, onPress: Handler, opts: { hotkey?: string; plain?: boolean; primary?: boolean; dim?: boolean; spans?: readonly Span[]; pill?: 'on' | 'off' } = {}): Node {
     if (opts.hotkey !== undefined && !/^[a-z0-9]$/.test(opts.hotkey)) throw new Error(`A hotkey is one lowercase letter or digit, not ${opts.hotkey}`);
     this.add(key, onPress);
     return { k: 'button', key, label, ...opts };
@@ -120,9 +141,31 @@ export class Draw {
     return { k: 'input', key, ...opts };
   }
 
+  /**
+   * A choice among options. Past what a surface draws at once (a project for each of 73), it shows
+   * them a page at a time, with Earlier and More among the choices, and the picked one always.
+   */
   select(key: string, options: Extract<Node, { k: 'select' }>['options'], onPick: Handler, opts: { label?: string; value?: string } = {}): Node {
-    this.add(key, onPick);
-    return { k: 'select', key, options, ...opts };
+    const unique = options.filter((o, i) => options.findIndex((other) => other.value === o.value) === i);
+    if (unique.length <= MAX_OPTIONS || !this.memory) {
+      this.add(key, onPick);
+      return { k: 'select', key, options: unique.slice(0, MAX_OPTIONS), ...opts };
+    }
+    const per = MAX_OPTIONS - 3;
+    const pages = Math.ceil(unique.length / per);
+    const [asked, setPage] = this.memory(`select-page:${key}`, 0);
+    const page = Math.min(Math.max(asked, 0), pages - 1);
+    const slice = unique.slice(page * per, (page + 1) * per);
+    const picked = opts.value !== undefined && !slice.some((o) => o.value === opts.value) ? unique.find((o) => o.value === opts.value) : undefined;
+    const left = unique.length - (page + 1) * per;
+    const shown = [
+      ...(picked ? [picked] : []),
+      ...(page > 0 ? [{ value: EARLIER, label: '‹ Earlier' }] : []),
+      ...slice,
+      ...(page < pages - 1 ? [{ value: LATER, label: `More › ({0})`.replace('{0}', String(left)) }] : []),
+    ];
+    this.add(key, (value) => (value === EARLIER ? setPage(page - 1) : value === LATER ? setPage(page + 1) : onPick(value)));
+    return { k: 'select', key, options: shown, ...opts };
   }
 }
 

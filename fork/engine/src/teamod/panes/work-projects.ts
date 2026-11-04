@@ -2,7 +2,7 @@ import { groupOfKey, isGroupKey, topLevel } from '../../workspaces/arrange.js';
 import type { Project, ProjectGroup, Workspace } from '../../workspaces/types.js';
 import type { Ctx } from '../screens.js';
 import { type Node, col, dim, line, row, span, text } from '../tree.js';
-import { avatar, back, card, chrome, empty, homePath, meta, page, pill, section } from './common.js';
+import { avatar, back, card, chrome, empty, homePath, icon, meta, page, pill, section } from './common.js';
 import { CARD_LIMIT, activeOf, backTo, errorText, findField, heading, isReady, loadingWords, placesOf, plural, projectRoute, steady, twoPress, windowed, workspaceRow } from './work-common.js';
 import { syncParts } from './work-home.js';
 
@@ -216,7 +216,8 @@ export function projectsPage(ctx: Ctx): Node {
   const hiddenCount = ctx.state.hiddenProjects.length;
   const chats = ctx.state.projects.find((p) => !p.root);
   const quietCount = rows.filter((r) => r.kind === 'project' && r.quiet).length;
-  const heading = shown.length > 0 ? line(span('Projects', { weight: 'bold', size: 'heading' }), span(`  ${shown.length}`, { dim: true, size: 'heading' })) : undefined;
+  const title = shown.length > 0 ? line(span('Projects', { weight: 'bold', size: 'heading' }), span(`  ${shown.length}`, { dim: true, size: 'heading' })) : undefined;
+  const heading = title && ctx.surface !== 'terminal' ? row([icon('folder', 'accent'), title], { gap: 1, wrap: false }) : title;
   const busy = shown.filter((p) => activeOf(p).length > 0);
   const ready = busy.reduce((n, p) => n + activeOf(p).filter((w) => w.kind !== 'chat' && isReady(ctx.state, w)).length, 0);
   const summary = busy.length > 0 ? meta(plural(busy.length, 'project') + ' with work in progress', ready ? pill(`${ready} ready to merge`, 'ok', '✓') : undefined) : undefined;

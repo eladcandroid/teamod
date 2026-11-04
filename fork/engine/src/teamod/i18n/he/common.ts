@@ -10,6 +10,8 @@ export const COMMON: Catalog = {
   Sentinel: 'אוטומציות',
   Settings: 'הגדרות',
   Keys: 'מקשים',
+  '‹ Earlier': '‹ הקודמים',
+  'More › ({#0})': 'עוד › ({0})',
   'Hide keys': 'הסתרת מקשים',
   Back: 'חזרה',
   '‹ {0}': '‹ {0}',

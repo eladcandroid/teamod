@@ -39,11 +39,9 @@ export function chrome(ctx: Ctx, places: readonly Place[] = [], here?: string): 
       plain: true,
       ...(terminal
         ? { spans: current ? [span(` ${s.icon} ${s.label} `, { inverse: true, weight: 'bold' })] : [span(`${s.icon} ${s.label}`, { dim: true })] }
-        : current ? {} : { dim: true }),
+        : { pill: current ? ('on' as const) : ('off' as const), ...(current ? {} : { dim: true }) }),
     });
-    if (terminal) return press;
-    // A desktop: the screen's picture beside its name, the open one on a filled, rounded tab.
-    return row([icon(SCREEN_ICONS[s.id], current ? 'accent' : 'quiet'), press], { gap: 1, wrap: false, padX: 1, ...(current ? { bg: 'strong' as const, border: 'round' as const, borderDim: true } : {}) });
+    return press;
   });
   const placeRow =
     places.length > 0 &&
@@ -52,12 +50,15 @@ export function chrome(ctx: Ctx, places: readonly Place[] = [], here?: string): 
         ctx.draw.button(`place:${p.id}`, p.label, () => ctx.go(p.route), {
           hotkey: p.hotkey,
           plain: true,
-          ...(terminal ? { spans: p.id === here ? [span(p.label, { color: 'claude', weight: 'bold' })] : [span(p.label, { dim: true })] } : p.id === here ? {} : { dim: true }),
+          ...(terminal
+            ? { spans: p.id === here ? [span(p.label, { color: 'claude', weight: 'bold' })] : [span(p.label, { dim: true })] }
+            : { pill: p.id === here ? ('on' as const) : ('off' as const), ...(p.id === here ? {} : { dim: true }) }),
         }),
       ),
-      terminal ? { gap: 3, top: 1 } : { gap: 0 },
+      terminal ? { gap: 3, top: 1 } : { gap: 1 },
     );
-  if (!terminal) return col([row(tabs, { gap: 0 }), placeRow]);
+  // A desktop: the screens as pill tabs (the whole pill presses), the places as smaller ones under them.
+  if (!terminal) return col([row(tabs, { gap: 1 }), placeRow], { gap: 1 });
   const keys = ctx.draw.button('keys', ctx.prefs.keys ? 'Hide keys' : 'Keys', () => ctx.setPrefs({ keys: !ctx.prefs.keys }), { plain: true, hotkey: '0', dim: true });
   return col([row([row(tabs, { gap: 2 }), keys], { justify: 'space-between', wrap: false }), placeRow, rule(ctx)]);
 }
@@ -111,7 +112,7 @@ export function actions(main: Node | false | undefined | null, ...rest: Readonly
 
 /** Back, when this pane has somewhere to go back to. */
 export function back(ctx: Ctx, label = 'Back'): Node | undefined {
-  return ctx.nav.canGoBack(ctx.pane) ? ctx.draw.button('back', `‹ ${label}`, () => ctx.nav.back(ctx.pane), { plain: true, hotkey: 'b', dim: true }) : undefined;
+  return ctx.nav.canGoBack(ctx.pane) ? ctx.draw.button('back', `‹ ${label}`, () => ctx.nav.back(ctx.pane), { plain: true, hotkey: 'b', dim: true, ...(ctx.surface === 'terminal' ? {} : { pill: 'off' as const }) }) : undefined;
 }
 
 /** A screen's sections, a blank row apart (a section's own space above it is that row, not a second). */

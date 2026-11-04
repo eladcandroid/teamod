@@ -325,7 +325,7 @@ export class Screens {
   private lastDrawn?: string;
 
   private drawn(pane: SiteId, viewport: Viewport): { tree: Node; draw: Draw } {
-    const draw = new Draw();
+    const draw = new Draw((key, initial) => this.localValue(key, initial));
     const route = this.nav.routeOf(pane);
     this.lastDrawn = `${route.screen ?? pane}/${route.name}`;
     const state = this.host.getState();

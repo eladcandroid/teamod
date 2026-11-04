@@ -10,6 +10,9 @@ type Render = Parameters<EngineInterface['ui']['resolve']>[0]
  * A tree's spacing is in character cells; a desktop sizes its own steps, and a cell there would be
  * far wider than it reads on the terminal.
  */
+/** The most options a Select may carry. */
+const MAX_OPTIONS = 64
+
 const step = (cells: number): number | 'sm' | 'md' | 'lg' => (cells <= 0 ? 0 : cells === 1 ? 'sm' : cells === 2 ? 'md' : 'lg')
 
 const asText = (Text: (props: never) => unknown, spans: readonly Span[], desktop = false): unknown[] =>
@@ -106,6 +109,8 @@ export function draw(
           ...(n.plain ? { plain: true } : {}),
           ...(n.primary ? { variant: 'primary' } : {}),
           ...(n.dim ? { dimColor: true } : {}),
+          // A pill, on a desktop: the open tab filled and rounded; the whole pill is the press.
+          ...(desktop && n.pill === 'on' ? { backgroundColor: FILL.strong, borderStyle: 'round', borderDimColor: true } : {}),
           ...(n.spans ? { children: asText(Text, n.spans, desktop) } : {}),
           onPress: () => void press($, site, n.key, undefined, viewport),
         })
@@ -122,16 +127,22 @@ export function draw(
           ...(n.autoFocus ? { autoFocus: true } : {}),
           onSubmit: (value: string) => void press($, site, n.key, value, viewport),
         })
-      case 'select':
+      case 'select': {
         if (!elements.Select) return make('Text', { dimColor: true, children: 'Open this on the terminal or desktop to choose here.' })
+        // What Claude Code refuses would blank the whole pane: unique values, 1 to 64 of them.
+        const options = n.options.filter((o, i) => n.options.findIndex(other => other.value === o.value) === i)
+        if (!options.length) return make('Text', { dimColor: true, children: n.label ? `${n.label}: none` : 'Nothing to choose.' })
+        const picked = options.find(o => o.value === n.value)
+        const drawn = options.length <= MAX_OPTIONS ? options : [...(picked ? [picked] : []), ...options.filter(o => o !== picked).slice(0, MAX_OPTIONS - (picked ? 1 : 0))]
 
         return make('Select', {
           key: n.key,
-          options: n.options,
+          options: drawn,
           ...(n.label ? { label: n.label } : {}),
-          ...(n.value !== undefined ? { value: n.value } : {}),
+          ...(picked ? { value: n.value } : {}),
           onSelect: (value: string) => void press($, site, n.key, value, viewport),
         })
+      }
       case 'md':
         return make('Markdown', { text: n.text })
       case 'code':

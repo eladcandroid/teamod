@@ -5,7 +5,7 @@ import type { Project, Workspace } from '../../workspaces/types.js';
 import type { AppState } from '../../core/store.js';
 import type { Ctx, Loaded, Route } from '../screens.js';
 import { type Node, type Span, col, dim, row, span, text } from '../tree.js';
-import { type Place, type Tone, ago, card, meta, openWorkspace, pill } from './common.js';
+import { ago, card, icon, meta, openWorkspace, pill, type Place, type Tone } from './common.js';
 
 /** What the Work screen's rows share. Settings uses the windows, the two-press buttons and the fields too. */
 
@@ -61,7 +61,9 @@ export function wsTone(state: AppState, ws: Workspace): Tone | undefined {
 /** A worktree's row: its name and its state. It opens in this pane. */
 export function workspaceRow(ctx: Ctx, ws: Workspace): Node {
   const unread = ctx.state.unread[`ws:${ws.id}`];
-  return ctx.draw.button(`ws:${ws.id}`, ws.name, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(`${ws.name}  `), wsPill(ctx.state, ws), ...(unread ? [span(`  ${unread} new`, { color: 'claude' })] : [])] });
+  const press = ctx.draw.button(`ws:${ws.id}`, ws.name, () => openWorkspace(ctx, ws.id), { plain: true, spans: [span(`${ws.name}  `), wsPill(ctx.state, ws), ...(unread ? [span(`  ${unread} new`, { color: 'claude' })] : [])] });
+  // A desktop: its branch's picture beside it, the row lit under the pointer.
+  return ctx.surface === 'terminal' ? press : row([icon(ws.kind === 'chat' ? 'chat' : 'branch'), press], { gap: 1, wrap: false, key: `wsrow:${ws.id}`, hover: true, padX: 1 });
 }
 
 /** A worktree or chat in progress, as a card: its name, its state and when, what was said last, and Open. */

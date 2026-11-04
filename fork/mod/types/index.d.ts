@@ -54,6 +54,7 @@ export type Node =
       primary?: boolean
       dim?: boolean
       spans?: Span[]
+      pill?: 'on' | 'off'
     }
   | {
       k: 'input'
